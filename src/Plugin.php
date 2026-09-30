@@ -9,8 +9,15 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa;
 
+use MaxtDesign\Mfa\Account\AccountPage;
+use MaxtDesign\Mfa\Auth\BypassGuard;
+use MaxtDesign\Mfa\Auth\Completion;
+use MaxtDesign\Mfa\Auth\Interceptor;
 use MaxtDesign\Mfa\Cli\Command;
+use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
+use MaxtDesign\Mfa\Install\Maintenance;
+use MaxtDesign\Mfa\Screens\LoginScreens;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -52,6 +59,17 @@ final class Plugin {
 
 		add_action( 'plugins_loaded', array( Installer::class, 'maybe_upgrade' ) );
 		add_action( 'before_woocommerce_init', array( self::class, 'declare_wc_compatibility' ) );
+
+		// Registration only: every callback below works on demand, in login, admin or
+		// cron requests. Nothing prints on a normal front-end page.
+		Interceptor::register();
+		Completion::register();
+		BypassGuard::register();
+		LoginScreens::register();
+		Maintenance::register();
+		if ( is_admin() ) {
+			AccountPage::register();
+		}
 	}
 
 	/**
@@ -84,6 +102,7 @@ final class Plugin {
 	public static function register_cli(): void {
 		if ( class_exists( '\WP_CLI' ) ) {
 			\WP_CLI::add_command( 'mdmfa', Command::class );
+			\WP_CLI::add_command( 'mdmfa user', UserCommand::class );
 		}
 	}
 

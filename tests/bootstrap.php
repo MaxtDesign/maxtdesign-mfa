@@ -20,6 +20,7 @@ define( 'MDMFA_FILE', dirname( __DIR__ ) . '/maxtdesign-mfa.php' );
 define( 'MDMFA_DIR', dirname( __DIR__ ) );
 
 require dirname( __DIR__ ) . '/vendor/autoload.php';
+require __DIR__ . '/wp-shims.php';
 
 // Installer::install() requires ABSPATH/wp-admin/includes/upgrade.php for dbDelta();
 // give it a recording stand-in.
@@ -45,7 +46,15 @@ function mdmfa_test_reset(): void {
 		'sites'        => array( 1 ),
 		'network'      => false,
 		'dbdelta'      => array(),
+		'usermeta'     => array(),
+		'users'        => array(),
+		'super_admins' => array(),
+		'actions'      => array(),
+		'mail'         => array(),
+		'inserts'      => array(),
+		'scheduled'    => array(),
 	);
+	MaxtDesign\Mfa\Support\Clock::freeze( null );
 	$GLOBALS['wpdb'] = new wpdb();
 }
 
@@ -60,6 +69,36 @@ class wpdb {
 	public string $sitemeta    = 'wp_sitemeta';
 	/** @var string[] */
 	public array $queries = array();
+
+	/**
+	 * @param array<string, mixed> $data
+	 */
+	public function insert( string $table, array $data, mixed $format = null ): int {
+		$GLOBALS['mdmfa_test']['inserts'][] = array( $table, $data );
+		return 1;
+	}
+
+	/**
+	 * Applies user meta compare-and-swap updates to the in-memory store, like MySQL would.
+	 *
+	 * @param array<string, mixed> $data
+	 * @param array<string, mixed> $where
+	 */
+	public function update( string $table, array $data, array $where, mixed $format = null, mixed $where_format = null ): int {
+		if ( $this->usermeta !== $table ) {
+			return 1;
+		}
+		$uid = (int) $where['user_id'];
+		$key = (string) $where['meta_key'];
+		if ( ! isset( $GLOBALS['mdmfa_test']['usermeta'][ $uid ][ $key ] ) ) {
+			return 0;
+		}
+		if ( isset( $where['meta_value'] ) && maybe_serialize( $GLOBALS['mdmfa_test']['usermeta'][ $uid ][ $key ] ) !== $where['meta_value'] ) {
+			return 0;
+		}
+		$GLOBALS['mdmfa_test']['usermeta'][ $uid ][ $key ] = unserialize( (string) $data['meta_value'] );
+		return 1;
+	}
 
 	public function get_charset_collate(): string {
 		return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci';
@@ -121,7 +160,7 @@ function wp_clear_scheduled_hook( string $hook ): int {
 	return 0;
 }
 
-function wp_cache_delete( string $key, string $group = '' ): bool {
+function wp_cache_delete( int|string $key, string $group = '' ): bool {
 	return true;
 }
 

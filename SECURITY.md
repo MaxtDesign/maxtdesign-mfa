@@ -10,8 +10,8 @@ receives security fixes. Always run the most recent release.
 | Latest stable (0.1.x) | Yes |
 | Older releases | No |
 
-Version 0.1.x is a development build that does not yet change login behaviour. Do not rely on it
-to protect a site.
+Version 0.1.x is a development build that has not had its security review yet. Do not rely on it
+to protect a live site.
 
 ## Who publishes this plugin
 

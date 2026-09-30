@@ -50,8 +50,10 @@ final class SchemaTest extends TestCase {
 		self::assertStringStartsWith( 'CREATE TABLE wp_3_mdmfa_pending (', $pending );
 		self::assertStringContainsString( 'PRIMARY KEY  (token_hash)', $pending );
 		self::assertStringContainsString( 'KEY expires_at (expires_at)', $pending );
+		self::assertStringContainsString( 'attempts tinyint(3) unsigned NOT NULL DEFAULT 0', $pending );
 		self::assertStringStartsWith( 'CREATE TABLE wp_3_mdmfa_log (', $log );
 		self::assertStringContainsString( 'ip varbinary(16)', $log );
+		self::assertStringContainsString( 'detail varchar(64)', $log );
 		self::assertStringContainsString( 'KEY created_at (created_at)', $log );
 	}
 

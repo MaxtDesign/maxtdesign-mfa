@@ -25,6 +25,12 @@ namespace {
 		public static function success( string $message ): void {}
 
 		public static function warning( string $message ): void {}
+
+		/**
+		 * @param string               $question   Prompt.
+		 * @param array<string, mixed> $assoc_args Named arguments.
+		 */
+		public static function confirm( string $question, array $assoc_args = array() ): void {}
 	}
 }
 

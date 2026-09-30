@@ -56,6 +56,16 @@ final class Installer {
 		add_option( Options::KEY_CHECK, self::key_fingerprint(), '', false );
 
 		update_option( Options::DB_VERSION, Schema::VERSION, true );
+
+		Maintenance::schedule();
+	}
+
+	/**
+	 * Deactivation hook: stops the cron event. No data is removed, and core login returns
+	 * at once because none of the plugin's hooks run any more (plan 6.6).
+	 */
+	public static function deactivate(): void {
+		Maintenance::unschedule();
 	}
 
 	/**

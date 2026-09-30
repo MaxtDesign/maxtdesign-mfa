@@ -19,8 +19,9 @@ final class Schema {
 
 	/**
 	 * Bump when any definition below changes; the installer re-runs dbDelta on mismatch.
+	 * v2 (P2): pending.attempts (atomic per-record attempt cap), log.detail.
 	 */
-	public const VERSION = '1';
+	public const VERSION = '2';
 
 	public const CREDENTIALS = 'mdmfa_credentials';
 	public const PENDING     = 'mdmfa_pending';
@@ -98,6 +99,7 @@ final class Schema {
   kind varchar(16) NOT NULL,
   user_id bigint(20) unsigned NULL DEFAULT NULL,
   payload text NOT NULL,
+  attempts tinyint(3) unsigned NOT NULL DEFAULT 0,
   created_at int(10) unsigned NOT NULL,
   expires_at int(10) unsigned NOT NULL,
   PRIMARY KEY  (token_hash),
@@ -112,6 +114,7 @@ final class Schema {
   context varchar(16) NOT NULL DEFAULT '',
   ip varbinary(16) NULL DEFAULT NULL,
   actor_id bigint(20) unsigned NULL DEFAULT NULL,
+  detail varchar(64) NOT NULL DEFAULT '',
   created_at int(10) unsigned NOT NULL,
   PRIMARY KEY  (id),
   KEY created_at (created_at),

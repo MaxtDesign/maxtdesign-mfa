@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 is the foundation of the plugin: its database tables, settings, encryption service and WP-CLI status command. It does not change how anyone logs in yet. Please do not rely on it to protect a site until a release says it does.
+**Development build.** Version 0.1.0 works on the WordPress login screen with authenticator apps (TOTP) and recovery codes. Passkeys, the WooCommerce My Account challenge, the moved login address, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -39,7 +39,8 @@ This plugin helps sites work toward requirements such as PCI DSS 8.4 and NIST SP
 == Installation ==
 
 1. Upload the plugin and activate it.
-2. Nothing changes at login in this development build. Run `wp mdmfa status` to confirm the plugin installed its tables and settings.
+2. Administrators, editors and shop managers are asked to set up an authenticator app at their next login, with 7 days of grace. Everyone else can turn it on under Users, My security.
+3. Run `wp mdmfa status` to confirm the plugin installed its tables and settings.
 
 == Frequently Asked Questions ==
 
@@ -70,5 +71,11 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 == Changelog ==
 
 = 0.1.0 =
-* New: plugin foundation. Database tables for passkeys, pending logins and the activity log; default per-role settings; encryption service for authenticator secrets; `wp mdmfa status` and `wp mdmfa disable-check`; the `MDMFA_DISABLE` escape hatch. No login behaviour changes yet.
+* New: plugin foundation. Database tables for passkeys, pending logins and the activity log; default per-role settings; encryption service for authenticator secrets; the `MDMFA_DISABLE` escape hatch.
+* New: two-step verification on the WordPress login screen with authenticator apps (TOTP) and single-use recovery codes. No login session exists until the second step passes.
+* New: per-role policy with a grace period, and setup right inside the login flow for roles that require it.
+* New: protection against code guessing (5 tries per sign-in, growing delays, a lock after 20 wrong codes) and against replaying a code.
+* New: blocks plugins that log users in directly (for example an auto-login after a password reset) until the second step passes.
+* New: Users, My security, to set up or remove an authenticator app and create recovery codes, with a fresh code required for changes.
+* New: `wp mdmfa status`, `wp mdmfa disable-check`, `wp mdmfa unlock` and `wp mdmfa user status|reset`.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.
