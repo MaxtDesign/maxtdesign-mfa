@@ -89,7 +89,7 @@ for key in mdmfa_totp mdmfa_totp_step mdmfa_totp_pending mdmfa_recovery mdmfa_em
 done
 wpc transient set mdmfa_status_cache x 900 --quiet
 wpc transient set mdmfa_ipthrottle_abc123 x 600 --quiet
-wpc option add mdmfa_notices '[]' --quiet
+wpc option update mdmfa_notices '[]' --quiet
 wpc cron event schedule mdmfa_purge now daily --quiet
 if [ "$MODE" = multisite ]; then
 	wpc transient set mdmfa_status_cache x 900 --network --quiet

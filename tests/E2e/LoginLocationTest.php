@@ -65,7 +65,9 @@ final class LoginLocationTest extends E2eTestCase {
 		self::assertStringContainsString( 'name="pwd"', $r->body );
 		self::assertStringContainsString( 'no-store', $r->headers['cache-control'] ?? '' );
 		self::assertSame( 'noindex, nofollow', $r->headers['x-robots-tag'] ?? '' );
-		self::assertSame( 'same-origin', $r->headers['referrer-policy'] ?? '' );
+		// Core's wp_admin_headers() (login_init) sets strict-origin-when-cross-origin after ours;
+		// either way no other origin receives the slug path in a Referer.
+		self::assertContains( $r->headers['referrer-policy'] ?? '', array( 'same-origin', 'strict-origin', 'strict-origin-when-cross-origin', 'no-referrer' ) );
 		self::assertSame( 'wp-login.php', $r->headers['x-e2e-pagenow'] ?? '', '$pagenow is wp-login.php on the slug' );
 		self::assertSame( '1', $r->headers['x-e2e-is-login'] ?? '', 'is_login() is true on the slug' );
 		self::assertStringNotContainsString( 'wp-login.php', $r->body, 'the login page\'s own links use the slug' );
@@ -83,7 +85,7 @@ final class LoginLocationTest extends E2eTestCase {
 
 		$admin = $b->get( 'wp-admin/' );
 		self::assertSame( 200, $admin->status, 'logged-in wp-admin works' );
-		self::assertSame( 1, preg_match( '/href="([^"]*action=logout[^"]*)"/', $admin->body, $m ), 'logout link present' );
+		self::assertSame( 1, preg_match( '/href=["\']([^"\']*action=logout[^"\']*)["\']/', $admin->body, $m ), 'logout link present' );
 		self::assertStringContainsString( self::$login . '?action=logout', html_entity_decode( $m[1] ) );
 	}
 
@@ -105,7 +107,11 @@ final class LoginLocationTest extends E2eTestCase {
 		self::assertStringContainsString( 'wp-login.php?action=postpass', $action, 'postpass stays on wp-login.php: the form is public' );
 		self::assertStringNotContainsString( self::$login, $page->body );
 
-		$unlock = $b->post( $action, array( 'post_password' => 'opensesame' ) );
+		$form = array( 'post_password' => 'opensesame' );
+		if ( str_contains( $page->body, 'name="redirect_to"' ) ) {
+			$form['redirect_to'] = $page->input( 'redirect_to' );
+		}
+		$unlock = $b->post( $action, $form );
 		self::assertSame( 302, $unlock->status );
 		self::assertTrue( $b->has_cookie_prefix( 'wp-postpass_' ) );
 		self::assertStringContainsString( 'Hidden treasure', $b->get( $link )->body );

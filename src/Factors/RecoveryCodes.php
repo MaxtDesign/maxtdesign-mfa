@@ -102,11 +102,11 @@ final class RecoveryCodes {
 			// Compare-and-swap: only the request that still sees the old value wins.
 			$updated = $wpdb->update(
 				$wpdb->usermeta,
-				array( 'meta_value' => maybe_serialize( $next ) ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_value -- primary-key-scoped CAS on one row.
+				array( 'meta_value' => maybe_serialize( $next ) ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- primary-key-scoped CAS on one row.
 				array(
 					'user_id'    => $user_id,
-					'meta_key'   => self::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_key -- scoped by user_id.
-					'meta_value' => maybe_serialize( $stored ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_value -- the CAS condition.
+					'meta_key'   => self::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- scoped by user_id.
+					'meta_value' => maybe_serialize( $stored ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- the CAS condition.
 				)
 			);
 			wp_cache_delete( $user_id, 'user_meta' );

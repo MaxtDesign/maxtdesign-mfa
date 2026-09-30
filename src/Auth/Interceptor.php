@@ -134,12 +134,12 @@ final class Interceptor {
 		if ( Context::WC === $context ) {
 			// WC_Form_Handler::process_login() order: posted redirect, then referer.
 			if ( isset( $_POST['redirect'] ) && is_string( $_POST['redirect'] ) && '' !== $_POST['redirect'] ) {
-				$redirect = wp_unslash( $_POST['redirect'] );
+				$redirect = wp_sanitize_redirect( wp_unslash( $_POST['redirect'] ) );
 			} elseif ( function_exists( 'wc_get_raw_referer' ) ) {
 				$redirect = (string) wc_get_raw_referer();
 			}
 		} elseif ( isset( $_REQUEST['redirect_to'] ) && is_string( $_REQUEST['redirect_to'] ) ) {
-			$redirect = wp_unslash( $_REQUEST['redirect_to'] );
+			$redirect = wp_sanitize_redirect( wp_unslash( $_REQUEST['redirect_to'] ) );
 		}
 		$interim = Context::CORE === $context && isset( $_REQUEST['interim-login'] );
 		// phpcs:enable
