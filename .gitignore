@@ -1,0 +1,10 @@
+/vendor/
+/.phpunit.cache/
+/_build/
+/dist/
+/svn-upload/
+/.claude/
+/node_modules/
+*.log
+.DS_Store
+Thumbs.db

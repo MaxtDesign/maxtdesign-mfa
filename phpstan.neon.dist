@@ -1,0 +1,17 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    # Plan section 14, P1: PHPStan level 8, no baseline (new code).
+    level: 8
+    phpVersion: 80300
+    paths:
+        - maxtdesign-mfa.php
+        - uninstall.php
+        - src
+        - tools
+    bootstrapFiles:
+        - tests/phpstan-bootstrap.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - stubs/wp-cli.php

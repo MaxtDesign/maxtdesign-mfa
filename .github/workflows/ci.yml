@@ -1,0 +1,153 @@
+name: CI
+
+# Lint, static analysis and tests on every supported PHP version (plan section 2:
+# PHP 8.3 floor, CI on 8.3 / 8.4 / 8.5), plus the zero-outbound-HTTP grep, the byte
+# budgets, and an activation/uninstall smoke test against real WordPress + MySQL.
+# Action versions verified 2026-09-30: actions/checkout v7.0.1, shivammathur/setup-php
+# v2 (2.37.2, lists PHP 8.5 as stable).
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: php -l on every PHP file
+        run: |
+          set -euo pipefail
+          find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 \
+            | xargs -0 -n1 -P4 php -l -d display_errors=1 > /tmp/lint.txt
+          if grep -v '^No syntax errors detected' /tmp/lint.txt; then exit 1; fi
+          echo "linted $(wc -l < /tmp/lint.txt) files"
+      - name: Install dev tools
+        if: matrix.php == '8.3'
+        run: composer install --no-interaction --no-progress
+      - name: WordPress Coding Standards
+        if: matrix.php == '8.3'
+        run: vendor/bin/phpcs
+
+  phpstan:
+    name: PHPStan level 8
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  phpunit:
+    name: PHPUnit (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpunit
+
+  guards:
+    name: Outbound HTTP + byte budgets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      # Plan 10.5: zero outbound HTTP in anything that ships. Tests and CI tooling are
+      # excluded; the plugin's own code is not.
+      - name: No outbound HTTP in shipped code
+        run: |
+          set -uo pipefail
+          hits=$(grep -rnE "wp_remote_|wp_safe_remote_|curl_|fsockopen|file_get_contents\(\s*['\"]https?" \
+            --include='*.php' --include='*.js' \
+            --exclude-dir=vendor --exclude-dir=tests --exclude-dir=tools --exclude-dir=stubs --exclude-dir=.git . || true)
+          if [ -n "$hits" ]; then echo "$hits"; echo "::error::outbound HTTP call in shipped code"; exit 1; fi
+          echo "0 hits"
+      - name: Size-check self-test (the check must fail when it should)
+        run: php tools/size-check.php --self-test
+      - name: Byte budgets
+        run: php tools/size-check.php
+
+  smoke:
+    name: WordPress smoke (${{ matrix.mode }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.5']
+        mode: ['single', 'multisite']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      WP_PATH: /tmp/wordpress
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli, sodium
+          tools: wp-cli
+          coverage: none
+      - name: Install WordPress (${{ matrix.mode }})
+        run: |
+          set -euo pipefail
+          wp core download --path="$WP_PATH" --version=latest --quiet
+          wp config create --path="$WP_PATH" --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check --quiet
+          # Throwaway CI-only admin password; the database is discarded with the runner.
+          pass="$(openssl rand -hex 16)"
+          if [ "${{ matrix.mode }}" = multisite ]; then
+            wp core multisite-install --path="$WP_PATH" --url=http://localhost --title=MFA --admin_user=admin --admin_password="$pass" --admin_email=admin@example.com --skip-email --quiet
+          else
+            wp core install --path="$WP_PATH" --url=http://localhost --title=MFA --admin_user=admin --admin_password="$pass" --admin_email=admin@example.com --skip-email --quiet
+          fi
+          wp core version --path="$WP_PATH"
+      - name: Stage the plugin exactly as it ships (.distignore, no vendor/)
+        run: |
+          set -euo pipefail
+          dest="$WP_PATH/wp-content/plugins/maxtdesign-mfa"
+          mkdir -p "$dest"
+          rsync -a --exclude-from=.distignore ./ "$dest/"
+          test ! -e "$dest/vendor" || { echo "::error::vendor/ reached the staged plugin"; exit 1; }
+          test ! -e "$dest/tests" || { echo "::error::tests/ reached the staged plugin"; exit 1; }
+          find "$dest" -type f | sort
+      - name: Activate, inspect, seed, uninstall
+        run: bash tests/smoke/run.sh ${{ matrix.mode }}

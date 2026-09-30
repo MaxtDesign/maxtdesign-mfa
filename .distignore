@@ -1,0 +1,63 @@
+# Version control and CI
+/.git
+/.github
+/.gitignore
+/.gitattributes
+
+# Agent and editor tooling: never ship
+/.claude
+/.cursor
+/.cursorrules
+/.vscode
+/.idea
+
+# Toolchains (ship built assets, not the tools)
+/node_modules
+/package.json
+/package-lock.json
+/pnpm-lock.yaml
+/postcss.config.js
+
+# PHP dev tooling. The plugin has no Composer runtime dependencies and loads its own
+# classes (spl_autoload_register in maxtdesign-mfa.php), so vendor/ only ever holds dev
+# tools and the WebAuthn test oracles, and must never ship. No path repositories exist.
+/vendor
+/phpstan.phar
+/phpstan.neon.dist
+/phpstan-baseline.neon
+/phpcs.xml.dist
+/stubs
+/phpunit.xml.dist
+/.phpunit.cache
+/composer.lock
+/composer.json
+
+# Build, staging, output
+/bin
+/tools
+/svn-upload
+/_build
+/dist
+
+# Tests and developer docs (wp.org reads readme.txt)
+/tests
+/docs
+/README.md
+/CHANGELOG.md
+/BUILD.md
+/SECURITY.md
+
+# wp.org assets live in SVN assets/, not the zip
+/assets/banner-*.png
+/assets/icon-*.png
+/assets/screenshot-*.png
+
+# This file
+/.distignore
+
+# Cruft (basename, any depth)
+*.log
+*.bak
+*.swp
+.DS_Store
+Thumbs.db

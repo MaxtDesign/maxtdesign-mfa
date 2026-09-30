@@ -1,0 +1,49 @@
+{
+    "name": "maxtdesign/mfa",
+    "description": "MaxtDesign MFA: multi-factor authentication and login location for WordPress and WooCommerce. Developer tooling only; the plugin ships with no Composer runtime dependencies.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://github.com/MaxtDesign/maxtdesign-mfa",
+    "support": {
+        "issues": "https://github.com/MaxtDesign/maxtdesign-mfa/issues",
+        "security": "https://github.com/MaxtDesign/maxtdesign-mfa/blob/main/SECURITY.md"
+    },
+    "require": {
+        "php": ">=8.3"
+    },
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "php-stubs/woocommerce-stubs": "^11.1",
+        "php-stubs/wordpress-stubs": "^7.1",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "wp-coding-standards/wpcs": "^3.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "MaxtDesign\\Mfa\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MaxtDesign\\Mfa\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "platform-check": false,
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "lint": "phpcs",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "test": "phpunit",
+        "size-check": "php tools/size-check.php"
+    }
+}
