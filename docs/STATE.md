@@ -51,10 +51,23 @@ no screens, no front-end output. Nothing is released; wp.org does not serve this
   assertions, green**; PHPStan 2.2.16 **level 8, 0 errors** (phpVersion 80300, WordPress stubs
   7.1.0, WooCommerce stubs 11.1.2); PHPCS (WPCS 3.4.1) **0 errors, 0 warnings**; size-check
   self-test 7/7 and budgets PASS (0 assets). Outbound-HTTP grep over shipped code: 0 hits.
-- 2026-09-30: `plugin-deliverables.php .` and `plugin-versions.php .`: see the P1 commit; numbers
-  below once recorded.
-- CI (8.3 / 8.4 / 8.5 lint + PHPUnit, PHPStan, guards, WordPress smoke single + multisite on 8.3
-  and 8.5): pending first run.
+- 2026-09-30: `plugin-deliverables.php .` **PASSED 14/14, 0 warnings**; `plugin-versions.php .`
+  **PASSED, 0 FAIL, 0 WARN** (Tested up to 7.1 = current 7.1.2; WC tested 11.1). Commit gate passed
+  on every P1 commit, no bypass.
+- 2026-09-30: `build-dist.php` zip = **15 files** (main file, uninstall, readme, `languages/`, 11
+  `src/` classes; no `vendor/`, `tests/`, `docs/`); `preflight-vendor.php --zip` PASSED (2 expected
+  WARNs: no vendor by design). Outbound-HTTP grep (`wp_remote_|curl_|file_get_contents(http`,
+  plus `fsockopen|wp_safe_remote_` in CI) over shipped code: **0 hits**.
+- 2026-09-30, CI run 36761775372 on commit `9a59494`, 12/12 jobs green: `php -l` 26 files on
+  8.3 / 8.4 / 8.5; PHPUnit 11.5.56 **60 tests, 693 assertions** on 8.3, 8.4 and 8.5 (8.5.11);
+  PHPStan level 8 0 errors; PHPCS 0; size-check self-test + budgets PASS; **WordPress 7.1.2 + MySQL
+  8.0 smoke** on 8.3 and 8.5, single site and multisite: activation creates the 3 tables (5 with a
+  second site), options and slug; `mdmfa_login` autoloads, `mdmfa_settings` does not;
+  `wp mdmfa status` shows schema current + key ok and never the slug; `MDMFA_DISABLE` reported and
+  removes the upgrade hook; uninstall after seeding 21 (single) / 30 (multisite) `mdmfa_` rows
+  leaves **0 tables and 0 rows** (options, transients, user meta, sitemeta, cron); an unrelated
+  option survives. First run (36761515039) failed only in the single-site smoke script itself
+  (`switch_to_blog()` without multisite), fixed in `9a59494`.
 - Not yet applicable: footprint audit (no output exists), security audit (P8), compat matrix (P8).
 
 ## History
