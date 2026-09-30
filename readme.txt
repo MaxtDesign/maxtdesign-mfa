@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 works on the WordPress login screen with authenticator apps (TOTP) and recovery codes. Passkeys, the WooCommerce My Account challenge, the moved login address, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
+**Development build.** Version 0.1.0 works with authenticator apps (TOTP) and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout. Passkeys, the moved login address, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -77,5 +77,9 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: protection against code guessing (5 tries per sign-in, growing delays, a lock after 20 wrong codes) and against replaying a code.
 * New: blocks plugins that log users in directly (for example an auto-login after a password reset) until the second step passes.
 * New: Users, My security, to set up or remove an authenticator app and create recovery codes, with a fresh code required for changes.
+* New: WooCommerce customers finish the second step on My Account, including logins from checkout, which return to checkout with the cart intact. Customers never see the WordPress login screen.
+* New: a WooCommerce password reset no longer logs an enrolled customer straight in; it asks for the second step first.
+* New: My Account, Security tab for customers to manage their authenticator app and recovery codes.
+* New: front-end login forms (the core login form and the Login/out block) sign in without passing through wp-login.php.
 * New: `wp mdmfa status`, `wp mdmfa disable-check`, `wp mdmfa unlock` and `wp mdmfa user status|reset`.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.

@@ -16,6 +16,13 @@ final class Browser {
 	/** @var array<string, string> */
 	public array $cookies = array();
 
+	/**
+	 * Every URL requested and every redirect target seen.
+	 *
+	 * @var string[]
+	 */
+	public array $history = array();
+
 	public function __construct( private readonly string $base ) {
 	}
 
@@ -76,7 +83,9 @@ final class Browser {
 	 * @param array<string, string|int> $form
 	 */
 	private function handle( string $method, string $path, array $form ): \CurlHandle {
-		$handle = curl_init( str_starts_with( $path, 'http' ) ? $path : rtrim( $this->base, '/' ) . '/' . ltrim( $path, '/' ) );
+		$url             = str_starts_with( $path, 'http' ) ? $path : rtrim( $this->base, '/' ) . '/' . ltrim( $path, '/' );
+		$this->history[] = $url;
+		$handle          = curl_init( $url );
 		$pairs  = array();
 		foreach ( $this->cookies as $name => $value ) {
 			$pairs[] = $name . '=' . $value;
@@ -123,6 +132,9 @@ final class Browser {
 			} else {
 				$headers[ $lower ] = $value;
 			}
+		}
+		if ( isset( $headers['location'] ) ) {
+			$this->history[] = $headers['location'];
 		}
 		return new Response( $status, $headers, $body, $set );
 	}
@@ -192,6 +204,18 @@ final class Response {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Value of a named input in the body.
+	 */
+	public function input( string $name ): string {
+		if ( 1 !== preg_match( '/<input[^>]*name="' . preg_quote( $name, '/' ) . '"[^>]*value="([^"]*)"/', $this->body, $m )
+			&& 1 !== preg_match( '/<input[^>]*value="([^"]*)"[^>]*name="' . preg_quote( $name, '/' ) . '"/', $this->body, $m ) ) {
+			throw new \RuntimeException( "No input {$name} in response ({$this->status}):
+" . substr( strip_tags( $this->body ), 0, 600 ) );
+		}
+		return html_entity_decode( $m[1], ENT_QUOTES );
 	}
 
 	public function form_token(): string {

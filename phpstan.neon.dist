@@ -10,6 +10,7 @@ parameters:
         - uninstall.php
         - src
         - tools
+        - templates
     bootstrapFiles:
         - tests/phpstan-bootstrap.php
     scanFiles:

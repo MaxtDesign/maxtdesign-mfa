@@ -41,7 +41,7 @@ final class InstallerTest extends TestCase {
 		Installer::activate();
 
 		foreach ( Options::all() as $option => $autoload ) {
-			if ( Options::NOTICES === $option ) {
+			if ( in_array( $option, array( Options::NOTICES, Options::REWRITE ), true ) ) {
 				continue; // Created on demand, not at activation.
 			}
 			self::assertSame( $autoload, $GLOBALS['mdmfa_test']['autoload'][ $option ], $option );

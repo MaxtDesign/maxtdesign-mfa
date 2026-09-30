@@ -18,6 +18,10 @@
         <testsuite name="e2e">
             <directory>tests/E2e</directory>
         </testsuite>
+        <!-- Needs a live WordPress with WooCommerce: CI job "e2e-wc". Skips otherwise. -->
+        <testsuite name="e2e-wc">
+            <directory>tests/E2eWc</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
