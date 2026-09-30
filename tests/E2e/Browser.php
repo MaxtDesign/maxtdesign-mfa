@@ -241,11 +241,11 @@ final class Response {
 	public function passkey_forms(): array {
 		$found = array();
 		foreach ( self::forms( $this->body ) as $form ) {
-			if ( 1 !== preg_match( '/data-mdmfa-passkey="([^"]*)"/', $form, $c ) || 1 !== preg_match( '/<form[^>]*action="([^"]*)"/', $form, $a ) ) {
+			if ( 1 !== preg_match( '/data-mdmfa-passkey="([^"]*)"/', $form, $c ) || 1 !== preg_match( '/<form\b[^>]*action="([^"]*)"/', $form, $a ) ) {
 				continue;
 			}
 			$fields = array();
-			preg_match_all( '/<input[^>]*type="hidden"[^>]*>/', $form, $inputs );
+			preg_match_all( '/<input\b[^>]*type="hidden"[^>]*>/', $form, $inputs );
 			foreach ( $inputs[0] as $input ) {
 				if ( 1 === preg_match( '/name="([^"]*)"/', $input, $n ) ) {
 					$fields[ html_entity_decode( $n[1], ENT_QUOTES ) ] = 1 === preg_match( '/value="([^"]*)"/', $input, $v ) ? html_entity_decode( $v[1], ENT_QUOTES ) : '';
@@ -266,7 +266,7 @@ final class Response {
 	 * @return string[]
 	 */
 	private static function forms( string $html ): array {
-		preg_match_all( '/<form.*?<\/form>/s', $html, $m );
+		preg_match_all( '/<form\b.*?<\/form>/s', $html, $m );
 		return $m[0];
 	}
 }

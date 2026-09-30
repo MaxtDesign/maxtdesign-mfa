@@ -356,7 +356,7 @@ final class CustomerPathTest extends E2eTestCase {
 		self::assertSame( 200, $page->status );
 		self::assertStringContainsString( 'Set up authenticator app', $page->body );
 		self::assertPasskeyModule( $page, true, 'customers may add a passkey here, so the tab loads the module (and nothing else)' );
-		self::assertSame( 0, preg_match( '/<(link|style)[^>]*(mdmfa|maxtdesign-mfa)/i', $page->body ), 'no plugin CSS' );
+		self::assertSame( 0, preg_match( '/<(link|style)\b[^>]*(mdmfa|maxtdesign-mfa)/i', $page->body ), 'no plugin CSS' );
 
 		$begin = $browser->post( $tab, array( 'mdmfa_op' => 'totp_begin', '_wpnonce' => $page->input( '_wpnonce' ) ) );
 		self::assertSame( 302, $begin->status );

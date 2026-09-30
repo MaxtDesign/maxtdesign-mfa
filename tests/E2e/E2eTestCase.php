@@ -54,7 +54,7 @@ abstract class E2eTestCase extends TestCase {
 	 */
 	protected static function wp( string ...$args ): string {
 		$process = proc_open(
-			array_merge( array( 'wp', '--path=' . self::$path, '--skip-themes' ), $args ),
+			array_merge( self::wp_command(), array( '--path=' . self::$path, '--skip-themes' ), $args ),
 			array(
 				1 => array( 'pipe', 'w' ),
 				2 => array( 'pipe', 'w' ),
@@ -71,6 +71,17 @@ abstract class E2eTestCase extends TestCase {
 			throw new \RuntimeException( "wp " . implode( ' ', $args ) . " exited {$code}:\n{$err}\n{$out}" );
 		}
 		return trim( $out );
+	}
+
+	/**
+	 * The WP-CLI command: `wp`, or a JSON array in MDMFA_E2E_WP_CMD for local runs
+	 * (for example ["php", "wp-cli.phar"] where no `wp` is on the PATH).
+	 *
+	 * @return string[]
+	 */
+	private static function wp_command(): array {
+		$custom = json_decode( (string) getenv( 'MDMFA_E2E_WP_CMD' ), true );
+		return is_array( $custom ) && array() !== $custom ? array_map( 'strval', $custom ) : array( 'wp' );
 	}
 
 	protected static function eval( string $php ): string {
@@ -211,7 +222,7 @@ abstract class E2eTestCase extends TestCase {
 	}
 
 	protected static function assertPasskeyModule( Response $response, bool $expected, string $message = '' ): void {
-		$found = 1 === preg_match( '/<script[^>]*src="[^"]*assets\/front\/mdmfa-passkey\.js[^"]*"[^>]*>/', $response->body, $m );
+		$found = 1 === preg_match( '/<script\b[^>]*src="[^"]*assets\/front\/mdmfa-passkey\.js[^"]*"[^>]*>/', $response->body, $m );
 		self::assertSame( $expected, $found, $message );
 		if ( $found ) {
 			self::assertStringContainsString( 'defer', $m[0], 'the module is deferred' );
