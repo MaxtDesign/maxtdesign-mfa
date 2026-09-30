@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-09-30 by session (Build P4, wp-plugin-dev)
+Updated: 2026-09-30 by session (Build P5, wp-plugin-dev)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -7,18 +7,20 @@ MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; pr
 `{$wpdb->base_prefix}mdmfa_credentials`; namespace `MaxtDesign\Mfa`. Registry row
 `| MaxtDesign MFA |` in `C:/maxt/ops/sops/agent-sops/naming-registry.md` (active, unshipped).
 Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free only, no licensing
-code. Version 0.1.0 (unreleased; P2-P4 folded into it, nothing on wp.org).
+code. Version 0.1.0 (unreleased; P2-P5 folded into it, nothing on wp.org).
 
 ## Status
-Build phase. `main` = P1-P3 (P2 `5d454ce` PR #1, P3 `53ba496` PR #2, both 2026-09-30). P4 (login
-location) is on `feat/login-location`, CI green, PR open for operator review: early routing
-serves core login at a random slug; direct `wp-login.php` gets the theme's 404 and logged-out
-`wp-admin` a minimal 404 (admin-ajax, admin-post, upgrade.php exempt); `/login`-style shortcuts
-404; generated URLs point at the slug except postpass, confirmaction and recovery mode; logged-out
-front-end login links go to the public login page (My Account on WC, else the slug); slug
-validation, `wp mdmfa slug`, recovery constants, admin email + 24 h notice, cache signals.
-Not yet built: passkeys (P5), email code / side-door settings (P6), admin settings screens,
-privacy tools, owner-set public login page (P7).
+Build phase. `main` = P1-P4 (P2 PR #1, P3 PR #2, P4 `0a3a486` PR #3, all 2026-09-30). P5
+(passkeys) is on `feat/passkeys`, CI green (run 36790291991, 19/19 jobs), PR open for operator
+review: in-house WebAuthn verifier (`src/WebAuthn/`: restricted CBOR, COSE ES256/RS256/EdDSA,
+authenticatorData, clientData, attestation "none"); passkeys stored in
+`{base_prefix}mdmfa_credentials` with a random 32-byte user handle; passkey as second factor
+(offered first) and at enrollment, on the slug and on My Account; add/remove on My security and
+the Security tab; passkey step-up; passwordless sign-in for roles that enable it (off by default)
+with conditional UI; counter-anomaly flag/log/action with opt-in block; `mdmfa-passkey.js`
+(1,838 B raw / 977 B gzip) enqueued only while a passkey control renders.
+Not yet built: email code / side-door settings (P6), admin settings screens, privacy tools,
+owner-set public login page (P7).
 
 ## Locked decisions
 - 2026-09-30: brief approved; plan ACCEPTED with every section 16 decision as recommended
@@ -35,17 +37,24 @@ privacy tools, owner-set public login page (P7).
 - 2026-09-30 (P4): recovery-mode links stay on `wp-login.php` (see Flags: the plan's `$pagenow`
   route cannot work); the 404s render at `wp_loaded` (after blocks register), not `init`@1; core's
   `strict-origin-when-cross-origin` referrer policy is kept on the slug page.
+- 2026-09-30 (P5): adding a factor (passkey or TOTP) to an already-enrolled account needs a fresh
+  step-up (10 min), same as removing one; right after a 2FA login the session is fresh. Passwordless
+  login challenge is stateless (nonce | ts | HMAC, 300 s) with single use via an `INSERT IGNORE`
+  pending row; session/pending challenges are bound to the WP session or the pending record.
+  Passwordless is offered on a login page only when some role enables it; the IP soft throttle
+  (30 / 10 min, transients) covers the pre-user endpoint. Oracles `web-auth/webauthn-lib` 5.3 and
+  `lbuchs/webauthn` 2.2 are require-dev only (differential tests), never shipped.
 
 ## Next actions
-1. [operator] Review the P4 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
-3. [operator] To try it on `plugin-test`: activate MaxtDesign MFA there. The login moves at once;
-   the dashboard notice shows the new address for a day, and `wp mdmfa slug get` prints it. It is
-   junction-mounted: deactivate, never delete, from WP admin.
-4. [session] P5 on `feat/passkeys` after operator go: in-house WebAuthn verifier (plan 12), fuzz
-   harness, differential tests vs both oracles, enrollment, second factor, passwordless +
-   conditional UI, counter policy, `mdmfa-passkey.js` under 3,072 B / 1,536 B gzip.
-5. [session] P7: privacy exporter/eraser, owner-set public login page, settings screens.
+1. [operator] Review the P5 PR and approve the squash merge (`--delete-branch`).
+2. [operator] Manual passkey pass on real devices (plan P5 DoD lists Chrome, Safari, Android,
+   Windows Hello, a YubiKey): activate on `plugin-test` (the login moves; `wp mdmfa slug get`
+   prints it), then Users, My security, Add a passkey. `plugin-test.local` is https, so WebAuthn
+   runs there. It is junction-mounted: deactivate, never delete.
+3. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
+4. [session] P6 after operator go: email code, side-door settings.
+5. [session] P7: privacy exporter/eraser (include passkeys), owner-set public login page,
+   settings screens (incl. per-role passwordless and `counter_anomaly_block`).
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -58,25 +67,37 @@ privacy tools, owner-set public login page (P7).
 - External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
 
 ## Verification state
-- 2026-09-30, P4, CI run 36779146610 on `feat/login-location`, **17/17 jobs green**:
-  - Unit: **127 tests, 1,154 assertions** on PHP 8.3, 8.4, 8.5 (adds slug matching, format and
-    reserved-name rules).
-  - **E2E core, WordPress 7.1.2, pretty permalinks, PHP 8.3 + 8.5: 24 tests, 189 assertions.**
-    P4 DoD: every plan 5.2 row returns its status (15 requests incl. wp-login.php GET/POST and
-    actions, logged-out wp-admin, `/login` `/admin` `/dashboard`; none redirects to or prints the
-    slug; admin-ajax, admin-post, upgrade.php still work); the slug serves core login with
-    no-store, noindex, `$pagenow` = wp-login.php and `is_login()` true; admins log in at the slug
-    and logout links follow; postpass, privacy confirmation (email never carries the slug) and the
-    recovery-mode link work through wp-login.php; `wp mdmfa slug set` purges old + new URLs via
-    `md_suite_content_changed`, emails admins, logs without the slug, 404s the old slug;
-    `MDMFA_LOGIN_SLUG` and `MDMFA_DISABLE_LOGIN_LOCATION` work. All P2 tests pass at the slug.
-  - **E2E WooCommerce 11.1.2, PHP 8.3 + 8.5: 10 tests, 280 assertions.** Adds the anonymous crawl:
-    **34 front-end URLs** (home, posts, embed, password-protected post, pages, block checkout
-    page, product, shop, cart, classic checkout, My Account, lost password, category, tag,
-    product category, author, search, feeds, sitemaps, robots.txt, a 404, the old paths, REST
-    incl. Store API cart, xmlrpc.php) with **0 occurrences of the slug** in bodies, redirects or
-    Link headers; comment login links point at My Account. All P3 tests pass unchanged.
-  - Smoke (single + multisite), QR decode, lint, outbound grep 0, PHPStan L8 0, PHPCS 0.
+- 2026-09-30, P5, CI run 36790291991 on `feat/passkeys` (`a589250`), **19/19 jobs green**:
+  - Unit: **256 tests, 1,413 assertions** on PHP 8.3, 8.4, 8.5; of these **129 WebAuthn tests**
+    (CBOR, verifier negatives per check, all three algorithms) incl. **34 differential tests**
+    against both oracles: ours never accepts what an oracle rejects; every case where we are
+    stricter is listed and checked strictly (see Flags).
+  - **Fuzz: 4,000,000 inputs** (1M fixed seed 20260930 + 1M random seed, on PHP 8.3 and 8.5),
+    7 targets: **0 crashes, 0 hangs, slowest input 0.9 ms** (limit 250 ms).
+  - **E2E core, PHP 8.3 + 8.5: 30 tests, 298 assertions.** P5 adds 6: add a passkey on My
+    security (options: RP ID, algs -7/-257/-8, attestation none, random user handle), replayed
+    registration adds nothing, passkey offered first as second factor, tampered signature refused,
+    session stamped `passkey`; adding to an enrolled account refused on a stale session and allowed
+    after step-up; passwordless (Ed25519) for an enabled role logs in once (wp_login once, stamp,
+    log) and a replayed assertion fails; passwordless refused without UV, with a wrong userHandle,
+    from a foreign origin, and for a role without passwordless (with the right message); counter
+    anomaly flagged, logged, shown to the owner, not blocked by default; the module loads only
+    on screens offering a passkey (deferred, once), never on the front end.
+  - **E2E WooCommerce, PHP 8.3 + 8.5: 11 tests, 320 assertions.** Adds: customer adds a passkey on
+    the Security tab (codes shown once) and finishes a My Account sign-in with it, never touching
+    wp-login.php or the slug. The Security tab now loads the passkey module (by design: it offers
+    a passkey); still no plugin CSS.
+  - Smoke (single + multisite), QR decode, lint, outbound grep 0, PHPStan L8 0, PHPCS 0, size check
+    (passkey-js 1,838 / 3,072 B raw, 977 / 1,536 B gzip), `node --check`.
+- 2026-09-30, local: **Plugin Check on `plugin-test` (WP 7.1.2, PHP 8.3.29): "No errors found"**
+  with the P5 code (plugin inactive; dev folders excluded per `.distignore`).
+- 2026-09-30, local: the P5 E2E tests were also run against a throwaway WordPress (scratch
+  MariaDB on port 3399, `php -S`, removed after) via the new `MDMFA_E2E_WP_CMD` override.
+- UNVERIFIED: real browsers and authenticators (Chrome, Safari, Firefox, Android, iOS, Windows
+  Hello, YubiKey), conditional UI autofill, and the JS module's behaviour in a browser. Only a
+  software authenticator over HTTP was tested; the module passed `node --check` only.
+- Earlier phases (P4 CI run 36779146610, 17/17 green) are unchanged; every P2-P4 E2E test still
+  passes at the slug and on My Account.
 - 2026-09-30, local on PHP 8.3.29 (Local's build, see memory): unit suite green; **Plugin Check
   2.0.0 on `plugin-test` (WP 7.1.2): "No errors found", 0 warnings** after fixing 5 warnings
   (dev folders excluded per `.distignore`; plugin inactive).
@@ -92,6 +113,20 @@ privacy tools, owner-set public login page (P7).
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-09-30 (P5): differential findings kept as documented divergences (we are stricter):
+  `lbuchs/webauthn` 2.2 accepts an origin that only ends with the RP host (suffix trick), a
+  subdomain or other port origin, `crossOrigin: true`, BS without BE, and trailing bytes after
+  authenticatorData/assertion data. `web-auth/webauthn-lib` 5.3.9 accepts a `webauthn.get`
+  clientData on registration and vice versa (its default `supportedTypes`), and `crossOrigin: true`
+  when no topOrigin is set (`CheckTopOrigin` returns early).
+- 2026-09-30 (P5): the fuzzer's "fixed seed" fixes the mutations, not the key material (the
+  software authenticator uses `random_bytes`), so accept/reject counts vary slightly per run. A
+  failure prints the exact reproducer bytes, so reproduction does not depend on the seed.
+- 2026-09-30 (P5): an enrolled user could add a second factor from a stale session (true of TOTP
+  since P2 as well). Now needs a fresh step-up. Not in the plan; recorded as a decision above.
+- 2026-09-30 (P5): Plugin Check on `plugin-test` prints a `_load_textdomain_just_in_time` notice
+  from `maxtdesign-usmaps-pro` (loads its text domain before `init`). Not this plugin; noted for
+  that project.
 - 2026-09-30 (P4, plan error): plan 4.3 says the recovery-mode link works on the slug because the
   router sets `$pagenow`. WordPress handles that link in `wp_recovery_mode()->initialize()`
   (wp-settings.php:575), before regular plugins load (:582) and before `plugins_loaded` (:630), so
