@@ -18,6 +18,7 @@ use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
 use MaxtDesign\Mfa\Install\Maintenance;
 use MaxtDesign\Mfa\Frontend\LoginForm;
+use MaxtDesign\Mfa\Frontend\PasskeyLogin;
 use MaxtDesign\Mfa\Location\CacheBridge;
 use MaxtDesign\Mfa\Location\LoginLocation;
 use MaxtDesign\Mfa\Location\Router;
@@ -79,6 +80,7 @@ final class Plugin {
 		LoginScreens::register();
 		Maintenance::register();
 		LoginForm::register();
+		PasskeyLogin::register();
 		// Login location (plan 5): routing, 404s, URL rewrites, cache signals.
 		Router::register();
 		UrlRewriter::register();

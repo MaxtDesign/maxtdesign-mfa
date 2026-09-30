@@ -218,10 +218,55 @@ final class Response {
 		return html_entity_decode( $m[1], ENT_QUOTES );
 	}
 
+	/**
+	 * The flow token of the first form that is not a passkey form (the code form).
+	 */
 	public function form_token(): string {
+		foreach ( self::forms( $this->body ) as $form ) {
+			if ( ! str_contains( $form, 'data-mdmfa-passkey' ) && 1 === preg_match( '/name="mdmfa_form" value="([0-9a-f]{64})"/', $form, $m ) ) {
+				return $m[1];
+			}
+		}
 		if ( 1 !== preg_match( '/name="mdmfa_form" value="([0-9a-f]{64})"/', $this->body, $m ) ) {
 			throw new \RuntimeException( "No mdmfa_form token in response ({$this->status}):\n" . substr( strip_tags( $this->body ), 0, 600 ) );
 		}
 		return $m[1];
+	}
+
+	/**
+	 * Forms carrying a passkey control: action, every hidden field, and the control's config.
+	 *
+	 * @return array<int, array{action: string, fields: array<string, string>, config: array<string, mixed>}>
+	 */
+	public function passkey_forms(): array {
+		$found = array();
+		foreach ( self::forms( $this->body ) as $form ) {
+			if ( 1 !== preg_match( '/data-mdmfa-passkey="([^"]*)"/', $form, $c ) || 1 !== preg_match( '/<form[^>]*action="([^"]*)"/', $form, $a ) ) {
+				continue;
+			}
+			$fields = array();
+			preg_match_all( '/<input[^>]*type="hidden"[^>]*>/', $form, $inputs );
+			foreach ( $inputs[0] as $input ) {
+				if ( 1 === preg_match( '/name="([^"]*)"/', $input, $n ) ) {
+					$fields[ html_entity_decode( $n[1], ENT_QUOTES ) ] = 1 === preg_match( '/value="([^"]*)"/', $input, $v ) ? html_entity_decode( $v[1], ENT_QUOTES ) : '';
+				}
+			}
+			$found[] = array(
+				'action' => html_entity_decode( $a[1], ENT_QUOTES ),
+				'fields' => $fields,
+				'config' => (array) json_decode( html_entity_decode( $c[1], ENT_QUOTES ), true ),
+			);
+		}
+		return $found;
+	}
+
+	/**
+	 * Every <form>...</form> in a document.
+	 *
+	 * @return string[]
+	 */
+	private static function forms( string $html ): array {
+		preg_match_all( '/<form.*?<\/form>/s', $html, $m );
+		return $m[0];
 	}
 }

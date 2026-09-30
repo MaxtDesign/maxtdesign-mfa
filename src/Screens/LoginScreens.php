@@ -65,31 +65,60 @@ final class LoginScreens {
 	}
 
 	/**
-	 * Code entry.
+	 * Verification: passkey, authenticator code or recovery code.
 	 *
 	 * @param FlowState $state Flow state.
 	 */
 	private static function render_verify( FlowState $state ): void {
-		$recovery = 'recovery' === $state->method;
-		$intro    = $recovery
-			? __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' )
-			: __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' );
-
-		login_header( __( 'Two-step verification', 'maxtdesign-mfa' ), '<p class="message">' . esc_html( $intro ) . '</p>', $state->errors );
-		self::form_open( ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $state->method ) ), $state );
-		echo Fragments::code_field( 'mdmfa_code', $recovery ? __( 'Recovery code', 'maxtdesign-mfa' ) : __( 'Authentication code', 'maxtdesign-mfa' ), $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
-		self::form_close( __( 'Verify', 'maxtdesign-mfa' ) );
-
-		$other = $recovery
-			? array( 'totp', __( 'Use your authenticator app', 'maxtdesign-mfa' ) )
-			: array( 'recovery', __( 'Use a recovery code', 'maxtdesign-mfa' ) );
-		printf(
-			'<p id="nav"><a href="%1$s">%2$s</a> | <a href="%3$s">%4$s</a></p>',
-			esc_url( ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $other[0] ) ) ),
-			esc_html( $other[1] ),
-			esc_url( wp_login_url() ),
-			esc_html__( 'Start over', 'maxtdesign-mfa' )
+		$intros = array(
+			'passkey'  => __( 'Use your passkey to finish signing in.', 'maxtdesign-mfa' ),
+			'recovery' => __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' ),
+			'totp'     => __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' ),
 		);
+		login_header( __( 'Two-step verification', 'maxtdesign-mfa' ), '<p class="message">' . esc_html( $intros[ $state->method ] ?? $intros['totp'] ) . '</p>', $state->errors );
+		self::form_open( ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $state->method ) ), $state );
+		if ( 'passkey' === $state->method ) {
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'get',
+					'options' => $state->passkey,
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Use your passkey', 'maxtdesign-mfa' ),
+				'button button-primary button-large'
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo '</form>';
+		} else {
+			$recovery = 'recovery' === $state->method;
+			echo Fragments::code_field( 'mdmfa_code', $recovery ? __( 'Recovery code', 'maxtdesign-mfa' ) : __( 'Authentication code', 'maxtdesign-mfa' ), $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			self::form_close( __( 'Verify', 'maxtdesign-mfa' ) );
+		}
+
+		$links = array();
+		foreach ( $state->methods as $method ) {
+			if ( $method !== $state->method ) {
+				$links[] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $method ) ) ), esc_html( self::method_label( $method ) ) );
+			}
+		}
+		$links[] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( wp_login_url() ), esc_html__( 'Start over', 'maxtdesign-mfa' ) );
+		echo '<p id="nav">' . implode( ' | ', $links ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- each link is escaped above.
+	}
+
+	/**
+	 * Link text for switching to a method.
+	 *
+	 * @param string $method Method.
+	 */
+	public static function method_label( string $method ): string {
+		switch ( $method ) {
+			case 'passkey':
+				return __( 'Use a passkey', 'maxtdesign-mfa' );
+			case 'recovery':
+				return __( 'Use a recovery code', 'maxtdesign-mfa' );
+			default:
+				return __( 'Use your authenticator app', 'maxtdesign-mfa' );
+		}
 	}
 
 	/**
@@ -119,12 +148,36 @@ final class LoginScreens {
 	 */
 	private static function render_enroll( FlowState $state ): void {
 		login_header( __( 'Set up two-step verification', 'maxtdesign-mfa' ), '', $state->errors );
-		self::form_open( ChallengeUrl::core( ChallengeUrl::ACTION_ENROLL ), $state );
-		if ( null !== $state->secret && null !== $state->user ) {
-			echo Fragments::totp_setup( $state->secret, $state->user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally.
+		if ( array() !== $state->passkey ) {
+			printf(
+				'<form name="mdmfapasskey" action="%1$s" method="post"><input type="hidden" name="mdmfa_form" value="%2$s"><p><strong>%3$s</strong><br>%4$s</p>',
+				esc_url( ChallengeUrl::core( ChallengeUrl::ACTION_ENROLL ) ),
+				esc_attr( $state->token_for( 'enroll-passkey' ) ),
+				esc_html__( 'Use a passkey', 'maxtdesign-mfa' ),
+				esc_html__( 'Sign in with your fingerprint, face or screen lock. Nothing to type.', 'maxtdesign-mfa' )
+			);
+			echo Fragments::passkey_name_field(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'create',
+					'options' => $state->passkey,
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Create a passkey', 'maxtdesign-mfa' ),
+				'button button-primary button-large'
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo '</form>';
 		}
-		echo Fragments::code_field( 'mdmfa_code', __( 'Code from the app', 'maxtdesign-mfa' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
-		self::form_close( __( 'Confirm', 'maxtdesign-mfa' ) );
+		if ( null !== $state->secret && null !== $state->user ) {
+			self::form_open( ChallengeUrl::core( ChallengeUrl::ACTION_ENROLL ), $state );
+			if ( array() !== $state->passkey ) {
+				echo '<p><strong>' . esc_html__( 'Or use an authenticator app', 'maxtdesign-mfa' ) . '</strong></p>';
+			}
+			echo Fragments::totp_setup( $state->secret, $state->user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally.
+			echo Fragments::code_field( 'mdmfa_code', __( 'Code from the app', 'maxtdesign-mfa' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			self::form_close( __( 'Confirm', 'maxtdesign-mfa' ) );
+		}
 		printf( '<p id="nav"><a href="%1$s">%2$s</a></p>', esc_url( wp_login_url() ), esc_html__( 'Start over', 'maxtdesign-mfa' ) );
 	}
 

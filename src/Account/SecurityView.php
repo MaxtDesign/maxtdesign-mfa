@@ -11,6 +11,8 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Account;
 
 use MaxtDesign\Mfa\Auth\StepUp;
+use MaxtDesign\Mfa\Factors\PasskeyStore;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Policy\Policy;
@@ -82,6 +84,8 @@ final class SecurityView {
 			echo '<p>' . esc_html__( 'Authenticator apps are not available for your account.', 'maxtdesign-mfa' ) . '</p>';
 		}
 
+		self::passkeys( $user, $form_url, $ui );
+
 		if ( ! $enrolled ) {
 			return;
 		}
@@ -93,7 +97,7 @@ final class SecurityView {
 			return;
 		}
 		echo '<h3>' . esc_html__( 'Confirm it is you', 'maxtdesign-mfa' ) . '</h3>';
-		echo '<p>' . esc_html__( 'Removing a method or creating new recovery codes needs a code verified in the last 10 minutes.', 'maxtdesign-mfa' ) . '</p>';
+		echo '<p>' . esc_html__( 'Adding or removing a method, or creating new recovery codes, needs a verification in the last 10 minutes.', 'maxtdesign-mfa' ) . '</p>';
 		self::form_start( $form_url, 'stepup' );
 		echo '<fieldset><label><input type="radio" name="mdmfa_method" value="totp" checked> ' . esc_html__( 'Authenticator code', 'maxtdesign-mfa' ) . '</label> ';
 		echo '<label><input type="radio" name="mdmfa_method" value="recovery"> ' . esc_html__( 'Recovery code', 'maxtdesign-mfa' ) . '</label></fieldset>';
@@ -104,6 +108,78 @@ final class SecurityView {
 			esc_attr( $ui['input'] )
 		);
 		printf( '<p><button type="submit" class="%1$s">%2$s</button></p></form>', esc_attr( $ui['button'] ), esc_html__( 'Confirm', 'maxtdesign-mfa' ) );
+
+		if ( Passkeys::has( $user->ID ) ) {
+			self::form_start( $form_url, 'stepup' );
+			echo '<input type="hidden" name="mdmfa_method" value="passkey">';
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'get',
+					'options' => Passkeys::request_options( $user, Passkeys::session_challenge( $user->ID, 'stepup' ) ),
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Confirm with a passkey', 'maxtdesign-mfa' ),
+				$ui['button']
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo '</form>';
+		}
+	}
+
+	/**
+	 * Passkeys: list, add, remove.
+	 *
+	 * @param \WP_User              $user     Current user.
+	 * @param string                $form_url Form action.
+	 * @param array<string, string> $ui       Class names.
+	 */
+	private static function passkeys( \WP_User $user, string $form_url, array $ui ): void {
+		$allowed     = Passkeys::allowed( $user );
+		$credentials = Passkeys::credentials( $user->ID );
+		if ( ! $allowed && array() === $credentials ) {
+			return;
+		}
+		echo '<h3>' . esc_html__( 'Passkeys', 'maxtdesign-mfa' ) . '</h3>';
+		if ( array() === $credentials ) {
+			echo '<p>' . esc_html__( 'Sign in with your fingerprint, face or screen lock instead of typing a code. Passkeys cannot be phished.', 'maxtdesign-mfa' ) . '</p>';
+		} else {
+			echo '<table class="widefat striped shop_table" role="presentation"><tbody>';
+			foreach ( $credentials as $credential ) {
+				$used = '' !== $credential['last_used_at'] ? $credential['last_used_at'] : __( 'never', 'maxtdesign-mfa' );
+				printf(
+					'<tr><td><strong>%1$s</strong><br>%2$s%3$s</td><td>',
+					esc_html( (string) $credential['name'] ),
+					esc_html(
+						sprintf(
+							/* translators: 1: date added, 2: date last used. */
+							__( 'Added %1$s, last used %2$s (UTC)', 'maxtdesign-mfa' ),
+							(string) $credential['created_at'],
+							(string) $used
+						)
+					),
+					$credential['flagged'] ? '<br><strong>' . esc_html__( 'Warning: this passkey reported an unexpected counter. If you did not copy it to another device, remove it.', 'maxtdesign-mfa' ) . '</strong>' : ''
+				);
+				self::form_start( $form_url, 'passkey_remove' );
+				printf( '<input type="hidden" name="mdmfa_passkey_id" value="%d">', (int) $credential['id'] );
+				printf( '<button type="submit" class="%1$s">%2$s</button></form></td></tr>', esc_attr( $ui['danger'] ), esc_html__( 'Remove', 'maxtdesign-mfa' ) );
+			}
+			echo '</tbody></table>';
+		}
+		if ( $allowed && count( $credentials ) < PasskeyStore::MAX_PER_USER ) {
+			self::form_start( $form_url, 'passkey_add' );
+			echo Fragments::passkey_name_field( $ui['input'], $ui['row'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'create',
+					'options' => Passkeys::creation_options( $user, Passkeys::session_challenge( $user->ID, 'add' ) ),
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Add a passkey', 'maxtdesign-mfa' ),
+				$ui['primary']
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo '</form>';
+		}
 	}
 
 	/**

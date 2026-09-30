@@ -32,18 +32,52 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 		<ul class="woocommerce-error" role="alert"><li><?php echo esc_html( wp_strip_all_tags( $mdmfa_error ) ); ?></li></ul>
 	<?php endforeach; ?>
 
+	<?php if ( FlowState::ENROLL === $mdmfa_state->screen && array() !== $mdmfa_state->passkey ) : ?>
+		<form class="woocommerce-form woocommerce-form-login login" method="post" action="<?php echo esc_url( AccountChallenge::form_action( $mdmfa_state ) ); ?>">
+			<input type="hidden" name="mdmfa_wc" value="1">
+			<input type="hidden" name="mdmfa_form" value="<?php echo esc_attr( $mdmfa_state->token_for( 'enroll-passkey' ) ); ?>">
+			<p><strong><?php esc_html_e( 'Use a passkey', 'maxtdesign-mfa' ); ?></strong><br><?php esc_html_e( 'Sign in with your fingerprint, face or screen lock. Nothing to type.', 'maxtdesign-mfa' ); ?></p>
+			<?php echo Fragments::passkey_name_field( $mdmfa_input, $mdmfa_row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
+			<?php
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'create',
+					'options' => $mdmfa_state->passkey,
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Create a passkey', 'maxtdesign-mfa' ),
+				$mdmfa_button
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			?>
+		</form>
+	<?php endif; ?>
+
+	<?php if ( FlowState::ENROLL !== $mdmfa_state->screen || null !== $mdmfa_state->secret ) : ?>
 	<form class="woocommerce-form woocommerce-form-login login" method="post" action="<?php echo esc_url( AccountChallenge::form_action( $mdmfa_state ) ); ?>">
 		<input type="hidden" name="mdmfa_wc" value="1">
 		<input type="hidden" name="mdmfa_form" value="<?php echo esc_attr( $mdmfa_state->token() ); ?>">
 
-		<?php if ( FlowState::VERIFY === $mdmfa_state->screen ) : ?>
+		<?php if ( FlowState::VERIFY === $mdmfa_state->screen && 'passkey' === $mdmfa_state->method ) : ?>
+			<p><?php esc_html_e( 'Use your passkey to finish signing in.', 'maxtdesign-mfa' ); ?></p>
+			<?php
+			$mdmfa_passkey_html = Fragments::passkey_button(
+				array(
+					'mode'    => 'get',
+					'options' => $mdmfa_state->passkey,
+					'field'   => 'mdmfa_credential',
+				),
+				__( 'Use your passkey', 'maxtdesign-mfa' ),
+				$mdmfa_button
+			);
+			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			?>
+
+		<?php elseif ( FlowState::VERIFY === $mdmfa_state->screen ) : ?>
 			<?php $mdmfa_recovery = 'recovery' === $mdmfa_state->method; ?>
 			<p><?php echo esc_html( $mdmfa_recovery ? __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' ) : __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' ) ); ?></p>
 			<?php echo Fragments::code_field( 'mdmfa_code', $mdmfa_recovery ? __( 'Recovery code', 'maxtdesign-mfa' ) : __( 'Authentication code', 'maxtdesign-mfa' ), $mdmfa_recovery, $mdmfa_input, $mdmfa_row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
 			<p class="form-row"><button type="submit" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Verify', 'maxtdesign-mfa' ); ?></button></p>
-			<p>
-				<a href="<?php echo esc_url( AccountChallenge::method_url( $mdmfa_recovery ? 'totp' : 'recovery' ) ); ?>"><?php echo esc_html( $mdmfa_recovery ? __( 'Use your authenticator app', 'maxtdesign-mfa' ) : __( 'Use a recovery code', 'maxtdesign-mfa' ) ); ?></a>
-			</p>
 
 		<?php elseif ( FlowState::GRACE === $mdmfa_state->screen ) : ?>
 			<p><?php echo esc_html( Fragments::grace_message( $mdmfa_state->grace_days ) ); ?></p>
@@ -52,8 +86,11 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 				<button type="submit" name="mdmfa_skip" value="1" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Skip for now', 'maxtdesign-mfa' ); ?></button>
 			</p>
 
-		<?php elseif ( FlowState::ENROLL === $mdmfa_state->screen && null !== $mdmfa_state->secret ) : ?>
-			<?php echo Fragments::totp_setup( $mdmfa_state->secret, $mdmfa_state->user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally. ?>
+		<?php elseif ( FlowState::ENROLL === $mdmfa_state->screen ) : ?>
+			<?php if ( array() !== $mdmfa_state->passkey ) : ?>
+				<p><strong><?php esc_html_e( 'Or use an authenticator app', 'maxtdesign-mfa' ); ?></strong></p>
+			<?php endif; ?>
+			<?php echo Fragments::totp_setup( (string) $mdmfa_state->secret, $mdmfa_state->user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally. ?>
 			<?php echo Fragments::code_field( 'mdmfa_code', __( 'Code from the app', 'maxtdesign-mfa' ), false, $mdmfa_input, $mdmfa_row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
 			<p class="form-row"><button type="submit" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Confirm', 'maxtdesign-mfa' ); ?></button></p>
 
@@ -63,6 +100,17 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 			<p class="form-row"><button type="submit" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Continue', 'maxtdesign-mfa' ); ?></button></p>
 		<?php endif; ?>
 	</form>
+	<?php endif; ?>
+
+	<?php if ( FlowState::VERIFY === $mdmfa_state->screen && count( $mdmfa_state->methods ) > 1 ) : ?>
+		<p>
+			<?php foreach ( $mdmfa_state->methods as $mdmfa_method ) : ?>
+				<?php if ( $mdmfa_method !== $mdmfa_state->method ) : ?>
+					<a href="<?php echo esc_url( AccountChallenge::method_url( $mdmfa_method ) ); ?>"><?php echo esc_html( \MaxtDesign\Mfa\Screens\LoginScreens::method_label( $mdmfa_method ) ); ?></a><br>
+				<?php endif; ?>
+			<?php endforeach; ?>
+		</p>
+	<?php endif; ?>
 
 	<?php if ( FlowState::RECOVERY !== $mdmfa_state->screen ) : ?>
 		<p><a href="<?php echo esc_url( AccountChallenge::cancel_url( $mdmfa_state ) ); ?>"><?php esc_html_e( 'Start over', 'maxtdesign-mfa' ); ?></a></p>

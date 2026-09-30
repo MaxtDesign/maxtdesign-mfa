@@ -19,6 +19,7 @@ use MaxtDesign\Mfa\Auth\PendingCookie;
 use MaxtDesign\Mfa\Auth\PendingRecord;
 use MaxtDesign\Mfa\Auth\PendingStore;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\Totp;
 use MaxtDesign\Mfa\Factors\TotpStore;
@@ -31,7 +32,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Challenge, grace, enrollment and acknowledgement.
  *
- * @phpstan-type Input array{post: bool, token: mixed, code: string, skip: bool, saved: bool, method: string}
+ * @phpstan-type Input array{post: bool, token: mixed, code: string, skip: bool, saved: bool, method: string, credential: string, name: string}
  */
 final class ChallengeFlow {
 
@@ -53,12 +54,15 @@ final class ChallengeFlow {
 			}
 		}
 		$input = array(
-			'post'   => isset( $_SERVER['REQUEST_METHOD'] ) && 'POST' === strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ),
-			'token'  => isset( $_POST['mdmfa_form'] ) && is_string( $_POST['mdmfa_form'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_form'] ) ) : null,
-			'code'   => isset( $_POST['mdmfa_code'] ) && is_string( $_POST['mdmfa_code'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_code'] ) ) : '',
-			'skip'   => isset( $_POST['mdmfa_skip'] ),
-			'saved'  => ! empty( $_POST['mdmfa_saved'] ),
-			'method' => $method,
+			'post'       => isset( $_SERVER['REQUEST_METHOD'] ) && 'POST' === strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ),
+			'token'      => isset( $_POST['mdmfa_form'] ) && is_string( $_POST['mdmfa_form'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_form'] ) ) : null,
+			'code'       => isset( $_POST['mdmfa_code'] ) && is_string( $_POST['mdmfa_code'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_code'] ) ) : '',
+			'skip'       => isset( $_POST['mdmfa_skip'] ),
+			'saved'      => ! empty( $_POST['mdmfa_saved'] ),
+			'method'     => $method,
+			// Strict JSON, parsed and size-limited by CredentialJson before any use.
+			'credential' => isset( $_POST['mdmfa_credential'] ) && is_string( $_POST['mdmfa_credential'] ) ? wp_unslash( $_POST['mdmfa_credential'] ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON from the passkey module; CredentialJson validates it strictly.
+			'name'       => isset( $_POST['mdmfa_passkey_name'] ) && is_string( $_POST['mdmfa_passkey_name'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_passkey_name'] ) ) : '',
 		);
 		// phpcs:enable
 
@@ -125,15 +129,23 @@ final class ChallengeFlow {
 	 * @phpstan-param Input $input
 	 */
 	private static function verify( PendingRecord $record, \WP_User $user, array $input ): FlowState {
-		$method = ( 'recovery' === $input['method'] || null === TotpStore::secret( $user->ID ) ) ? 'recovery' : 'totp';
-		$errors = new \WP_Error();
-		$state  = static fn (): FlowState => new FlowState( FlowState::VERIFY, $record, $user, $errors, $method );
+		$methods = self::methods( $user );
+		$method  = in_array( $input['method'], $methods, true ) ? $input['method'] : ( $methods[0] ?? 'recovery' );
+		$errors  = new \WP_Error();
+		$state   = static function () use ( &$record, $user, &$errors, $method, $methods ): FlowState {
+			$options = array();
+			if ( 'passkey' === $method ) {
+				list( $record, $challenge ) = Passkeys::pending_challenge( $record, 'verify' );
+				$options                    = Passkeys::request_options( $user, $challenge );
+			}
+			return new FlowState( FlowState::VERIFY, $record, $user, $errors, $method, null, array(), '', 0, $options, $methods );
+		};
 
 		if ( ! $input['post'] ) {
 			return $state();
 		}
 		if ( ! FormToken::check( $input['token'], $record->token_hash, 'verify' ) ) {
-			$errors->add( 'mdmfa_form', esc_html__( 'This form expired. Please enter your code again.', 'maxtdesign-mfa' ) );
+			$errors->add( 'mdmfa_form', esc_html__( 'This form expired. Please try again.', 'maxtdesign-mfa' ) );
 			return $state();
 		}
 		$until = Lockout::blocked_until( $user->ID );
@@ -153,9 +165,14 @@ final class ChallengeFlow {
 		if ( ! PendingStore::reserve_attempt( $record ) ) {
 			return self::burn( $record, $user );
 		}
+		$attempts_used = $record->attempts + 1;
 
 		$remaining = null;
-		if ( 'recovery' === $method ) {
+		if ( 'passkey' === $method ) {
+			$challenge = Passkeys::take_pending_challenge( $record, 'verify' );
+			$record    = PendingStore::find( (string) PendingCookie::get() ) ?? $record;
+			$ok        = null !== $challenge && '' !== $input['credential'] && Passkeys::verify_for_user( $user, $input['credential'], $challenge, false );
+		} elseif ( 'recovery' === $method ) {
 			$remaining = RecoveryCodes::consume( $user->ID, $input['code'] );
 			$ok        = null !== $remaining;
 		} else {
@@ -173,24 +190,42 @@ final class ChallengeFlow {
 
 		Lockout::record_failure( $user->ID );
 		Logger::log( 'challenge_fail', $user->ID, $method, $record->context() );
-		do_action( 'mdmfa_factor_failed', $user, $method, 'invalid_code' );
+		do_action( 'mdmfa_factor_failed', $user, $method, 'passkey' === $method ? 'invalid_passkey' : 'invalid_code' );
 
-		$left = PendingStore::MAX_ATTEMPTS - ( $record->attempts + 1 );
+		$left = PendingStore::MAX_ATTEMPTS - $attempts_used;
 		if ( $left <= 0 ) {
 			return self::burn( $record, $user );
 		}
-		$errors->add(
-			'mdmfa_invalid',
-			esc_html(
-				sprintf(
-					/* translators: %d: attempts left before the sign-in must restart. */
-					_n( 'That code is not valid. %d attempt left.', 'That code is not valid. %d attempts left.', $left, 'maxtdesign-mfa' ),
-					$left
-				)
-			)
-		);
+		$message = 'passkey' === $method
+			/* translators: %d: attempts left before the sign-in must restart. */
+			? _n( 'That passkey did not work. %d attempt left.', 'That passkey did not work. %d attempts left.', $left, 'maxtdesign-mfa' )
+			/* translators: %d: attempts left before the sign-in must restart. */
+			: _n( 'That code is not valid. %d attempt left.', 'That code is not valid. %d attempts left.', $left, 'maxtdesign-mfa' );
+		$errors->add( 'mdmfa_invalid', esc_html( sprintf( $message, $left ) ) );
 
 		return $state();
+	}
+
+	/**
+	 * Verification methods the user can use, strongest first: passkey (phishing-resistant),
+	 * authenticator app, recovery code.
+	 *
+	 * @param \WP_User $user User.
+	 * @return string[]
+	 */
+	private static function methods( \WP_User $user ): array {
+		$methods = array();
+		if ( Passkeys::has( $user->ID ) ) {
+			$methods[] = 'passkey';
+		}
+		if ( null !== TotpStore::secret( $user->ID ) ) {
+			$methods[] = 'totp';
+		}
+		if ( RecoveryCodes::remaining( $user->ID ) > 0 || array() === $methods ) {
+			$methods[] = 'recovery';
+		}
+
+		return $methods;
 	}
 
 	/**
@@ -227,57 +262,84 @@ final class ChallengeFlow {
 	 * @phpstan-param Input $input
 	 */
 	private static function enroll( PendingRecord $record, \WP_User $user, array $input ): FlowState {
-		if ( ! Policy::allows( $user, 'totp' ) ) {
+		$totp    = Policy::allows( $user, 'totp' );
+		$passkey = Passkeys::allowed( $user );
+		if ( ! $totp && ! $passkey ) {
 			return FlowState::expired( __( 'Your account needs two-step verification, but no setup method is available for it. Please contact the site administrator.', 'maxtdesign-mfa' ) );
 		}
 		$key_error = __( 'Two-step verification cannot be set up because the site\'s encryption key is invalid. Please contact the site administrator.', 'maxtdesign-mfa' );
 
-		try {
-			$sealed = isset( $record->payload['enroll_secret'] ) && is_array( $record->payload['enroll_secret'] ) ? $record->payload['enroll_secret'] : null;
-			$secret = null !== $sealed ? TotpStore::open_for_login( $user->ID, $sealed ) : null;
-			if ( null === $secret ) {
-				$secret = Totp::generate_secret();
-				$record = PendingStore::update_payload(
-					$record,
-					array_merge(
-						$record->payload,
-						array(
-							'stage'         => self::STAGE_TOTP,
-							'enroll_secret' => TotpStore::seal_for_login( $user->ID, $secret ),
+		$secret = null;
+		if ( $totp ) {
+			try {
+				$sealed = isset( $record->payload['enroll_secret'] ) && is_array( $record->payload['enroll_secret'] ) ? $record->payload['enroll_secret'] : null;
+				$secret = null !== $sealed ? TotpStore::open_for_login( $user->ID, $sealed ) : null;
+				if ( null === $secret ) {
+					$secret = Totp::generate_secret();
+					$record = PendingStore::update_payload(
+						$record,
+						array_merge(
+							$record->payload,
+							array(
+								'stage'         => self::STAGE_TOTP,
+								'enroll_secret' => TotpStore::seal_for_login( $user->ID, $secret ),
+							)
 						)
-					)
-				);
+					);
+				}
+			} catch ( InvalidKeyException $e ) {
+				if ( ! $passkey ) {
+					return FlowState::expired( $key_error );
+				}
+				$secret = null;
 			}
-		} catch ( InvalidKeyException $e ) {
-			return FlowState::expired( $key_error );
 		}
 
 		$errors = new \WP_Error();
 		if ( $input['post'] ) {
-			if ( ! FormToken::check( $input['token'], $record->token_hash, 'enroll-totp' ) ) {
-				$errors->add( 'mdmfa_form', esc_html__( 'This form expired. Please enter the code again.', 'maxtdesign-mfa' ) );
+			$is_passkey = '' !== $input['credential'];
+			$purpose    = $is_passkey ? 'enroll-passkey' : 'enroll-totp';
+			if ( ! FormToken::check( $input['token'], $record->token_hash, $purpose ) || ( $is_passkey && ! $passkey ) || ( ! $is_passkey && null === $secret ) ) {
+				$errors->add( 'mdmfa_form', esc_html__( 'This form expired. Please try again.', 'maxtdesign-mfa' ) );
 			} else {
 				if ( ! PendingStore::reserve_attempt( $record ) ) {
 					return self::burn( $record, $user );
 				}
-				$step = Totp::match( $secret, Totp::normalize( $input['code'] ), Clock::now() );
-				if ( null !== $step ) {
-					try {
-						TotpStore::save( $user->ID, $secret, $step );
-					} catch ( InvalidKeyException $e ) {
-						return FlowState::expired( $key_error );
+				$attempts_used = $record->attempts + 1;
+				if ( $is_passkey ) {
+					$challenge = Passkeys::take_pending_challenge( $record, 'enroll' );
+					$record    = PendingStore::find( (string) PendingCookie::get() ) ?? $record;
+					$result    = null === $challenge ? null : Passkeys::register( $user, $input['credential'], $challenge, $input['name'] );
+					if ( null !== $result && ! $result instanceof \WP_Error ) {
+						return self::finish_enrollment( $record, $user, 'passkey' );
 					}
-					return self::finish_enrollment( $record, $user );
+					$errors->add( 'mdmfa_invalid', esc_html( $result instanceof \WP_Error ? $result->get_error_message() : __( 'That passkey could not be set up. Please try again.', 'maxtdesign-mfa' ) ) );
+				} else {
+					$step = Totp::match( (string) $secret, Totp::normalize( $input['code'] ), Clock::now() );
+					if ( null !== $step ) {
+						try {
+							TotpStore::save( $user->ID, (string) $secret, $step );
+						} catch ( InvalidKeyException $e ) {
+							return FlowState::expired( $key_error );
+						}
+						return self::finish_enrollment( $record, $user, 'totp' );
+					}
+					Logger::log( 'enroll_fail', $user->ID, 'totp', $record->context() );
+					$errors->add( 'mdmfa_invalid', esc_html__( 'That code did not match. Check the time on your phone and try the newest code.', 'maxtdesign-mfa' ) );
 				}
-				Logger::log( 'enroll_fail', $user->ID, 'totp', $record->context() );
-				if ( PendingStore::MAX_ATTEMPTS - ( $record->attempts + 1 ) <= 0 ) {
+				if ( PendingStore::MAX_ATTEMPTS - $attempts_used <= 0 ) {
 					return self::burn( $record, $user );
 				}
-				$errors->add( 'mdmfa_invalid', esc_html__( 'That code did not match. Check the time on your phone and try the newest code.', 'maxtdesign-mfa' ) );
 			}
 		}
 
-		return new FlowState( FlowState::ENROLL, $record, $user, $errors, 'totp', $secret );
+		$options = array();
+		if ( $passkey ) {
+			list( $record, $challenge ) = Passkeys::pending_challenge( $record, 'enroll' );
+			$options                    = Passkeys::creation_options( $user, $challenge );
+		}
+
+		return new FlowState( FlowState::ENROLL, $record, $user, $errors, 'totp', $secret, array(), '', 0, $options );
 	}
 
 	/**
@@ -285,17 +347,22 @@ final class ChallengeFlow {
 	 *
 	 * @param PendingRecord $record Pending record.
 	 * @param \WP_User      $user   User.
+	 * @param string        $factor Factor just enrolled.
 	 */
-	private static function finish_enrollment( PendingRecord $record, \WP_User $user ): FlowState {
+	private static function finish_enrollment( PendingRecord $record, \WP_User $user, string $factor ): FlowState {
 		$codes   = RecoveryCodes::generate( $user->ID );
 		$payload = $record->payload;
-		unset( $payload['enroll_secret'] );
-		$payload['stage'] = self::STAGE_RECOVERY;
-		$record           = PendingStore::update_payload( $record, $payload );
+		unset( $payload['enroll_secret'], $payload['wa'] );
+		$payload['stage']           = self::STAGE_RECOVERY;
+		$payload['enrolled_factor'] = $factor;
+		$record                     = PendingStore::update_payload( $record, $payload );
 
 		update_user_meta( $user->ID, 'mdmfa_enrolled', '1' );
-		Logger::log( 'enrolled', $user->ID, 'totp', $record->context() );
-		do_action( 'mdmfa_enrolled', $user, 'totp' );
+		if ( 'totp' === $factor ) {
+			// Passkeys::register() logs and fires mdmfa_enrolled for passkeys itself.
+			Logger::log( 'enrolled', $user->ID, 'totp', $record->context() );
+			do_action( 'mdmfa_enrolled', $user, 'totp' );
+		}
 
 		return new FlowState( FlowState::RECOVERY, $record, $user, new \WP_Error(), 'totp', null, $codes );
 	}
@@ -317,7 +384,7 @@ final class ChallengeFlow {
 			} elseif ( ! $input['saved'] ) {
 				$errors->add( 'mdmfa_saved', esc_html__( 'Please confirm that you saved your recovery codes.', 'maxtdesign-mfa' ) );
 			} else {
-				return self::complete( $user, 'totp', $record );
+				return self::complete( $user, '' !== $record->string( 'enrolled_factor' ) ? $record->string( 'enrolled_factor' ) : 'totp', $record );
 			}
 		}
 

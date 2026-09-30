@@ -11,6 +11,7 @@ namespace MaxtDesign\Mfa\Cli;
 
 use MaxtDesign\Mfa\Auth\Lockout;
 use MaxtDesign\Mfa\Auth\PendingStore;
+use MaxtDesign\Mfa\Factors\PasskeyStore;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Log\Logger;
@@ -61,6 +62,7 @@ final class UserCommand {
 			'decision'       => Policy::decide( $user ),
 			'enrolled'       => Policy::is_enrolled( $user->ID ),
 			'totp'           => TotpStore::has( $user->ID ) ? ( null === TotpStore::secret( $user->ID ) ? 'unreadable' : 'on' ) : 'off',
+			'passkeys'       => PasskeyStore::count( $user->ID ),
 			'recovery_codes' => RecoveryCodes::remaining( $user->ID ),
 			'grace_seconds'  => Policy::grace_remaining( $user ),
 			'failures'       => $lock['count'],
@@ -97,6 +99,7 @@ final class UserCommand {
 	 * options:
 	 *   - all
 	 *   - totp
+	 *   - passkey
 	 *   - recovery
 	 * ---
 	 *
@@ -116,7 +119,7 @@ final class UserCommand {
 			return;
 		}
 		$factor = $assoc_args['factor'] ?? 'all';
-		if ( ! in_array( $factor, array( 'all', 'totp', 'recovery' ), true ) ) {
+		if ( ! in_array( $factor, array( 'all', 'totp', 'passkey', 'recovery' ), true ) ) {
 			\WP_CLI::warning( 'Unknown factor.' );
 			return;
 		}
@@ -126,6 +129,9 @@ final class UserCommand {
 
 		if ( 'all' === $factor || 'totp' === $factor ) {
 			TotpStore::remove( $user->ID );
+		}
+		if ( 'all' === $factor || 'passkey' === $factor ) {
+			PasskeyStore::delete_all( $user->ID );
 		}
 		if ( 'all' === $factor || 'recovery' === $factor ) {
 			RecoveryCodes::remove( $user->ID );

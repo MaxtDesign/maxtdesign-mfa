@@ -13,11 +13,13 @@
     },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "lbuchs/webauthn": "^2.2",
         "php-stubs/woocommerce-stubs": "^11.1",
         "php-stubs/wordpress-stubs": "^7.1",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5",
         "szepeviktor/phpstan-wordpress": "^2.0",
+        "web-auth/webauthn-lib": "^5.3",
         "wp-coding-standards/wpcs": "^3.1"
     },
     "autoload": {
