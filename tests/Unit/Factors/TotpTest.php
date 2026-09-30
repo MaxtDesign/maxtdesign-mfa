@@ -76,6 +76,13 @@ final class TotpTest extends TestCase {
 		self::assertNotSame( $a, Totp::generate_secret() );
 	}
 
+	public function test_uri_caps_labels_at_64_characters(): void {
+		$uri = Totp::uri( self::RFC_SECRET, str_repeat( 'S', 200 ), str_repeat( 'a', 200 ) );
+
+		self::assertStringContainsString( 'otpauth://totp/' . str_repeat( 'S', 64 ) . ':' . str_repeat( 'a', 64 ) . '?', $uri );
+		self::assertStringContainsString( 'issuer=' . str_repeat( 'S', 64 ) . '&', $uri );
+	}
+
 	public function test_uri_follows_the_key_uri_format(): void {
 		$uri = Totp::uri( self::RFC_SECRET, 'My: Shop', 'jane@example.com' );
 

@@ -40,8 +40,8 @@ $mdmfa_payloads = array(
 	'totp, unicode issuer' => Totp::uri( random_bytes( 20 ), 'Café Zürich – Boutique', 'müller@example.de' ),
 	'totp, long labels'    => Totp::uri( random_bytes( 20 ), str_repeat( 'Long Site Name ', 6 ), str_repeat( 'account', 12 ) . '@example.com' ),
 );
-foreach ( array( 30, 60, 100, 150, 200, 260, 320, 400 ) as $mdmfa_len ) {
-	$mdmfa_payloads[ "{$mdmfa_len} bytes" ] = substr( str_repeat( 'otpauth://totp/Example:user?secret=JBSWY3DPEHPK3PXP&', 20 ), 0, $mdmfa_len );
+foreach ( array( 30, 60, 100, 150, 200, 260, 320, 400, 600, 900, 1300, 1800, 2331 ) as $mdmfa_len ) {
+	$mdmfa_payloads[ "{$mdmfa_len} bytes" ] = substr( str_repeat( 'otpauth://totp/Example:user?secret=JBSWY3DPEHPK3PXP&', 60 ), 0, $mdmfa_len );
 }
 
 $mdmfa_dir  = sys_get_temp_dir() . '/mdmfa-qr-' . bin2hex( random_bytes( 4 ) );
@@ -50,7 +50,13 @@ $mdmfa_seen = array();
 mkdir( $mdmfa_dir );
 
 foreach ( $mdmfa_payloads as $mdmfa_label => $mdmfa_data ) {
-	$mdmfa_qr                         = QrCode::encode( $mdmfa_data );
+	try {
+		$mdmfa_qr = QrCode::encode( $mdmfa_data );
+	} catch ( \LengthException $e ) {
+		echo "FAIL  {$mdmfa_label}: " . strlen( $mdmfa_data ) . " bytes do not fit\n";
+		++$mdmfa_bad;
+		continue;
+	}
 	$mdmfa_seen[ $mdmfa_qr->version ] = true;
 	$mdmfa_svg                        = $mdmfa_dir . '/qr.svg';
 	$mdmfa_png                        = $mdmfa_dir . '/qr.png';

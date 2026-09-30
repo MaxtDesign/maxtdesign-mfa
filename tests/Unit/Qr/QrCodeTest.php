@@ -30,6 +30,12 @@ final class QrCodeTest extends TestCase {
 		self::assertSame( 62, QrCode::data_codewords( 5, QrCode::ECC_Q ) );
 		self::assertSame( 216, QrCode::data_codewords( 10, QrCode::ECC_M ) );
 		self::assertSame( 415, QrCode::data_codewords( 15, QrCode::ECC_M ) );
+		self::assertSame( 669, QrCode::data_codewords( 20, QrCode::ECC_M ) );
+		// Version 40 at every level: the published maxima.
+		self::assertSame( 2956, QrCode::data_codewords( 40, QrCode::ECC_L ) );
+		self::assertSame( 2334, QrCode::data_codewords( 40, QrCode::ECC_M ) );
+		self::assertSame( 1666, QrCode::data_codewords( 40, QrCode::ECC_Q ) );
+		self::assertSame( 1276, QrCode::data_codewords( 40, QrCode::ECC_H ) );
 	}
 
 	public function test_smallest_version_is_chosen_and_size_follows(): void {
@@ -103,10 +109,17 @@ final class QrCodeTest extends TestCase {
 		self::assertStringContainsString( 'aria-label="label"', $a );
 	}
 
+	public function test_largest_symbol_holds_2331_bytes(): void {
+		$qr = QrCode::encode( str_repeat( 'x', 2331 ) );
+
+		self::assertSame( 40, $qr->version );
+		self::assertSame( 177, $qr->size );
+	}
+
 	public function test_too_long_data_throws_and_svg_falls_back_to_empty(): void {
-		self::assertSame( '', QrSvg::render( str_repeat( 'x', 2000 ), 'label' ) );
+		self::assertSame( '', QrSvg::render( str_repeat( 'x', 2332 ), 'label' ) );
 
 		$this->expectException( \LengthException::class );
-		QrCode::encode( str_repeat( 'x', 2000 ) );
+		QrCode::encode( str_repeat( 'x', 2332 ) );
 	}
 }

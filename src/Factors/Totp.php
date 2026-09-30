@@ -23,6 +23,7 @@ final class Totp {
 	public const PERIOD       = 30;
 	public const WINDOW       = 1;
 	public const SECRET_BYTES = 20;
+	public const LABEL_CHARS  = 64;
 
 	/**
 	 * A new random secret (160 bits, the RFC 4226 recommendation).
@@ -85,6 +86,17 @@ final class Totp {
 	}
 
 	/**
+	 * Caps a label at LABEL_CHARS characters so the key URI, and its QR code, stay small.
+	 *
+	 * @param string $label Issuer or account label.
+	 */
+	private static function label( string $label ): string {
+		$label = trim( $label );
+
+		return function_exists( 'mb_substr' ) ? mb_substr( $label, 0, self::LABEL_CHARS ) : substr( $label, 0, self::LABEL_CHARS );
+	}
+
+	/**
 	 * Strips spaces and hyphens a user may type between digit groups.
 	 *
 	 * @param string $input Raw input.
@@ -101,8 +113,9 @@ final class Totp {
 	 * @param string $account Account label shown in the app.
 	 */
 	public static function uri( string $secret, string $issuer, string $account ): string {
-		$issuer = str_replace( ':', '', $issuer );
-		$label  = rawurlencode( $issuer ) . ':' . rawurlencode( $account );
+		$issuer  = self::label( str_replace( ':', '', $issuer ) );
+		$account = self::label( $account );
+		$label   = rawurlencode( $issuer ) . ':' . rawurlencode( $account );
 
 		return 'otpauth://totp/' . $label . '?' . http_build_query(
 			array(

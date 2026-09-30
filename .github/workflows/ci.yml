@@ -133,7 +133,8 @@ jobs:
           wp core version --path="$WP_PATH"
       - name: Start PHP's server with 4 workers (the concurrency test needs parallel requests)
         run: |
-          PHP_CLI_SERVER_WORKERS=4 nohup php -S 127.0.0.1:8080 -t "$WP_PATH" > /tmp/php-server.log 2>&1 &
+          # opcache off: tests rewrite wp-config.php (MDMFA_DISABLE) and the next request must see it.
+          PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" > /tmp/php-server.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS -o /dev/null "$MDMFA_E2E_URL" && exit 0; sleep 1; done
           cat /tmp/php-server.log; exit 1
       - run: vendor/bin/phpunit --testsuite e2e --testdox
