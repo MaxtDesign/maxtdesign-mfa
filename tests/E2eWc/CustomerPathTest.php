@@ -68,6 +68,7 @@ final class CustomerPathTest extends E2eTestCase {
 	private static function assertNeverWpLogin( Browser $browser ): void {
 		foreach ( $browser->history as $url ) {
 			self::assertStringNotContainsString( 'wp-login.php', $url, 'a customer flow touched wp-login.php' );
+			self::assertStringNotContainsString( '/' . self::$login, $url, 'a customer flow touched the login slug' );
 		}
 	}
 
@@ -276,6 +277,72 @@ final class CustomerPathTest extends E2eTestCase {
 		self::assertTrue( $r->sets_cookie_prefix( 'mdmfa_pending=' ) );
 		self::assertNoAuthCookie( $r );
 		self::assertSame( 0, self::sessions( $id ) );
+	}
+
+	public function test_anonymous_crawl_of_front_end_urls_never_contains_the_slug(): void {
+		// Content that exercises every public login link: comments that require login, a
+		// password-protected post, the block checkout, and WooCommerce pages.
+		self::wp( 'option', 'update', 'comment_registration', '1' );
+		$post     = (int) self::wp( 'post', 'create', '--post_title=Crawl post', '--post_status=publish', '--post_content=Hello', '--tags_input=crawl-tag', '--porcelain' );
+		$locked   = (int) self::wp( 'post', 'create', '--post_title=Crawl locked', '--post_status=publish', '--post_password=pw', '--porcelain' );
+		$page     = (int) self::wp( 'post', 'create', '--post_type=page', '--post_title=Crawl page', '--post_status=publish', '--porcelain' );
+		$blocks   = (int) self::wp( 'post', 'create', '--post_type=page', '--post_title=Block checkout', '--post_status=publish', '--post_content=<!-- wp:woocommerce/checkout /-->', '--porcelain' );
+		$link     = static fn ( int $id ): string => self::eval( sprintf( 'echo get_permalink( %d );', $id ) );
+		$product  = $link( self::$product );
+		$b        = $this->browser();
+		$b->get( add_query( self::$checkout, 'add-to-cart', (string) self::$product ) );
+
+		$urls = array(
+			'',
+			$link( $post ),
+			$link( $post ) . 'embed/',
+			$link( $locked ),
+			$link( $page ),
+			$link( $blocks ),
+			$product,
+			self::eval( 'echo wc_get_page_permalink( "shop" );' ),
+			self::eval( 'echo wc_get_page_permalink( "shop" );' ) . '?orderby=price',
+			self::eval( 'echo wc_get_page_permalink( "cart" );' ),
+			self::$checkout,
+			self::$account,
+			self::eval( 'echo wc_lostpassword_url();' ),
+			self::eval( 'echo get_term_link( "uncategorized", "category" );' ),
+			self::eval( 'echo get_term_link( "crawl-tag", "post_tag" );' ),
+			self::eval( 'echo get_term_link( "uncategorized", "product_cat" );' ),
+			self::eval( 'echo get_author_posts_url( 1 );' ),
+			'?s=crawl',
+			'?p=' . $post,
+			'feed/',
+			'comments/feed/',
+			'wp-sitemap.xml',
+			'wp-sitemap-posts-post-1.xml',
+			'robots.txt',
+			'no-such-page-' . bin2hex( random_bytes( 3 ) ) . '/',
+			'login',
+			'admin',
+			'dashboard',
+			'wp-admin/',
+			'wp-login.php',
+			'wp-json/',
+			'wp-json/wp/v2/pages',
+			'wp-json/wc/store/v1/cart',
+			'xmlrpc.php',
+		);
+		self::assertGreaterThanOrEqual( 30, count( $urls ) );
+
+		try {
+			foreach ( $urls as $url ) {
+				$r = $b->get( $url );
+				self::assertStringNotContainsStringIgnoringCase( self::$login, $r->body, "body of /{$url}" );
+				self::assertStringNotContainsStringIgnoringCase( self::$login, $r->location(), "redirect of /{$url}" );
+				self::assertStringNotContainsStringIgnoringCase( self::$login, $r->headers['link'] ?? '', "Link header of /{$url}" );
+			}
+			$comments = $b->get( $link( $post ) );
+			self::assertStringContainsString( 'logged in', $comments->body, 'the comment form asks visitors to log in' );
+			self::assertStringContainsString( self::$account, html_entity_decode( $comments->body ), 'and links to My Account (plan decision 8)' );
+		} finally {
+			self::wp( 'option', 'update', 'comment_registration', '0' );
+		}
 	}
 
 	public function test_security_tab_turns_on_two_step_verification(): void {

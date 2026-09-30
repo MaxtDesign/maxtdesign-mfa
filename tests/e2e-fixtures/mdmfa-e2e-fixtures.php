@@ -15,8 +15,41 @@ if ( ! defined( 'MDMFA_E2E_FIXTURES' ) || ! MDMFA_E2E_FIXTURES ) {
 	return;
 }
 
-// No mail transport on the runner; the suite does not assert on mail.
-add_filter( 'pre_wp_mail', '__return_true' );
+// No mail transport on the runner: capture every message instead (newest last).
+add_filter(
+	'pre_wp_mail',
+	static function ( $short_circuit, $atts ) {
+		$mail   = (array) get_option( 'e2e_mail', array() );
+		$mail[] = array(
+			'to'      => is_array( $atts['to'] ) ? implode( ',', $atts['to'] ) : (string) $atts['to'],
+			'subject' => (string) $atts['subject'],
+			'message' => (string) $atts['message'],
+		);
+		update_option( 'e2e_mail', array_slice( $mail, -20 ), false );
+		return true;
+	},
+	10,
+	2
+);
+
+// Records the suite purge signal maxtdesign-cache would act on.
+add_action(
+	'md_suite_content_changed',
+	static function ( $payload ): void {
+		$urls   = (array) get_option( 'e2e_purged', array() );
+		$urls[] = is_array( $payload ) && isset( $payload['url'] ) ? (string) $payload['url'] : 'full';
+		update_option( 'e2e_purged', $urls, false );
+	}
+);
+
+// Reports is_login() on the login screen (plan 5.1: SCRIPT_NAME set on the slug).
+add_action(
+	'login_init',
+	static function (): void {
+		header( 'X-E2E-Is-Login: ' . ( is_login() ? '1' : '0' ) );
+		header( 'X-E2E-Pagenow: ' . $GLOBALS['pagenow'] );
+	}
+);
 
 add_action(
 	'wp_login',

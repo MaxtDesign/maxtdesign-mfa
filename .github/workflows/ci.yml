@@ -131,6 +131,8 @@ jobs:
           mkdir -p "$WP_PATH/wp-content/plugins/maxtdesign-mfa" "$WP_PATH/wp-content/mu-plugins"
           rsync -a --exclude-from=.distignore ./ "$WP_PATH/wp-content/plugins/maxtdesign-mfa/"
           cp tests/e2e-fixtures/mdmfa-e2e-fixtures.php "$WP_PATH/wp-content/mu-plugins/"
+          # Pretty permalinks, as on production sites (the router below plays nginx's try_files).
+          wp rewrite structure '/%postname%/' --path="$WP_PATH" --quiet
           wp plugin activate maxtdesign-mfa --path="$WP_PATH"
           wp core version --path="$WP_PATH"
       - name: Set up WooCommerce (classic checkout, cash on delivery, one virtual product)
@@ -154,10 +156,11 @@ jobs:
           w option update woocommerce_cod_settings '{"enabled":"yes","title":"Cash on delivery"}' --format=json --quiet
           pid=$(w wc product create --name="MFA E2E Product" --regular_price=10 --virtual=true --user=1 --porcelain)
           w option update mdmfa_e2e_product "$pid" --quiet
+          w rewrite flush --quiet
       - name: Start PHP's server with 4 workers (the concurrency test needs parallel requests)
         run: |
           # opcache off: tests rewrite wp-config.php (MDMFA_DISABLE) and the next request must see it.
-          PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" > /tmp/php-server.log 2>&1 &
+          PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" tests/e2e-fixtures/router.php > /tmp/php-server.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS -o /dev/null "$MDMFA_E2E_URL" && exit 0; sleep 1; done
           cat /tmp/php-server.log; exit 1
       - run: vendor/bin/phpunit --testsuite ${{ matrix.suite }} --testdox

@@ -124,3 +124,37 @@ function sanitize_text_field( string $text ): string {
 function wp_unslash( mixed $value ): mixed {
 	return is_string( $value ) ? stripslashes( $value ) : $value;
 }
+
+class WP_Error {
+	/** @var array<string, string[]> */
+	public array $errors = array();
+
+	public function __construct( string $code = '', string $message = '' ) {
+		if ( '' !== $code ) {
+			$this->errors[ $code ][] = $message;
+		}
+	}
+
+	public function add( string $code, string $message ): void {
+		$this->errors[ $code ][] = $message;
+	}
+
+	public function get_error_code(): string {
+		return (string) ( array_key_first( $this->errors ) ?? '' );
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public function get_error_messages(): array {
+		return array_merge( array(), ...array_values( $this->errors ) );
+	}
+}
+
+function wp_parse_url( string $url, int $component = -1 ): mixed {
+	return parse_url( $url, $component );
+}
+
+function sanitize_title( string $title ): string {
+	return trim( (string) preg_replace( '/[^a-z0-9-]+/', '-', strtolower( $title ) ), '-' );
+}

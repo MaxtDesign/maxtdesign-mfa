@@ -13,6 +13,7 @@ use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
 use MaxtDesign\Mfa\Settings\Options;
 use MaxtDesign\Mfa\Settings\Settings;
+use MaxtDesign\Mfa\Support\Clock;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -50,7 +51,10 @@ final class Installer {
 		dbDelta( Schema::credentials_sql( $wpdb ) );
 		dbDelta( Schema::site_sql( $wpdb ) );
 
-		add_option( Options::LOGIN, Settings::login_defaults(), '', true );
+		if ( add_option( Options::LOGIN, Settings::login_defaults(), '', true ) ) {
+			// New login address: show it to administrators for a day (Plugin::render_slug_notice()).
+			add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
+		}
 		add_option( Options::SETTINGS, Settings::defaults(), '', false );
 		add_option( Options::ACTIVATED_AT, time(), '', false );
 		add_option( Options::KEY_CHECK, self::key_fingerprint(), '', false );
@@ -58,6 +62,25 @@ final class Installer {
 		update_option( Options::DB_VERSION, Schema::VERSION, true );
 
 		Maintenance::schedule();
+	}
+
+	/**
+	 * Multisite: a site created on a network where the plugin is network-active installs
+	 * at once, so its login slug exists before its welcome email is sent.
+	 *
+	 * @param mixed $site New site (WP_Site).
+	 */
+	public static function initialize_site( mixed $site ): void {
+		if ( ! $site instanceof \WP_Site ) {
+			return;
+		}
+		$network = (array) get_site_option( 'active_sitewide_plugins', array() );
+		if ( ! isset( $network[ plugin_basename( MDMFA_FILE ) ] ) ) {
+			return;
+		}
+		switch_to_blog( (int) $site->blog_id );
+		self::install();
+		restore_current_blog();
 	}
 
 	/**
