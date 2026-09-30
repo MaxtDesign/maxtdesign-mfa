@@ -58,7 +58,7 @@ for t in mdmfa_credentials mdmfa_pending mdmfa_log; do
 	expect "table $t exists" 1 "$got"
 done
 
-expect "db version" 1 "$(wpc option get mdmfa_db_version)"
+expect "db version" 2 "$(wpc option get mdmfa_db_version)"
 slug=$(wpc eval '$o = get_option( "mdmfa_login" ); echo is_array( $o ) ? $o["slug"] : "";')
 if [[ "$slug" =~ ^[a-z0-9]{12}$ ]]; then pass "login slug generated"; else fail "login slug: '$slug'"; fi
 expect "settings seeded" required "$(wpc eval '$s = get_option( "mdmfa_settings" ); echo $s["roles"]["administrator"]["policy"] ?? "";')"
@@ -84,7 +84,7 @@ expect "no upgrade hook while disabled" 0 "$(wpc eval 'echo (int) has_action( "p
 wpc config delete MDMFA_DISABLE --type=constant --quiet
 
 echo "== seed everything uninstall must remove"
-for key in mdmfa_totp mdmfa_recovery mdmfa_email mdmfa_user_handle mdmfa_enrolled mdmfa_grace_started mdmfa_failures mdmfa_trusted mdmfa_prefs mdmfa_future_key; do
+for key in mdmfa_totp mdmfa_totp_step mdmfa_totp_pending mdmfa_recovery mdmfa_email mdmfa_user_handle mdmfa_enrolled mdmfa_grace_started mdmfa_failures mdmfa_trusted mdmfa_prefs mdmfa_future_key; do
 	wpc user meta add 1 "$key" x --quiet
 done
 wpc transient set mdmfa_status_cache x 900 --quiet

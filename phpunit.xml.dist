@@ -8,10 +8,15 @@
          failOnRisky="true"
          failOnDeprecation="true"
          failOnNotice="true"
-         beStrictAboutOutputDuringTests="true">
+         beStrictAboutOutputDuringTests="true"
+         defaultTestSuite="unit">
     <testsuites>
         <testsuite name="unit">
             <directory>tests/Unit</directory>
+        </testsuite>
+        <!-- Needs a live WordPress: CI job "e2e" (MDMFA_E2E_URL, WP_PATH). Skips otherwise. -->
+        <testsuite name="e2e">
+            <directory>tests/E2e</directory>
         </testsuite>
     </testsuites>
     <source>

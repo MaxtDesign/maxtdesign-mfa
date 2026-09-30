@@ -42,5 +42,6 @@ spl_autoload_register(
 );
 
 register_activation_hook( __FILE__, array( \MaxtDesign\Mfa\Install\Installer::class, 'activate' ) );
+register_deactivation_hook( __FILE__, array( \MaxtDesign\Mfa\Install\Installer::class, 'deactivate' ) );
 
 \MaxtDesign\Mfa\Plugin::boot();

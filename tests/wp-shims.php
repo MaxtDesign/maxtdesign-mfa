@@ -1,0 +1,126 @@
+<?php
+/**
+ * User, meta, password, action and mail stand-ins for unit tests, backed by
+ * $GLOBALS['mdmfa_test'] (see bootstrap.php).
+ *
+ * @package MaxtDesign\Mfa
+ */
+
+declare(strict_types=1);
+
+// phpcs:ignoreFile
+
+/**
+ * Minimal user object. Constructing one registers it for get_userdata().
+ */
+class WP_User {
+	public int $ID;
+	/** @var string[] */
+	public array $roles;
+	public string $user_login;
+	public string $user_email;
+	public string $user_activation_key = '';
+
+	/**
+	 * @param string[] $roles
+	 */
+	public function __construct( int $id = 1, array $roles = array( 'administrator' ) ) {
+		$this->ID         = $id;
+		$this->roles      = $roles;
+		$this->user_login = 'user' . $id;
+		$this->user_email = 'user' . $id . '@example.com';
+		$GLOBALS['mdmfa_test']['users'][ $id ] = $this;
+	}
+
+	public function exists(): bool {
+		return $this->ID > 0;
+	}
+
+	public function has_cap( string $cap ): bool {
+		return true;
+	}
+}
+
+function maybe_serialize( mixed $data ): mixed {
+	return is_array( $data ) || is_object( $data ) ? serialize( $data ) : $data;
+}
+
+function get_user_meta( int $user_id, string $key = '', bool $single = false ): mixed {
+	$value = $GLOBALS['mdmfa_test']['usermeta'][ $user_id ][ $key ] ?? null;
+	if ( $single ) {
+		return $value ?? '';
+	}
+	return null === $value ? array() : array( $value );
+}
+
+function update_user_meta( int $user_id, string $key, mixed $value ): bool {
+	$GLOBALS['mdmfa_test']['usermeta'][ $user_id ][ $key ] = $value;
+	return true;
+}
+
+function delete_user_meta( int $user_id, string $key ): bool {
+	unset( $GLOBALS['mdmfa_test']['usermeta'][ $user_id ][ $key ] );
+	return true;
+}
+
+function get_userdata( int $user_id ): mixed {
+	return $GLOBALS['mdmfa_test']['users'][ $user_id ] ?? false;
+}
+
+function is_super_admin( mixed $user_id = false ): bool {
+	return in_array( $user_id, $GLOBALS['mdmfa_test']['super_admins'], true );
+}
+
+function wp_hash_password( string $password ): string {
+	return password_hash( $password, PASSWORD_BCRYPT, array( 'cost' => 4 ) );
+}
+
+function wp_check_password( string $password, string $hash, mixed $user_id = '' ): bool {
+	return password_verify( $password, $hash );
+}
+
+function do_action( string $hook, mixed ...$args ): void {
+	$GLOBALS['mdmfa_test']['actions'][] = array_merge( array( $hook ), $args );
+}
+
+function wp_mail( string $to, string $subject, string $message ): bool {
+	$GLOBALS['mdmfa_test']['mail'][] = array( $to, $subject, $message );
+	return true;
+}
+
+function wp_specialchars_decode( string $text, mixed $quote_style = 0 ): string {
+	return $text;
+}
+
+function wp_date( string $format, ?int $timestamp = null ): string {
+	return gmdate( $format, $timestamp ?? time() );
+}
+
+function is_email( string $email ): string|false {
+	return false !== filter_var( $email, FILTER_VALIDATE_EMAIL ) ? $email : false;
+}
+
+function __( string $text, string $domain = 'default' ): string {
+	return $text;
+}
+
+function esc_attr( string $text ): string {
+	return htmlspecialchars( $text, ENT_QUOTES );
+}
+
+function wp_next_scheduled( string $hook ): int|false {
+	return $GLOBALS['mdmfa_test']['scheduled'][ $hook ] ?? false;
+}
+
+function wp_schedule_event( int $timestamp, string $recurrence, string $hook ): bool {
+	$GLOBALS['mdmfa_test']['scheduled'][ $hook ] = $timestamp;
+	return true;
+}
+
+function sanitize_text_field( string $text ): string {
+	return trim( strip_tags( $text ) );
+}
+
+function wp_unslash( mixed $value ): mixed {
+	return is_string( $value ) ? stripslashes( $value ) : $value;
+}

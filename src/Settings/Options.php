@@ -59,6 +59,8 @@ final class Options {
 	public static function user_meta_keys(): array {
 		return array(
 			'mdmfa_totp',
+			'mdmfa_totp_step',
+			'mdmfa_totp_pending',
 			'mdmfa_recovery',
 			'mdmfa_email',
 			'mdmfa_user_handle',

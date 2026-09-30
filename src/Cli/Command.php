@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Cli;
 
+use MaxtDesign\Mfa\Auth\Lockout;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
 use MaxtDesign\Mfa\Install\Schema;
@@ -80,11 +81,41 @@ final class Command {
 	}
 
 	/**
+	 * Clears a user's second-factor lockout and failure count.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <user>
+	 * : User ID, login or email.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp mdmfa unlock admin
+	 *
+	 * @param string[] $args Positional arguments.
+	 */
+	public function unlock( array $args ): void {
+		$identifier = $args[0] ?? '';
+		$user       = is_numeric( $identifier ) ? get_user_by( 'id', (int) $identifier ) : get_user_by( 'login', $identifier );
+		if ( ! $user instanceof \WP_User && is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+		}
+		if ( ! $user instanceof \WP_User ) {
+			\WP_CLI::warning( 'User not found.' );
+			return;
+		}
+		Lockout::unlock( $user->ID, null );
+		\WP_CLI::success( sprintf( 'Unlocked %s.', $user->user_login ) );
+	}
+
+	/**
 	 * Read-only status values. No secrets, no key material, no slug.
 	 *
-	 * @return array<string, string|bool>
+	 * @return array<string, string|bool|int>
 	 */
 	public static function snapshot(): array {
+		global $wpdb;
+
 		$login   = get_option( Options::LOGIN, array() );
 		$stored  = get_option( Options::KEY_CHECK, array() );
 		$kid     = '';
@@ -110,6 +141,8 @@ final class Command {
 			'login_location' => $enabled,
 			'key_source'     => $source,
 			'key_ok'         => $key_ok,
+			// Network-wide user meta; P7's status contract adds the per-role breakdown.
+			'enrolled_users' => (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(DISTINCT user_id) FROM %i WHERE meta_key = %s', $wpdb->usermeta, 'mdmfa_enrolled' ) ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- CLI-only count.
 		);
 	}
 }
