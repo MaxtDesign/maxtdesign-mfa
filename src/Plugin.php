@@ -18,6 +18,13 @@ use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
 use MaxtDesign\Mfa\Install\Maintenance;
 use MaxtDesign\Mfa\Frontend\LoginForm;
+use MaxtDesign\Mfa\Location\CacheBridge;
+use MaxtDesign\Mfa\Location\LoginLocation;
+use MaxtDesign\Mfa\Location\Router;
+use MaxtDesign\Mfa\Location\UrlRewriter;
+use MaxtDesign\Mfa\Cli\SlugCommand;
+use MaxtDesign\Mfa\Settings\Options;
+use MaxtDesign\Mfa\Support\Clock;
 use MaxtDesign\Mfa\Screens\LoginScreens;
 use MaxtDesign\Mfa\WooCommerce\AccountChallenge;
 use MaxtDesign\Mfa\WooCommerce\SecurityEndpoint;
@@ -61,6 +68,7 @@ final class Plugin {
 		}
 
 		add_action( 'plugins_loaded', array( Installer::class, 'maybe_upgrade' ) );
+		add_action( 'wp_initialize_site', array( Installer::class, 'initialize_site' ), 20 );
 		add_action( 'before_woocommerce_init', array( self::class, 'declare_wc_compatibility' ) );
 
 		// Registration only: every callback below works on demand, in login, admin or
@@ -71,6 +79,11 @@ final class Plugin {
 		LoginScreens::register();
 		Maintenance::register();
 		LoginForm::register();
+		// Login location (plan 5): routing, 404s, URL rewrites, cache signals.
+		Router::register();
+		UrlRewriter::register();
+		CacheBridge::register();
+		add_action( 'admin_notices', array( self::class, 'render_slug_notice' ) );
 		// WooCommerce hooks are inert until WooCommerce loads.
 		AccountChallenge::register();
 		SecurityEndpoint::register();
@@ -110,6 +123,7 @@ final class Plugin {
 		if ( class_exists( '\WP_CLI' ) ) {
 			\WP_CLI::add_command( 'mdmfa', Command::class );
 			\WP_CLI::add_command( 'mdmfa user', UserCommand::class );
+			\WP_CLI::add_command( 'mdmfa slug', SlugCommand::class );
 		}
 	}
 
@@ -122,6 +136,26 @@ final class Plugin {
 		}
 		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', MDMFA_FILE, true );
 		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', MDMFA_FILE, true );
+	}
+
+	/**
+	 * For a day after a slug change, reminds administrators of the new login address.
+	 */
+	public static function render_slug_notice(): void {
+		if ( ! current_user_can( self::MANAGE_CAP ) || ! LoginLocation::enabled() ) {
+			return;
+		}
+		$notices = get_option( Options::NOTICES, array() );
+		$changed = is_array( $notices ) && isset( $notices['slug_changed'] ) ? (int) $notices['slug_changed'] : 0;
+		if ( $changed < Clock::now() - DAY_IN_SECONDS ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
+			esc_html__( 'The login address changed. Bookmark the new one:', 'maxtdesign-mfa' ),
+			esc_url( LoginLocation::url() ),
+			esc_html( LoginLocation::url() )
+		);
 	}
 
 	/**

@@ -67,7 +67,7 @@ final class LoginFlowTest extends E2eTestCase {
 		$logins                    = self::counter( 'e2e_wp_login' );
 
 		$this->password( $browser, $login, $pass );
-		$token = $browser->get( 'wp-login.php?action=mdmfa-verify' )->form_token();
+		$token = $browser->get( self::lp( 'action=mdmfa-verify' ) )->form_token();
 		$form  = array(
 			'mdmfa_form' => $token,
 			'mdmfa_code' => self::code( $secret ),
@@ -75,8 +75,8 @@ final class LoginFlowTest extends E2eTestCase {
 
 		$responses = $browser->post_concurrently(
 			array(
-				array( 'wp-login.php?action=mdmfa-verify&method=totp', $form ),
-				array( 'wp-login.php?action=mdmfa-verify&method=totp', $form ),
+				array( self::lp( 'action=mdmfa-verify&method=totp' ), $form ),
+				array( self::lp( 'action=mdmfa-verify&method=totp' ), $form ),
 			)
 		);
 
@@ -97,7 +97,7 @@ final class LoginFlowTest extends E2eTestCase {
 		}
 		self::assertStringContainsString( 'Too many wrong codes. For your security, please log in again.', $response->body );
 
-		$sixth = $browser->get( 'wp-login.php?action=mdmfa-verify' );
+		$sixth = $browser->get( self::lp( 'action=mdmfa-verify' ) );
 		self::assertStringContainsString( 'Your sign-in expired', $sixth->body, 'the record is gone: even a correct code cannot be used' );
 		self::assertSame( 0, self::sessions( $id ) );
 	}
@@ -214,11 +214,11 @@ final class LoginFlowTest extends E2eTestCase {
 		$response = $this->password( $browser, $login, $pass, array( 'interim-login' => '1' ) );
 		self::assertStringContainsString( 'action=mdmfa-verify', $response->location() );
 
-		$page = $browser->get( 'wp-login.php?action=mdmfa-verify' );
+		$page = $browser->get( self::lp( 'action=mdmfa-verify' ) );
 		self::assertStringContainsString( 'interim-login', $page->body );
 
 		$ok = $browser->post(
-			'wp-login.php?action=mdmfa-verify&method=totp',
+			self::lp( 'action=mdmfa-verify&method=totp' ),
 			array(
 				'mdmfa_form' => $page->form_token(),
 				'mdmfa_code' => self::code( $secret ),
@@ -237,11 +237,11 @@ final class LoginFlowTest extends E2eTestCase {
 		self::assertStringContainsString( 'action=mdmfa-enroll', $response->location() );
 		self::assertNoAuthCookie( $response );
 
-		$page = $browser->get( 'wp-login.php?action=mdmfa-enroll' );
+		$page = $browser->get( self::lp( 'action=mdmfa-enroll' ) );
 		self::assertStringContainsString( 'days left to set it up', $page->body );
 
 		$skip = $browser->post(
-			'wp-login.php?action=mdmfa-enroll',
+			self::lp( 'action=mdmfa-enroll' ),
 			array(
 				'mdmfa_form' => $page->form_token(),
 				'mdmfa_skip' => '1',
@@ -258,14 +258,14 @@ final class LoginFlowTest extends E2eTestCase {
 		$browser = $this->browser();
 
 		$this->password( $browser, $login, $pass );
-		$page = $browser->get( 'wp-login.php?action=mdmfa-enroll' );
+		$page = $browser->get( self::lp( 'action=mdmfa-enroll' ) );
 		self::assertStringContainsString( '<svg', $page->body, 'QR code rendered inline' );
 		self::assertStringNotContainsString( 'mdmfa_skip', $page->body, 'no skip once grace is over' );
 		self::assertSame( 1, preg_match( '/<code class="mdmfa-secret">([A-Z2-7 ]+)<\/code>/', $page->body, $m ) );
 		$secret = (string) \MaxtDesign\Mfa\Support\Base32::decode( $m[1] );
 
 		$codes = $browser->post(
-			'wp-login.php?action=mdmfa-enroll',
+			self::lp( 'action=mdmfa-enroll' ),
 			array(
 				'mdmfa_form' => $page->form_token(),
 				'mdmfa_code' => self::code( $secret ),
@@ -275,7 +275,7 @@ final class LoginFlowTest extends E2eTestCase {
 		self::assertNoAuthCookie( $codes, 'no session until the codes are acknowledged' );
 
 		$done = $browser->post(
-			'wp-login.php?action=mdmfa-enroll',
+			self::lp( 'action=mdmfa-enroll' ),
 			array(
 				'mdmfa_form'  => $codes->form_token(),
 				'mdmfa_saved' => '1',
@@ -308,8 +308,8 @@ final class LoginFlowTest extends E2eTestCase {
 		self::enroll( $id );
 		self::wp( 'config', 'set', 'MDMFA_DISABLE', 'true', '--raw', '--type=constant' );
 		try {
-			$response = $this->password( $this->browser(), $login, $pass );
-			self::assertTrue( $response->sets_cookie_prefix( 'wordpress_logged_in_' ) );
+			$response = $this->browser()->post( 'wp-login.php', array( 'log' => $login, 'pwd' => $pass, 'wp-submit' => 'Log In' ) );
+			self::assertTrue( $response->sets_cookie_prefix( 'wordpress_logged_in_' ), 'MDMFA_DISABLE also restores wp-login.php' );
 			self::assertFalse( $response->sets_cookie_prefix( 'mdmfa_pending=' ) );
 		} finally {
 			self::wp( 'config', 'delete', 'MDMFA_DISABLE', '--type=constant' );

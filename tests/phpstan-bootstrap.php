@@ -10,3 +10,7 @@ declare(strict_types=1);
 define( 'MDMFA_VERSION', '0.0.0' );
 define( 'MDMFA_FILE', __FILE__ );
 define( 'MDMFA_DIR', __DIR__ );
+
+if ( ! defined( 'WPINC' ) ) {
+	define( 'WPINC', 'wp-includes' );
+}

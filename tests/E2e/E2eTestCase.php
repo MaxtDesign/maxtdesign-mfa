@@ -20,6 +20,9 @@ abstract class E2eTestCase extends TestCase {
 	protected static string $url  = '';
 	protected static string $path = '';
 
+	/** Login page path relative to the site root ('abc123def456'), from `wp mdmfa slug get`. */
+	protected static string $login = '';
+
 	public static function setUpBeforeClass(): void {
 		self::$url  = (string) getenv( 'MDMFA_E2E_URL' );
 		self::$path = (string) getenv( 'WP_PATH' );
@@ -29,6 +32,16 @@ abstract class E2eTestCase extends TestCase {
 		if ( '' === self::$url || '' === self::$path ) {
 			self::markTestSkipped( 'MDMFA_E2E_URL and WP_PATH are not set (CI job "e2e" runs this suite).' );
 		}
+		if ( '' === self::$login ) {
+			self::$login = ltrim( substr( self::wp( 'mdmfa', 'slug', 'get' ), strlen( rtrim( self::$url, '/' ) ) ), '/' );
+		}
+	}
+
+	/**
+	 * Login page path with an optional query string.
+	 */
+	protected static function lp( string $query = '' ): string {
+		return self::$login . ( '' !== $query ? '?' . $query : '' );
 	}
 
 	protected function browser(): Browser {
@@ -130,16 +143,16 @@ abstract class E2eTestCase extends TestCase {
 	 * @param array<string, string> $extra
 	 */
 	protected function password( Browser $browser, string $login, string $pass, array $extra = array() ): Response {
-		return $browser->post( 'wp-login.php', array_merge( array( 'log' => $login, 'pwd' => $pass, 'wp-submit' => 'Log In' ), $extra ) );
+		return $browser->post( self::lp(), array_merge( array( 'log' => $login, 'pwd' => $pass, 'wp-submit' => 'Log In' ), $extra ) );
 	}
 
 	/**
 	 * Fetches the verify screen and submits a code.
 	 */
 	protected function submit_code( Browser $browser, string $code, string $method = 'totp' ): Response {
-		$page = $browser->get( 'wp-login.php?action=mdmfa-verify&method=' . $method );
+		$page = $browser->get( self::lp( 'action=mdmfa-verify&method=' . $method ) );
 		return $browser->post(
-			'wp-login.php?action=mdmfa-verify&method=' . $method,
+			self::lp( 'action=mdmfa-verify&method=' . $method ),
 			array(
 				'mdmfa_form' => $page->form_token(),
 				'mdmfa_code' => $code,

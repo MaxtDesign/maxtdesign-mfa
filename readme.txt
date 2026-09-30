@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 works with authenticator apps (TOTP) and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout. Passkeys, the moved login address, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
+**Development build.** Version 0.1.0 works with authenticator apps (TOTP) and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. Passkeys, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -39,8 +39,9 @@ This plugin helps sites work toward requirements such as PCI DSS 8.4 and NIST SP
 == Installation ==
 
 1. Upload the plugin and activate it.
-2. Administrators, editors and shop managers are asked to set up an authenticator app at their next login, with 7 days of grace. Everyone else can turn it on under Users, My security.
-3. Run `wp mdmfa status` to confirm the plugin installed its tables and settings.
+2. The login moves to a random address and `wp-login.php` returns a 404. A notice in the dashboard shows the new address for a day after activation: bookmark it. `wp mdmfa slug get` prints it at any time.
+3. Administrators, editors and shop managers are asked to set up an authenticator app at their next login, with 7 days of grace. Everyone else can turn it on under Users, My security.
+4. Run `wp mdmfa status` to confirm the plugin installed its tables and settings.
 
 == Frequently Asked Questions ==
 
@@ -51,6 +52,19 @@ Add `define( 'MDMFA_DISABLE', true );` to `wp-config.php`. Logins go back to pas
 = Does it send any data anywhere? =
 
 No. The plugin makes no outbound HTTP requests. Emailed codes, when you turn them on, go through your site's own `wp_mail()`.
+
+= I lost the login address. How do I get in? =
+
+Any of these works:
+
+* Run `wp mdmfa slug get` on the server.
+* Add `define( 'MDMFA_LOGIN_SLUG', 'your-address' );` to `wp-config.php` to set the address yourself.
+* Add `define( 'MDMFA_DISABLE_LOGIN_LOCATION', true );` to put the login back at `wp-login.php` and keep two-step verification on.
+* Search your email: administrators get the new address every time it changes.
+
+= Does the moved login need special server setup? =
+
+No rewrite rules and no permalink change. The server has to send unknown paths to WordPress's `index.php`, which is the standard setup for Apache (the WordPress `.htaccess` rules), nginx (`try_files`) and managed hosts. Password-protected posts, privacy request confirmations and recovery-mode links keep using `wp-login.php`, because they are sent to people who should not learn the login address.
 
 = Is the moved login address a security feature? =
 
@@ -81,5 +95,8 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: a WooCommerce password reset no longer logs an enrolled customer straight in; it asks for the second step first.
 * New: My Account, Security tab for customers to manage their authenticator app and recovery codes.
 * New: front-end login forms (the core login form and the Login/out block) sign in without passing through wp-login.php.
+* New: the login moves to a random address. `wp-login.php` and logged-out `wp-admin` return a 404, the `/login` and `/admin` shortcuts no longer redirect there, and every link WordPress builds points at the new address. On WooCommerce stores, logged-out visitors are sent to My Account instead, so browsing the store never reveals it.
+* New: lost-address recovery through `wp mdmfa slug get|set|reset`, the `MDMFA_LOGIN_SLUG` and `MDMFA_DISABLE_LOGIN_LOCATION` constants, and an email to every administrator when the address changes.
+* New: the login address is kept out of page caches (no-store, DONOTCACHEPAGE, LiteSpeed and WP Rocket exclusions, MaxtDesign Cache purge on change).
 * New: `wp mdmfa status`, `wp mdmfa disable-check`, `wp mdmfa unlock` and `wp mdmfa user status|reset`.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.
