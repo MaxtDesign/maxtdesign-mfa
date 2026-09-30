@@ -29,11 +29,11 @@ count_rows() {
 		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE meta_key LIKE %s", $wpdb->usermeta, $like ) );
 		$sites = is_multisite() ? get_sites( array( "fields" => "ids", "number" => 0 ) ) : array( 1 );
 		foreach ( $sites as $id ) {
-			switch_to_blog( (int) $id );
+			is_multisite() && switch_to_blog( (int) $id );
 			$total += (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE option_name LIKE %s", $wpdb->options, $like ) );
 			$cron   = _get_cron_array();
 			$total += false !== strpos( (string) wp_json_encode( $cron ), "mdmfa_" ) ? 1 : 0;
-			restore_current_blog();
+			is_multisite() && restore_current_blog();
 		}
 		if ( is_multisite() ) {
 			$total += (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE meta_key LIKE %s", $wpdb->sitemeta, $like ) );
