@@ -10,6 +10,7 @@
 	<file>uninstall.php</file>
 	<file>src</file>
 	<file>tools</file>
+	<file>templates</file>
 	<file>languages</file>
 
 	<config name="minimum_wp_version" value="7.0"/>

@@ -131,8 +131,13 @@ final class Interceptor {
 	private static function payload( string $context, string $decision ): array {
 		// phpcs:disable WordPress.Security.NonceVerification -- the login forms carry no nonce (core reads the same fields); values are only stored and validated at use.
 		$redirect = '';
-		if ( Context::WC === $context && isset( $_POST['redirect'] ) && is_string( $_POST['redirect'] ) ) {
-			$redirect = wp_unslash( $_POST['redirect'] );
+		if ( Context::WC === $context ) {
+			// WC_Form_Handler::process_login() order: posted redirect, then referer.
+			if ( isset( $_POST['redirect'] ) && is_string( $_POST['redirect'] ) && '' !== $_POST['redirect'] ) {
+				$redirect = wp_unslash( $_POST['redirect'] );
+			} elseif ( function_exists( 'wc_get_raw_referer' ) ) {
+				$redirect = (string) wc_get_raw_referer();
+			}
 		} elseif ( isset( $_REQUEST['redirect_to'] ) && is_string( $_REQUEST['redirect_to'] ) ) {
 			$redirect = wp_unslash( $_REQUEST['redirect_to'] );
 		}

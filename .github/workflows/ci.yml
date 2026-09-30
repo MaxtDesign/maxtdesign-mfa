@@ -55,7 +55,7 @@ jobs:
           php-version: '8.3'
           coverage: none
       - run: composer install --no-interaction --no-progress
-      - run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+      - run: vendor/bin/phpstan analyse --memory-limit=2G --no-progress
 
   phpunit:
     name: PHPUnit (PHP ${{ matrix.php }})
@@ -89,12 +89,14 @@ jobs:
       - run: php tools/qr-decode-check.php
 
   e2e:
-    name: End-to-end login flows (PHP ${{ matrix.php }})
+    name: End-to-end ${{ matrix.suite }} (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         php: ['8.3', '8.5']
+        # e2e: core login screen, no WooCommerce. e2e-wc: the customer path on WooCommerce.
+        suite: ['e2e', 'e2e-wc']
     services:
       mysql:
         image: mysql:8.0
@@ -131,13 +133,34 @@ jobs:
           cp tests/e2e-fixtures/mdmfa-e2e-fixtures.php "$WP_PATH/wp-content/mu-plugins/"
           wp plugin activate maxtdesign-mfa --path="$WP_PATH"
           wp core version --path="$WP_PATH"
+      - name: Set up WooCommerce (classic checkout, cash on delivery, one virtual product)
+        if: matrix.suite == 'e2e-wc'
+        run: |
+          set -euo pipefail
+          w() { wp --path="$WP_PATH" "$@"; }
+          w plugin install woocommerce --activate --quiet
+          w plugin list --name=woocommerce --fields=name,version
+          # New stores start in coming-soon mode, which hides the shop from logged-out visitors.
+          w option update woocommerce_coming_soon no --quiet
+          w wc tool run install_pages --user=1 --quiet
+          w option update woocommerce_default_country 'US:TX' --quiet
+          w post update "$(w option get woocommerce_myaccount_page_id)" --post_content='<!-- wp:shortcode -->[woocommerce_my_account]<!-- /wp:shortcode -->' --quiet
+          w post update "$(w option get woocommerce_checkout_page_id)" --post_content='<!-- wp:shortcode -->[woocommerce_checkout]<!-- /wp:shortcode -->' --quiet
+          w post update "$(w option get woocommerce_cart_page_id)" --post_content='<!-- wp:shortcode -->[woocommerce_cart]<!-- /wp:shortcode -->' --quiet
+          w option update woocommerce_enable_checkout_login_reminder yes --quiet
+          w option update woocommerce_enable_signup_and_login_from_checkout yes --quiet
+          w option update woocommerce_registration_generate_password yes --quiet
+          w option update woocommerce_enable_guest_checkout yes --quiet
+          w option update woocommerce_cod_settings '{"enabled":"yes","title":"Cash on delivery"}' --format=json --quiet
+          pid=$(w wc product create --name="MFA E2E Product" --regular_price=10 --virtual=true --user=1 --porcelain)
+          w option update mdmfa_e2e_product "$pid" --quiet
       - name: Start PHP's server with 4 workers (the concurrency test needs parallel requests)
         run: |
           # opcache off: tests rewrite wp-config.php (MDMFA_DISABLE) and the next request must see it.
           PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" > /tmp/php-server.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS -o /dev/null "$MDMFA_E2E_URL" && exit 0; sleep 1; done
           cat /tmp/php-server.log; exit 1
-      - run: vendor/bin/phpunit --testsuite e2e --testdox
+      - run: vendor/bin/phpunit --testsuite ${{ matrix.suite }} --testdox
       - name: Server log on failure
         if: failure()
         run: tail -n 200 /tmp/php-server.log

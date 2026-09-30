@@ -126,10 +126,10 @@ final class SettingsTest extends TestCase {
 		self::assertCount( 500, $seen );
 	}
 
-	public function test_every_option_is_prefixed_and_only_login_and_db_version_autoload(): void {
+	public function test_every_option_is_prefixed_and_only_small_request_path_options_autoload(): void {
 		foreach ( Options::all() as $name => $autoload ) {
 			self::assertStringStartsWith( 'mdmfa_', $name );
-			self::assertSame( in_array( $name, array( Options::LOGIN, Options::DB_VERSION ), true ), $autoload, $name );
+			self::assertSame( in_array( $name, array( Options::LOGIN, Options::DB_VERSION, Options::REWRITE ), true ), $autoload, $name );
 		}
 		foreach ( array_merge( Options::user_meta_keys(), Options::transients() ) as $key ) {
 			self::assertStringStartsWith( 'mdmfa_', $key );

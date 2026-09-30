@@ -149,7 +149,7 @@ final class BypassGuard {
 			PendingStore::update_payload( $record, array_merge( $record->payload, array( 'redirect_to' => substr( wp_sanitize_redirect( $location ), 0, 2048 ) ) ) );
 		}
 
-		return ChallengeUrl::for_decision( self::$decision, 'guard' );
+		return ChallengeUrl::for_decision( self::$decision, 'guard', is_string( $location ) ? $location : '' );
 	}
 
 	/**

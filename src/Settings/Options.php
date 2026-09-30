@@ -29,6 +29,9 @@ final class Options {
 	/** Key id fingerprint only, never key material. */
 	public const KEY_CHECK = 'mdmfa_key_check';
 
+	/** Autoloaded: rewrite-rules version of the My Account Security endpoint. */
+	public const REWRITE = 'mdmfa_rewrite_version';
+
 	public const ACTIVATED_AT = 'mdmfa_activated_at';
 	public const NOTICES      = 'mdmfa_notices';
 
@@ -48,6 +51,7 @@ final class Options {
 			self::KEY_CHECK    => false,
 			self::ACTIVATED_AT => false,
 			self::NOTICES      => false,
+			self::REWRITE      => true,
 		);
 	}
 

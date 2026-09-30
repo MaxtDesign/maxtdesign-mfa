@@ -17,7 +17,10 @@ use MaxtDesign\Mfa\Cli\Command;
 use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
 use MaxtDesign\Mfa\Install\Maintenance;
+use MaxtDesign\Mfa\Frontend\LoginForm;
 use MaxtDesign\Mfa\Screens\LoginScreens;
+use MaxtDesign\Mfa\WooCommerce\AccountChallenge;
+use MaxtDesign\Mfa\WooCommerce\SecurityEndpoint;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -67,6 +70,10 @@ final class Plugin {
 		BypassGuard::register();
 		LoginScreens::register();
 		Maintenance::register();
+		LoginForm::register();
+		// WooCommerce hooks are inert until WooCommerce loads.
+		AccountChallenge::register();
+		SecurityEndpoint::register();
 		if ( is_admin() ) {
 			AccountPage::register();
 		}

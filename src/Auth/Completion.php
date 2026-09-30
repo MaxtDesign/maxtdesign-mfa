@@ -126,7 +126,18 @@ final class Completion {
 			self::core_redirect( $user, $record );
 		}
 
-		wp_safe_redirect( wp_validate_redirect( $record->string( 'redirect_to' ), home_url( '/' ) ) );
+		$account  = ChallengeUrl::account();
+		$fallback = '' !== $account ? $account : home_url( '/' );
+		$target   = $record->string( 'redirect_to' );
+		if ( Context::WC === $record->context() ) {
+			// Mirrors WC_Form_Handler::process_login(): the woocommerce_login_redirect
+			// filter, minus the wc_error and password-reset args, validated to My Account.
+			$target = '' !== $target ? $target : $fallback;
+			$target = (string) apply_filters( 'woocommerce_login_redirect', $target, $user ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's filter, applied where its own login would have.
+			$target = remove_query_arg( array( 'wc_error', 'password-reset' ), $target );
+		}
+
+		wp_safe_redirect( wp_validate_redirect( $target, $fallback ) );
 		exit;
 	}
 

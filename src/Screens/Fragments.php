@@ -66,18 +66,49 @@ final class Fragments {
 	 * @param string $label     Visible label.
 	 * @param bool   $recovery  Recovery-code field (longer, not numeric).
 	 * @param string $css_class Input class.
+	 * @param string $row_class Wrapper paragraph class.
 	 */
-	public static function code_field( string $id, string $label, bool $recovery = false, string $css_class = 'input' ): string {
+	public static function code_field( string $id, string $label, bool $recovery = false, string $css_class = 'input', string $row_class = '' ): string {
 		$attributes = $recovery
 			? 'autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"'
 			: 'autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8"';
 
 		return sprintf(
-			'<p><label for="%1$s">%2$s</label><input type="text" name="%1$s" id="%1$s" class="%3$s" value="" size="20" required autofocus %4$s></p>',
+			'<p%5$s><label for="%1$s">%2$s</label><input type="text" name="%1$s" id="%1$s" class="%3$s" value="" size="20" required autofocus %4$s></p>',
 			esc_attr( $id ),
 			esc_html( $label ),
 			esc_attr( $css_class ),
-			$attributes
+			$attributes,
+			'' !== $row_class ? ' class="' . esc_attr( $row_class ) . '"' : ''
+		);
+	}
+
+	/**
+	 * Grace-period prompt text.
+	 *
+	 * @param int $days Days left.
+	 */
+	public static function grace_message( int $days ): string {
+		return sprintf(
+			/* translators: %d: days left to set up two-step verification. */
+			_n( 'Your account needs two-step verification. You have %d day left to set it up.', 'Your account needs two-step verification. You have %d days left to set it up.', $days, 'maxtdesign-mfa' ),
+			$days
+		);
+	}
+
+	/**
+	 * Recovery codes on first render (or a note after), plus the "saved" checkbox.
+	 *
+	 * @param string[] $codes Codes to show once, or none.
+	 */
+	public static function recovery_block( array $codes ): string {
+		$html = array() !== $codes
+			? self::recovery_codes( $codes )
+			: '<p>' . esc_html__( 'Your recovery codes were shown once. If you did not save them, create new ones in your account security settings after you sign in.', 'maxtdesign-mfa' ) . '</p>';
+
+		return $html . sprintf(
+			'<p><label><input type="checkbox" name="mdmfa_saved" value="1" required> %s</label></p>',
+			esc_html__( 'I have saved my recovery codes', 'maxtdesign-mfa' )
 		);
 	}
 }
