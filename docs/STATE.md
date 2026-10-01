@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-09-30 by session (Build P6, wp-plugin-dev)
+Updated: 2026-10-01 by session (Build P7, wp-plugin-dev)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -7,28 +7,31 @@ MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; pr
 `{$wpdb->base_prefix}mdmfa_credentials`; namespace `MaxtDesign\Mfa`. Registry row
 `| MaxtDesign MFA |` in `C:/maxt/ops/sops/agent-sops/naming-registry.md` (active, unshipped).
 Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free only, no licensing
-code. Version 0.1.0 (unreleased; P2-P6 folded into it, nothing on wp.org).
+code. Version 0.1.0 (unreleased; P2-P7 folded into it, nothing on wp.org).
 
 ## Status
-Build phase. `main` = P1-P5 (P5 `84dd781` PR #4, 2026-09-30). P6 is on
-`feat/email-code-side-doors`, CI green (run 36814321766, 19/19 jobs), PR open for operator review:
-- Email code factor (`Factors/EmailCode`): 6 digits, 10 min, 5 tries, bound to the pending login;
-  3 sends / 15 min and 10 / day per user; on both challenge screens and both security screens.
-- Trusted devices (`Auth/TrustedDevice`): per role, off everywhere by default, cookie `mdmfa_td`
-  (selector:validator, validator stored as `wp_fast_hash`), max 10, 30 days; revoked on any
-  password change (`wp_set_password`), any factor removal, reset, or "Forget all".
-- Side doors (`Auth/SideDoors`): application passwords off / per role / on, step-up to create one
-  (REST and authorize-application.php), use logged hourly; XML-RPC off / block passwords / allow;
-  non-interactive password logins (REST token plugins) refused for users with a factor.
-- Email recovery (`Flow/EmailRecovery`): requested from the challenge only, link on
-  `admin-post.php` (never the slug), GET confirms nothing, POST confirms, staff wait 24 h, a real
-  second-step sign-in cancels a waiting reset.
-- Jetpack: optional WordPress.com sign-in block (`block_wpcom_sso`). Conflict detector: warns
-  about Two Factor, WP 2FA, FluentAuth, Solid Security 2FA, miniOrange.
-- `Factors/Reset` is the one reset path (CLI, recovery). `wp mdmfa status` and `user status` report
-  the new state; `user reset --factor=email|trusted` added.
-Not yet built: admin settings screens (every P6 option is settable only through the
-`mdmfa_settings` option today), privacy tools, owner-set public login page (P7).
+Build phase complete through P7. `main` = P1-P6 (P6 `79ec66d` PR #5, 2026-10-01). P7 is on
+`feat/admin-ux`, CI green (run 36870781642, 19/19 jobs), PR open for operator review:
+- One admin entry, page `md-mfa`: Users > "Login security (MFA)" on its own, or "MFA" under the
+  MaxtDesign menu when another plugin has started suite-core (`$GLOBALS['md_suite_loaded']`).
+  Tabs: Policy, Factors, Login location, Side doors, Recovery, Coverage, Activity, Tools
+  (filter `mdmfa_admin_tabs`, action `mdmfa_admin_tab_{slug}`). Plugins-screen Settings link.
+- Saves: `admin-post.php`, nonce `mdmfa_admin`, `mdmfa_manage`, step-up for enrolled
+  administrators, validation (`Settings::sanitize_role`, `clamp`, `choice`), notice codes, log
+  row `policy_changed`. A Required role always keeps an authenticator app or a passkey.
+- Coverage: per-user state with search and filter; bulk reset, unlock, sign out everywhere
+  (needs `edit_user` on each target; a super admin only by a super admin).
+- Activity: the log with an event filter; retention and IP mode settings.
+- Tools: key status, conflicts, status refresh, settings export (no secrets, no slug).
+- Status contract `Status\Snapshot` (15 min cache `mdmfa_status_cache`, filter `mdmfa_status`):
+  feeds `wp mdmfa status [--fresh]`, the admin counts and the suite status (`md_suite_status`@5).
+- Owner-set public login page (`mdmfa_login.public_login = page`, `public_page`).
+- Privacy: policy text, exporter (methods, passkey names and dates, log), eraser (log rows).
+- Assets, on the plugin's screen only: `assets/admin/mdmfa-admin.css` 3,506 B (budget 4,096),
+  `assets/admin/mdmfa-admin.js` 1,754 B (budget 8,192): copy button and the confirm dialog
+  when the suite script is absent.
+Next: P8 (review, security audit, footprint audit, compatibility matrix, external WebAuthn
+review), then P9 (gate and release).
 
 ## Locked decisions
 - 2026-09-30: brief approved; plan ACCEPTED with every section 16 decision as recommended
@@ -58,17 +61,29 @@ Not yet built: admin settings screens (every P6 option is settable only through 
   The conflict detector warns and keeps enforcing (see Flags: confirm this reading of the plan).
   Email recovery pages are plain `wp_die()` pages on `admin-post.php`, shared by staff and
   customers, so neither wp-login.php nor the slug is ever mailed or shown.
+- 2026-10-01 (P7): suite mode is keyed on `$GLOBALS['md_suite_loaded']`, not on the suite classes
+  existing (a vendored copy can declare them without starting the suite). Role settings are
+  stored for every role on save; "Roles added later" edits `unlisted_role`. Each tab owns a
+  fixed set of role keys, so saving one tab never changes another's. Administrators with no
+  second step yet (in the setup period) can save without step-up, because they cannot do one.
+  Sign out everywhere (Coverage) also forgets trusted devices, which closes the P6 gap.
+  Screens are server-rendered with native forms; no React, no build step.
 
 ## Next actions
-1. [operator] Review the P6 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Decide the conflict-detector reading (Flags, first item).
-3. [operator] Manual passkey pass on real devices (still open from P5): activate on `plugin-test`,
-   then Users, My security, Add a passkey. Junction-mounted: deactivate, never delete.
+1. [operator] Review the P7 PR and approve the squash merge (`--delete-branch`).
+2. [operator] Look at the screens on `plugin-test`: activate, then Users > Login security (MFA).
+   Activation moves that site's login (`wp mdmfa slug get` prints it). Junction-mounted:
+   deactivate, never delete. The manual passkey pass on real devices (P5) is still open.
+3. [operator] Commission the external WebAuthn review (decision 4: 1.0 waits for it).
+   Also still open: confirm the conflict-detector reading (Flags; P6 was merged without a
+   decision either way, so it stays as built: warn and keep enforcing).
 4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
-5. [session] P7 after operator go: settings screens (policy matrix, factors, side doors, recovery,
-   activity, tools incl. conflict list and Jetpack status), step-up on settings and slug changes,
-   privacy exporter/eraser (passkeys, email, trusted devices, log) and cookie text for
-   `mdmfa_pending` and `mdmfa_td`, owner-set public login page, status contract.
+5. [session] P8 after operator go: lanes review (`wp-reviewer`), source-to-sink security audit
+   (`wp-security-auditor`), footprint audit with numbers (`wp-perf-qa`), compatibility matrix
+   (plan 13: multisite, Jetpack 16.2, caches, membership and security plugins, block checkout),
+   escape-hatch test. Reports into `docs/`.
+6. [session] P9: wp.org screenshots (need a visible browser; see Flags), version triple,
+   `release-gate.php`, SVN.
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -81,6 +96,41 @@ Not yet built: admin settings screens (every P6 option is settable only through 
 - External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
 
 ## Verification state
+- 2026-10-01, P7, CI run 36870781642 on `feat/admin-ux` (`45951f4`), **19/19 green, first push**:
+  - Unit: **294 tests, 1,549 assertions** on PHP 8.3, 8.4, 8.5. P7 adds 16 (role validation,
+    Required keeps a method, clamp table, choice, save structure and autoload).
+  - **E2E core, PHP 8.3 + 8.5: 55 tests, 623 assertions.** P7 adds 10: one menu entry under Users,
+    8 tabs with `aria-current`, unknown tab falls back, no inline style or script in the plugin's
+    markup, assets on the plugin's screen only (not on Dashboard, Users, Plugins or My security),
+    script deferred, Settings link; non-managers get 403 on the page and its actions; policy save
+    validates (unknown policy kept, days clamped, Required keeps the authenticator app,
+    passkey-only needs the passkey method) and other tabs' fields survive; side doors, recovery,
+    factors and log settings save with safe fallbacks; a missing or wrong nonce and a GET change
+    nothing (403); an enrolled administrator with a stale verification is refused for settings,
+    the login address and user resets, and allowed after step-up; login address change from the
+    screen (bad value refused, old address 404, admins emailed) and the public login page;
+    coverage reset (user mailed, log names the actor), unlock, sign out everywhere; **`wp mdmfa
+    status --format=json` equals the Policy tab's per-role users and set-up counts and the
+    Coverage total**; the status, the `mdmfa_status` build and the settings export contain no
+    login address, no key material, no factor data and no user names; cache vs `--fresh`;
+    privacy export and erase.
+  - E2E WooCommerce 12 tests, 370 assertions (unchanged). Fuzz, smoke, QR, lint, outbound grep 0,
+    PHPStan L8 0, PHPCS 0, size check, `node --check` on both scripts.
+- 2026-10-01, local, throwaway WordPress in a real browser (Chromium pane):
+  - Nav handoff section 8 and admin UI handoff section 10, checked: 194 controls across the 8 tabs,
+    **0 without a label**; every `widefat` table inside a focusable `role="region"`; every `th`
+    scoped; no positive `tabindex`; one `h1`; badge contrast 4.76 (good), 4.84 (warn), 5.91
+    (bad), 13.95 (neutral) against a 4.5 bar; confirm dialog opens with Cancel focused, Cancel
+    removes it and returns focus, nothing submits; 0 console errors; no raw hex in the admin
+    CSS except canonical token fallbacks.
+  - **Suite mode with suite-core 1.5.1 started by an mu-plugin:** "MFA" under the MaxtDesign menu
+    and gone from Users; suite stylesheet and script load on the page and not on the Dashboard;
+    Overview lists `maxtdesign-mfa`; Settings link points at `admin.php?page=md-mfa`;
+    `md_suite_status` carries the contribution with no login address.
+- 2026-10-01, local: **Plugin Check on `plugin-test`: "No errors found"** with the P7 code.
+- UNVERIFIED (P7): a real keyboard-only pass by a person (the checks above are programmatic);
+  a stale suite-core (older than 1.3) winning the load race (guards are in place, not run);
+  screen readers; the screens at narrow widths; multisite network admin.
 - 2026-09-30, P6, CI run 36814321766 on `feat/email-code-side-doors` (`0787d6a`), **19/19 green**:
   - Unit: **278 tests, 1,521 assertions** on PHP 8.3, 8.4, 8.5. P6 adds 22: email code (single use,
     purpose and user binding, expiry, fifth miss destroys, 3/15 min and 10/day, filter validation),
@@ -159,19 +209,27 @@ Not yet built: admin settings screens (every P6 option is settable only through 
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-01 (P7): wp.org screenshots are not captured. The browser pane was hidden during the
+  session and screenshots timed out; one of the Policy tab rendered correctly. Needs a visible
+  browser, at P9.
+- 2026-10-01 (P7, plan/handoff conflict): the admin UI handoff says every token fallback must be
+  the canonical hex, and also that wp.org plugins must not hardcode purple. The focus ring uses
+  `var(--md-suite-color-brand-bright, currentColor)` to satisfy both.
+- 2026-10-01 (P7): plan section 8 lists "sessions" on My security and a `users.php` column.
+  Neither is built: core's profile already has "Log out everywhere else", and Coverage is a tab.
+- 2026-10-01 (P7): plan section 8 says every admin action emails the affected user. A reset
+  does; unlock and sign out everywhere only log. Add mail there if wanted.
+- 2026-10-01 (P7): multisite has no network settings screen (plan decision 6 defers it); each
+  site has its own page.
+- 2026-10-01 (P7): the status scans at most 1,000 users for unverified sessions and 5,000 for
+  the enrolled lists; larger sites get `sessions_truncated`. Fine for the cache, worth a look in
+  P8's footprint audit.
 - 2026-09-30 (P6, needs operator decision): the plan says the conflict detector should "warn and
   do not co-enforce". Built as: warn, and keep enforcing this plugin's policy. The other reading
   (stand down when another 2FA plugin is active) would let any such plugin switch MFA off, so it
   was not built. Confirm or change.
 - 2026-09-30 (P6): plan 4.3 lists "sign out everywhere" as a trusted-device revocation trigger.
-  Core has no hook for destroying all sessions, so it is not wired; password change, factor
-  removal, reset and the "Forget all trusted devices" button are.
-- 2026-09-30 (P6): plan step-up list includes "changing MFA settings or the login slug". Those
-  screens are P7; the CLI is exempt by design. Step-up today covers removing a factor, adding one
-  to an enrolled account, new recovery codes, turning email codes off, and application passwords.
-- 2026-09-30 (P6): a role that is Required and allows only email has no in-login setup screen
-  (the enroll screen offers passkey and authenticator only). Not a default; P7's policy screen
-  should refuse that combination or the enroll screen should gain email.
+  Core has no hook for destroying all sessions; since P7 the Coverage action does both.
 - 2026-09-30 (P6): `WP_Application_Passwords::create_new_application_password()` does not check
   availability; only REST and the admin screen do. A plugin calling it directly can still create
   one for a Required role, but it will not authenticate while the role disallows them.
