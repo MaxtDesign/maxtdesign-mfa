@@ -15,6 +15,7 @@ declare(strict_types=1);
 define( 'ABSPATH', sys_get_temp_dir() . '/mdmfa-tests/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'MINUTE_IN_SECONDS', 60 );
 define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MDMFA_VERSION', '0.1.0' );
 define( 'MDMFA_FILE', dirname( __DIR__ ) . '/maxtdesign-mfa.php' );
@@ -54,9 +55,11 @@ function mdmfa_test_reset(): void {
 		'mail'         => array(),
 		'inserts'      => array(),
 		'scheduled'    => array(),
+		'transients'   => array(),
 	);
 	MaxtDesign\Mfa\Support\Clock::freeze( null );
 	$GLOBALS['wpdb'] = new wpdb();
+	$_COOKIE         = array();
 }
 
 /**

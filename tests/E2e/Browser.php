@@ -41,6 +41,20 @@ final class Browser {
 	}
 
 	/**
+	 * A request with a raw body and extra headers (REST, XML-RPC).
+	 *
+	 * @param string[] $headers
+	 */
+	public function raw( string $method, string $path, string $body = '', array $headers = array() ): Response {
+		$handle = $this->handle( $method, $path, array() );
+		curl_setopt( $handle, CURLOPT_HTTPHEADER, $headers );
+		if ( '' !== $body ) {
+			curl_setopt( $handle, CURLOPT_POSTFIELDS, $body );
+		}
+		return $this->run( $handle );
+	}
+
+	/**
 	 * Sends several POSTs at the same time with the current cookies.
 	 *
 	 * @param array<int, array{string, array<string, string|int>}> $requests

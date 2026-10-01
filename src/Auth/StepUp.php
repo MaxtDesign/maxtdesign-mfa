@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
+use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\TotpStore;
@@ -34,6 +35,9 @@ final class StepUp {
 		$session = self::session( $user_id );
 		$stamp   = is_array( $session ) && isset( $session['mdmfa'] ) && is_array( $session['mdmfa'] ) ? $session['mdmfa'] : array();
 		$at      = isset( $stamp['verified_at'] ) ? (int) $stamp['verified_at'] : 0;
+		if ( TrustedDevice::FACTOR === ( $stamp['factor'] ?? '' ) ) {
+			return false;
+		}
 
 		return $at > 0 && $at >= Clock::now() - self::WINDOW;
 	}
@@ -65,7 +69,7 @@ final class StepUp {
 	 * Verifies a factor for step-up, with the same lockout as the login challenge.
 	 *
 	 * @param int    $user_id User ID.
-	 * @param string $method  totp, recovery or passkey.
+	 * @param string $method  totp, email, recovery or passkey.
 	 * @param string $code    Submitted code, or the credential JSON for a passkey.
 	 * @return string 'ok', 'wait' or 'invalid'.
 	 */
@@ -77,6 +81,8 @@ final class StepUp {
 			$user      = get_userdata( $user_id );
 			$challenge = Passkeys::take_session_challenge( $user_id, 'stepup' );
 			$ok        = $user instanceof \WP_User && null !== $challenge && Passkeys::verify_for_user( $user, $code, $challenge, false );
+		} elseif ( 'email' === $method ) {
+			$ok = EmailCode::has( $user_id ) && EmailCode::check( $user_id, 'stepup', $code );
 		} elseif ( 'recovery' === $method ) {
 			$ok = null !== RecoveryCodes::consume( $user_id, $code );
 		} else {

@@ -18,7 +18,9 @@ use MaxtDesign\Mfa\Auth\Lockout;
 use MaxtDesign\Mfa\Auth\PendingCookie;
 use MaxtDesign\Mfa\Auth\PendingRecord;
 use MaxtDesign\Mfa\Auth\PendingStore;
+use MaxtDesign\Mfa\Auth\TrustedDevice;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
+use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\Totp;
@@ -32,7 +34,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Challenge, grace, enrollment and acknowledgement.
  *
- * @phpstan-type Input array{post: bool, token: mixed, code: string, skip: bool, saved: bool, method: string, credential: string, name: string}
+ * @phpstan-type Input array{post: bool, token: mixed, code: string, skip: bool, saved: bool, method: string, credential: string, name: string, send: bool, trust: bool, recover: bool}
  */
 final class ChallengeFlow {
 
@@ -63,6 +65,9 @@ final class ChallengeFlow {
 			// Strict JSON, parsed and size-limited by CredentialJson before any use.
 			'credential' => isset( $_POST['mdmfa_credential'] ) && is_string( $_POST['mdmfa_credential'] ) ? wp_unslash( $_POST['mdmfa_credential'] ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON from the passkey module; CredentialJson validates it strictly.
 			'name'       => isset( $_POST['mdmfa_passkey_name'] ) && is_string( $_POST['mdmfa_passkey_name'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_passkey_name'] ) ) : '',
+			'send'       => isset( $_POST['mdmfa_send'] ),
+			'trust'      => ! empty( $_POST['mdmfa_trust'] ),
+			'recover'    => isset( $_POST['mdmfa_recover'] ),
 		);
 		// phpcs:enable
 
@@ -132,13 +137,29 @@ final class ChallengeFlow {
 		$methods = self::methods( $user );
 		$method  = in_array( $input['method'], $methods, true ) ? $input['method'] : ( $methods[0] ?? 'recovery' );
 		$errors  = new \WP_Error();
-		$state   = static function () use ( &$record, $user, &$errors, $method, $methods ): FlowState {
+		$purpose = self::email_purpose( $record );
+		$state   = static function () use ( &$record, $user, &$errors, $method, $methods, $purpose ): FlowState {
 			$options = array();
 			if ( 'passkey' === $method ) {
 				list( $record, $challenge ) = Passkeys::pending_challenge( $record, 'verify' );
 				$options                    = Passkeys::request_options( $user, $challenge );
 			}
-			return new FlowState( FlowState::VERIFY, $record, $user, $errors, $method, null, array(), '', 0, $options, $methods );
+			return new FlowState(
+				FlowState::VERIFY,
+				$record,
+				$user,
+				$errors,
+				$method,
+				null,
+				array(),
+				'',
+				0,
+				$options,
+				$methods,
+				'email' === $method && EmailCode::issued( $user->ID, $purpose ),
+				TrustedDevice::allowed( $user ),
+				EmailRecovery::allowed( $user )
+			);
 		};
 
 		if ( ! $input['post'] ) {
@@ -162,6 +183,36 @@ final class ChallengeFlow {
 			);
 			return $state();
 		}
+		// Mail actions take no attempt and are capped by the send limits instead.
+		if ( $input['recover'] ) {
+			$errors->add(
+				'mdmfa_recover',
+				esc_html(
+					EmailRecovery::request( $user, $record->context() )
+						? __( 'We emailed you a link to reset two-step verification. It works for one hour.', 'maxtdesign-mfa' )
+						: __( 'A recovery email cannot be sent right now. Try again later.', 'maxtdesign-mfa' )
+				),
+				'message'
+			);
+			return $state();
+		}
+		if ( 'email' === $method && ( $input['send'] || '' === $input['code'] ) ) {
+			$sent = EmailCode::send( $user, $purpose );
+			if ( EmailCode::SENT === $sent ) {
+				/* translators: %s: masked email address. */
+				$errors->add( 'mdmfa_sent', esc_html( sprintf( __( 'We sent a code to %s.', 'maxtdesign-mfa' ), EmailCode::masked( $user->user_email ) ) ), 'message' );
+			} else {
+				$errors->add(
+					'mdmfa_send',
+					esc_html(
+						EmailCode::LIMITED === $sent
+							? __( 'Too many codes were sent. Wait a few minutes, or use another method.', 'maxtdesign-mfa' )
+							: __( 'The email could not be sent. Use another method.', 'maxtdesign-mfa' )
+					)
+				);
+			}
+			return $state();
+		}
 		if ( ! PendingStore::reserve_attempt( $record ) ) {
 			return self::burn( $record, $user );
 		}
@@ -172,6 +223,8 @@ final class ChallengeFlow {
 			$challenge = Passkeys::take_pending_challenge( $record, 'verify' );
 			$record    = PendingStore::find( (string) PendingCookie::get() ) ?? $record;
 			$ok        = null !== $challenge && '' !== $input['credential'] && Passkeys::verify_for_user( $user, $input['credential'], $challenge, false );
+		} elseif ( 'email' === $method ) {
+			$ok = EmailCode::check( $user->ID, $purpose, $input['code'] );
 		} elseif ( 'recovery' === $method ) {
 			$remaining = RecoveryCodes::consume( $user->ID, $input['code'] );
 			$ok        = null !== $remaining;
@@ -185,7 +238,11 @@ final class ChallengeFlow {
 				Logger::log( 'recovery_used', $user->ID, 'recovery', $record->context(), null, (string) $remaining );
 				do_action( 'mdmfa_recovery_code_used', $user, $remaining );
 			}
-			return self::complete( $user, $method, $record );
+			$done = self::complete( $user, $method, $record );
+			if ( FlowState::DONE === $done->screen && $input['trust'] ) {
+				TrustedDevice::remember( $user );
+			}
+			return $done;
 		}
 
 		Lockout::record_failure( $user->ID );
@@ -208,7 +265,7 @@ final class ChallengeFlow {
 
 	/**
 	 * Verification methods the user can use, strongest first: passkey (phishing-resistant),
-	 * authenticator app, recovery code.
+	 * authenticator app, emailed code, recovery code.
 	 *
 	 * @param \WP_User $user User.
 	 * @return string[]
@@ -221,11 +278,24 @@ final class ChallengeFlow {
 		if ( null !== TotpStore::secret( $user->ID ) ) {
 			$methods[] = 'totp';
 		}
+		if ( EmailCode::has( $user->ID ) ) {
+			$methods[] = 'email';
+		}
 		if ( RecoveryCodes::remaining( $user->ID ) > 0 || array() === $methods ) {
 			$methods[] = 'recovery';
 		}
 
 		return $methods;
+	}
+
+	/**
+	 * Email-code purpose of a pending login: a code issued for one login cannot finish
+	 * another.
+	 *
+	 * @param PendingRecord $record Pending record.
+	 */
+	private static function email_purpose( PendingRecord $record ): string {
+		return 'login:' . substr( $record->token_hash, 0, 16 );
 	}
 
 	/**

@@ -67,6 +67,9 @@ final class Options {
 			'mdmfa_totp_pending',
 			'mdmfa_recovery',
 			'mdmfa_email',
+			'mdmfa_email_code',
+			'mdmfa_email_sends',
+			'mdmfa_recovery_pending',
 			'mdmfa_user_handle',
 			'mdmfa_enrolled',
 			'mdmfa_grace_started',
@@ -85,6 +88,7 @@ final class Options {
 		return array(
 			'mdmfa_status_cache',
 			'mdmfa_ipthrottle_',
+			'mdmfa_apppass_',
 		);
 	}
 }

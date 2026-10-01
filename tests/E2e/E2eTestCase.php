@@ -173,6 +173,53 @@ abstract class E2eTestCase extends TestCase {
 	}
 
 	/**
+	 * Stores plugin settings (merged over the defaults by the plugin).
+	 *
+	 * @param array<string, mixed> $settings
+	 */
+	protected static function settings( array $settings ): void {
+		self::wp( 'option', 'update', 'mdmfa_settings', (string) json_encode( $settings ), '--format=json' );
+	}
+
+	protected static function reset_settings(): void {
+		self::eval( 'delete_option( "mdmfa_settings" ); global $wpdb; $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE \'%mdmfa_ipthrottle%\'" );' );
+	}
+
+	/**
+	 * Captured mail to an address, newest last: [subject, message] pairs.
+	 *
+	 * @return array<int, array{subject: string, message: string}>
+	 */
+	protected static function mail_to( string $address ): array {
+		$all = (array) json_decode( self::eval( 'echo wp_json_encode( get_option( "e2e_mail", array() ) );' ), true );
+		return array_values( array_filter( $all, static fn ( array $m ): bool => $m['to'] === $address ) );
+	}
+
+	/**
+	 * The 6-digit code in the newest mail to an address.
+	 */
+	protected static function mailed_code( string $address ): string {
+		$mail = self::mail_to( $address );
+		self::assertNotSame( array(), $mail, "no mail to {$address}" );
+		self::assertSame( 1, preg_match( '/\b(\d{6})\b/', end( $mail )['message'], $m ), 'the mail carries a 6-digit code' );
+		return $m[1];
+	}
+
+	/**
+	 * Turns emailed codes on for a user, as if they had confirmed the address.
+	 */
+	protected static function enroll_email( int $user_id ): void {
+		self::eval( sprintf( 'MaxtDesign\Mfa\Factors\EmailCode::enable( %1$d ); update_user_meta( %1$d, "mdmfa_enrolled", "1" );', $user_id ) );
+	}
+
+	/**
+	 * Ages every session's verification past the step-up window.
+	 */
+	protected static function age_sessions( int $user_id ): void {
+		self::eval( sprintf( '$t = get_user_meta( %1$d, "session_tokens", true ); foreach ( $t as $k => $s ) { if ( isset( $s["mdmfa"] ) ) { $t[ $k ]["mdmfa"]["verified_at"] = time() - 3600; } } update_user_meta( %1$d, "session_tokens", $t );', $user_id ) );
+	}
+
+	/**
 	 * The site's WebAuthn origin (scheme://host[:port]).
 	 */
 	protected static function origin(): string {

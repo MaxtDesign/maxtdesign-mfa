@@ -64,6 +64,26 @@ add_action(
 	}
 );
 
+// A token endpoint of the kind JWT plugins add: a username and password over REST
+// (plan 4.3 "rest" context, a non-interactive password login).
+add_action(
+	'rest_api_init',
+	static function (): void {
+		register_rest_route(
+			'mdmfa-e2e/v1',
+			'/token',
+			array(
+				'methods'             => 'POST',
+				'permission_callback' => '__return_true',
+				'callback'            => static function ( WP_REST_Request $request ) {
+					$user = wp_authenticate( (string) $request['username'], (string) $request['password'] );
+					return is_wp_error( $user ) ? new WP_Error( $user->get_error_code(), 'denied', array( 'status' => 403 ) ) : array( 'user' => $user->ID );
+				},
+			)
+		);
+	}
+);
+
 // Another plugin's AJAX login (plan 4.3 "ajax" context).
 add_action(
 	'wp_ajax_nopriv_mdmfa_e2e_login',

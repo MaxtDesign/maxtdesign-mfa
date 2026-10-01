@@ -73,10 +73,12 @@ final class LoginScreens {
 		$intros = array(
 			'passkey'  => __( 'Use your passkey to finish signing in.', 'maxtdesign-mfa' ),
 			'recovery' => __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' ),
+			'email'    => __( 'Use a code we send to your email address.', 'maxtdesign-mfa' ),
 			'totp'     => __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' ),
 		);
 		login_header( __( 'Two-step verification', 'maxtdesign-mfa' ), '<p class="message">' . esc_html( $intros[ $state->method ] ?? $intros['totp'] ) . '</p>', $state->errors );
-		self::form_open( ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $state->method ) ), $state );
+		$action = ChallengeUrl::core( ChallengeUrl::ACTION_VERIFY, array( 'method' => $state->method ) );
+		self::form_open( $action, $state );
 		if ( 'passkey' === $state->method ) {
 			$mdmfa_passkey_html = Fragments::passkey_button(
 				array(
@@ -88,11 +90,28 @@ final class LoginScreens {
 				'button button-primary button-large'
 			);
 			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo Fragments::trust_field( $state ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			echo '</form>';
+		} elseif ( 'email' === $state->method && ! $state->email_sent ) {
+			echo '<input type="hidden" name="mdmfa_send" value="1">';
+			self::form_close( __( 'Email me a code', 'maxtdesign-mfa' ) );
 		} else {
 			$recovery = 'recovery' === $state->method;
-			echo Fragments::code_field( 'mdmfa_code', $recovery ? __( 'Recovery code', 'maxtdesign-mfa' ) : __( 'Authentication code', 'maxtdesign-mfa' ), $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			$label    = __( 'Authentication code', 'maxtdesign-mfa' );
+			if ( $recovery ) {
+				$label = __( 'Recovery code', 'maxtdesign-mfa' );
+			} elseif ( 'email' === $state->method ) {
+				$label = __( 'Code from the email', 'maxtdesign-mfa' );
+			}
+			echo Fragments::code_field( 'mdmfa_code', $label, $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo Fragments::trust_field( $state ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			self::form_close( __( 'Verify', 'maxtdesign-mfa' ) );
+			if ( 'email' === $state->method ) {
+				echo Fragments::mail_form( $action, $state, 'mdmfa_send', __( 'Send a new code', 'maxtdesign-mfa' ), 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			}
+		}
+		if ( $state->can_recover ) {
+			echo Fragments::mail_form( $action, $state, 'mdmfa_recover', __( 'Lost access? Reset by email', 'maxtdesign-mfa' ), 'button-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 		}
 
 		$links = array();
@@ -116,6 +135,8 @@ final class LoginScreens {
 				return __( 'Use a passkey', 'maxtdesign-mfa' );
 			case 'recovery':
 				return __( 'Use a recovery code', 'maxtdesign-mfa' );
+			case 'email':
+				return __( 'Email me a code', 'maxtdesign-mfa' );
 			default:
 				return __( 'Use your authenticator app', 'maxtdesign-mfa' );
 		}

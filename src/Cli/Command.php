@@ -13,6 +13,9 @@ use MaxtDesign\Mfa\Auth\Lockout;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
 use MaxtDesign\Mfa\Install\Schema;
+use MaxtDesign\Mfa\Auth\SideDoors;
+use MaxtDesign\Mfa\Integrations\Conflicts;
+use MaxtDesign\Mfa\Integrations\Jetpack;
 use MaxtDesign\Mfa\Plugin;
 use MaxtDesign\Mfa\Settings\Options;
 
@@ -142,6 +145,11 @@ final class Command {
 			'key_source'     => $source,
 			'key_ok'         => $key_ok,
 			// Network-wide user meta; P7's status contract adds the per-role breakdown.
+			'app_passwords'  => SideDoors::app_password_mode(),
+			'xmlrpc'         => SideDoors::xmlrpc_mode(),
+			'jetpack'        => Jetpack::detected(),
+			'wpcom_sso'      => Jetpack::sso_blocked() ? 'blocked' : ( Jetpack::sso_active() ? 'challenged' : 'inactive' ),
+			'conflicts'      => implode( ', ', Conflicts::detect() ),
 			'enrolled_users' => (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(DISTINCT user_id) FROM %i WHERE meta_key = %s', $wpdb->usermeta, 'mdmfa_enrolled' ) ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- CLI-only count.
 		);
 	}

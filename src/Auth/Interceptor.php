@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
+use MaxtDesign\Mfa\Flow\EmailRecovery;
 use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Policy\Policy;
 
@@ -83,6 +84,8 @@ final class Interceptor {
 			return $user;
 		}
 
+		// A confirmed email recovery whose waiting period is over takes effect now.
+		EmailRecovery::maybe_apply( $user );
 		Policy::maybe_start_grace( $user );
 		$decision = Policy::decide( $user );
 		if ( Policy::NONE === $decision ) {
@@ -90,6 +93,10 @@ final class Interceptor {
 		}
 
 		if ( ! Context::is_interactive( $context ) ) {
+			if ( Context::XMLRPC === $context && SideDoors::XMLRPC_ALLOW === SideDoors::xmlrpc_mode() ) {
+				Logger::log( 'xmlrpc_password', $user->ID, '', $context );
+				return $user;
+			}
 			if ( true === apply_filters( 'mdmfa_allow_noninteractive_password', false, $user, $context ) ) {
 				return $user;
 			}
@@ -113,6 +120,15 @@ final class Interceptor {
 		}
 
 		$token = PendingStore::create( $user->ID, PendingStore::KIND_LOGIN, self::payload( $context, $decision ) );
+
+		// A trusted device skips the challenge, never enrollment (plan 4.3).
+		if ( Policy::CHALLENGE === $decision && TrustedDevice::valid( $user ) ) {
+			$record = PendingStore::find( $token );
+			if ( null !== $record && Completion::complete( $user, TrustedDevice::FACTOR, $record ) ) {
+				Completion::redirect( $user, $record );
+			}
+		}
+
 		PendingCookie::set( $token );
 		do_action( 'mdmfa_challenge_started', $user, $context );
 

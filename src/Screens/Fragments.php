@@ -11,6 +11,8 @@ namespace MaxtDesign\Mfa\Screens;
 
 use MaxtDesign\Mfa\Factors\Totp;
 use MaxtDesign\Mfa\Qr\QrSvg;
+use MaxtDesign\Mfa\Auth\TrustedDevice;
+use MaxtDesign\Mfa\Flow\FlowState;
 use MaxtDesign\Mfa\Support\Assets;
 use MaxtDesign\Mfa\Support\Base32;
 
@@ -120,6 +122,54 @@ final class Fragments {
 			esc_html__( 'Name for this passkey (optional)', 'maxtdesign-mfa' ),
 			esc_attr( $css_class ),
 			esc_attr__( 'For example: My phone', 'maxtdesign-mfa' )
+		);
+	}
+
+	/**
+	 * The "trust this device" checkbox, or nothing when the role does not allow it.
+	 *
+	 * @param FlowState $state     Flow state.
+	 * @param string    $row_class Wrapper paragraph class.
+	 */
+	public static function trust_field( FlowState $state, string $row_class = 'forgetmenot' ): string {
+		if ( ! $state->can_trust || null === $state->user ) {
+			return '';
+		}
+		$days = max( 1, (int) round( TrustedDevice::lifetime( $state->user ) / DAY_IN_SECONDS ) );
+
+		return sprintf(
+			'<p class="%1$s"><label><input type="checkbox" name="mdmfa_trust" value="1"> %2$s</label></p>',
+			esc_attr( $row_class ),
+			esc_html(
+				sprintf(
+					/* translators: %d: number of days. */
+					_n( 'Do not ask again on this device for %d day', 'Do not ask again on this device for %d days', $days, 'maxtdesign-mfa' ),
+					$days
+				)
+			)
+		);
+	}
+
+	/**
+	 * A one-button form for a mail action on the verify screen (send a new code, email
+	 * recovery). It carries the verify form token.
+	 *
+	 * @param string    $action    Form action URL.
+	 * @param FlowState $state     Flow state.
+	 * @param string    $field     Field that names the action (mdmfa_send or mdmfa_recover).
+	 * @param string    $label     Button label.
+	 * @param string    $css_class Button class.
+	 * @param bool      $wc        Whether the form posts to the My Account handler.
+	 */
+	public static function mail_form( string $action, FlowState $state, string $field, string $label, string $css_class, bool $wc = false ): string {
+		return sprintf(
+			'<form method="post" action="%1$s" class="mdmfa-mail"><input type="hidden" name="mdmfa_form" value="%2$s"><input type="hidden" name="%3$s" value="1">%6$s<p><button type="submit" class="%4$s">%5$s</button></p></form>',
+			esc_url( $action ),
+			esc_attr( $state->token() ),
+			esc_attr( $field ),
+			esc_attr( $css_class ),
+			esc_html( $label ),
+			$wc ? '<input type="hidden" name="mdmfa_wc" value="1">' : ''
 		);
 	}
 

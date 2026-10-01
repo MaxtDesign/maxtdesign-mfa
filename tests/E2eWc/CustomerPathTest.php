@@ -410,6 +410,61 @@ final class CustomerPathTest extends E2eTestCase {
 		self::assertNeverWpLogin( $next );
 		self::assertNeverWpLogin( $browser );
 	}
+
+	public function test_customer_uses_an_emailed_code_and_email_recovery_on_my_account(): void {
+		self::eval( 'delete_option( "e2e_mail" );' );
+		list( $id, $login, $pass ) = self::user( 'customer' );
+		$address                   = $login . '@example.com';
+		$tab                       = self::eval( 'echo wc_get_account_endpoint_url( "mdmfa-security" );' );
+		$browser                   = $this->browser();
+		$this->account_login( $browser, $login, $pass );
+
+		// Customers may use emailed codes by default: turn them on from the Security tab.
+		$page = $browser->get( $tab );
+		self::assertStringContainsString( 'Turn on email codes', $page->body );
+		$begin = $browser->post( $tab, array( 'mdmfa_op' => 'email_begin', '_wpnonce' => $page->input( '_wpnonce' ) ) );
+		$setup = $browser->get( $begin->location() );
+		$on    = $browser->post( $tab, array( 'mdmfa_op' => 'email_confirm', '_wpnonce' => $setup->input( '_wpnonce' ), 'mdmfa_code' => self::mailed_code( $address ) ) );
+		self::assertStringContainsString( 'Email codes are on.', $on->body );
+		self::assertSame( 'true', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\EmailCode::has( %d ) ? "true" : "false";', $id ) ) );
+
+		// Sign in on My Account with a code.
+		$next      = $this->browser();
+		$response  = $this->account_login( $next, $login, $pass );
+		self::assertNoAuthCookie( $response );
+		$url       = add_query( self::$account, 'mdmfa_method', 'email' );
+		$challenge = $next->get( $url );
+		self::assertStringContainsString( 'Email me a code', $challenge->body );
+		self::assertNoPluginAssets( $challenge );
+		$sent = $next->post( $url, array( 'mdmfa_wc' => '1', 'mdmfa_form' => $challenge->form_token(), 'mdmfa_send' => '1' ) );
+		$sent = 302 === $sent->status ? $next->get( $sent->location() ) : $sent;
+		self::assertStringContainsString( 'woocommerce-message', $sent->body, 'the "sent" note is a message, not an error' );
+		$ok = $next->post( $url, array( 'mdmfa_wc' => '1', 'mdmfa_form' => $sent->form_token(), 'mdmfa_code' => self::mailed_code( $address ) ) );
+		self::assertSame( 302, $ok->status, substr( strip_tags( $ok->body ), 0, 400 ) );
+		self::assertTrue( $ok->sets_cookie_prefix( 'wordpress_logged_in_' ) );
+		self::assertContains( 'email', array_column( array_filter( self::stamps( $id ) ), 'factor' ) );
+		self::assertNeverWpLogin( $next );
+
+		// Email recovery: on for customers by default, with no waiting period.
+		$lost = $this->browser();
+		$this->account_login( $lost, $login, $pass );
+		$challenge = $lost->get( $url );
+		self::assertStringContainsString( 'Lost access? Reset by email', $challenge->body );
+		$lost->post( $url, array( 'mdmfa_wc' => '1', 'mdmfa_form' => $challenge->form_token(), 'mdmfa_recover' => '1' ) );
+		$mail = self::mail_to( $address );
+		self::assertSame( 1, preg_match( '#https?://\S+admin-post\.php\?\S+#', end( $mail )['message'], $m ) );
+		self::assertStringNotContainsString( self::$login, end( $mail )['message'], 'a customer is never mailed the login address' );
+		parse_str( (string) parse_url( $m[0], PHP_URL_QUERY ), $query );
+		$confirm = $lost->get( $m[0] );
+		$done    = $lost->post( 'wp-admin/admin-post.php', array( 'action' => 'mdmfa_recover', 't' => (string) $query['t'], 'mdmfa_form' => $confirm->form_token() ) );
+		self::assertSame( 200, $done->status );
+		self::assertStringContainsString( 'href="' . self::$account, str_replace( '&#038;', '&', $done->body ), 'the result page links to My Account, not the login address' );
+		self::assertStringNotContainsString( '/' . self::$login, $done->body );
+		self::assertSame( 'false', self::eval( sprintf( 'echo MaxtDesign\Mfa\Policy\Policy::is_enrolled( %d ) ? "true" : "false";', $id ) ) );
+		self::assertNeverWpLogin( $lost );
+
+		self::assertTrue( $this->account_login( $this->browser(), $login, $pass )->sets_cookie_prefix( 'wordpress_logged_in_' ), 'password-only again' );
+	}
 }
 
 function add_query( string $url, string $key, string $value ): string {
