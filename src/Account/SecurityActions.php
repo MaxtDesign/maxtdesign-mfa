@@ -12,7 +12,10 @@ namespace MaxtDesign\Mfa\Account;
 
 use MaxtDesign\Mfa\Auth\StepUp;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
+use MaxtDesign\Mfa\Auth\TrustedDevice;
+use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\PasskeyStore;
+use MaxtDesign\Mfa\Factors\Reset;
 use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\Totp;
@@ -36,7 +39,7 @@ final class SecurityActions {
 	/**
 	 * Operation names a form may post.
 	 */
-	public const OPS = array( 'totp_begin', 'totp_confirm', 'totp_remove', 'recovery_generate', 'stepup', 'passkey_add', 'passkey_remove' );
+	public const OPS = array( 'totp_begin', 'totp_confirm', 'totp_remove', 'recovery_generate', 'stepup', 'stepup_send', 'passkey_add', 'passkey_remove', 'email_begin', 'email_confirm', 'email_remove', 'trusted_forget' );
 
 	/**
 	 * Runs an operation for the user.
@@ -97,10 +100,7 @@ final class SecurityActions {
 					return self::result( 'stepup_needed' );
 				}
 				TotpStore::remove( $user->ID );
-				if ( ! Policy::is_enrolled( $user->ID ) ) {
-					delete_user_meta( $user->ID, 'mdmfa_enrolled' );
-					RecoveryCodes::remove( $user->ID );
-				}
+				Reset::after_change( $user->ID );
 				Logger::log( 'factor_removed', $user->ID, 'totp', $source, $user->ID );
 				do_action( 'mdmfa_factor_removed', $user, 'totp', $user->ID );
 				return self::result( 'totp_off' );
@@ -115,8 +115,14 @@ final class SecurityActions {
 				Logger::log( 'recovery_regenerated', $user->ID, 'recovery', $source, $user->ID );
 				return self::result( 'codes_new', RecoveryCodes::generate( $user->ID ) );
 
+			case 'stepup_send':
+				if ( ! EmailCode::has( $user->ID ) ) {
+					return self::result( 'not_allowed' );
+				}
+				return self::result( EmailCode::SENT === EmailCode::send( $user, 'stepup' ) ? 'email_sent' : 'email_limited' );
+
 			case 'stepup':
-				$chosen  = in_array( $method, array( 'recovery', 'passkey' ), true ) ? $method : 'totp';
+				$chosen  = in_array( $method, array( 'recovery', 'passkey', 'email' ), true ) ? $method : 'totp';
 				$outcome = StepUp::verify( $user->ID, $chosen, 'passkey' === $chosen ? $input['credential'] : $code );
 				return self::result( 'ok' === $outcome ? 'stepup_ok' : ( 'wait' === $outcome ? 'stepup_wait' : 'code_invalid' ) );
 
@@ -145,13 +151,55 @@ final class SecurityActions {
 				if ( ! PasskeyStore::delete( $user->ID, $input['id'] ) ) {
 					return self::result( 'not_allowed' );
 				}
-				if ( ! Policy::is_enrolled( $user->ID ) ) {
-					delete_user_meta( $user->ID, 'mdmfa_enrolled' );
-					RecoveryCodes::remove( $user->ID );
-				}
+				Reset::after_change( $user->ID );
 				Logger::log( 'factor_removed', $user->ID, 'passkey', $source, $user->ID );
 				do_action( 'mdmfa_factor_removed', $user, 'passkey', $user->ID );
 				return self::result( 'passkey_off' );
+
+			case 'email_begin':
+				if ( EmailCode::has( $user->ID ) || ! EmailCode::allowed( $user ) ) {
+					return self::result( 'not_allowed' );
+				}
+				if ( Policy::is_enrolled( $user->ID ) && ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
+				}
+				return EmailCode::SENT === EmailCode::send( $user, 'setup' ) ? self::result( 'email_sent', array(), 'email' ) : self::result( 'email_limited' );
+
+			case 'email_confirm':
+				if ( EmailCode::has( $user->ID ) || ! EmailCode::allowed( $user ) ) {
+					return self::result( 'not_allowed' );
+				}
+				if ( ! EmailCode::issued( $user->ID, 'setup' ) ) {
+					return self::result( 'setup_expired' );
+				}
+				if ( ! EmailCode::check( $user->ID, 'setup', $code ) ) {
+					return self::result( 'code_invalid', array(), 'email' );
+				}
+				EmailCode::enable( $user->ID );
+				update_user_meta( $user->ID, 'mdmfa_enrolled', '1' );
+				StepUp::mark( $user->ID, 'email' );
+				Logger::log( 'enrolled', $user->ID, 'email', $source, $user->ID );
+				do_action( 'mdmfa_enrolled', $user, 'email' );
+				if ( 0 === RecoveryCodes::remaining( $user->ID ) ) {
+					return self::result( 'email_on', RecoveryCodes::generate( $user->ID ) );
+				}
+				return self::result( 'email_on' );
+
+			case 'email_remove':
+				if ( ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
+				}
+				EmailCode::remove( $user->ID );
+				Reset::after_change( $user->ID );
+				Logger::log( 'factor_removed', $user->ID, 'email', $source, $user->ID );
+				do_action( 'mdmfa_factor_removed', $user, 'email', $user->ID );
+				return self::result( 'email_off' );
+
+			case 'trusted_forget':
+				// Forgetting devices only removes access, so it needs no step-up.
+				TrustedDevice::revoke_all( $user->ID );
+				Logger::log( 'trusted_revoked', $user->ID, '', $source, $user->ID );
+				return self::result( 'trusted_off' );
 		}
 
 		return self::result( '' );
@@ -186,6 +234,11 @@ final class SecurityActions {
 			'passkey_on'      => array( 'success', __( 'Passkey added.', 'maxtdesign-mfa' ) ),
 			'passkey_off'     => array( 'success', __( 'Passkey removed.', 'maxtdesign-mfa' ) ),
 			'passkey_invalid' => array( 'error', __( 'That passkey could not be added. Please try again.', 'maxtdesign-mfa' ) ),
+			'email_sent'      => array( 'success', __( 'We emailed you a code. It works for 10 minutes.', 'maxtdesign-mfa' ) ),
+			'email_limited'   => array( 'error', __( 'The code could not be sent. Too many were sent recently; wait a few minutes.', 'maxtdesign-mfa' ) ),
+			'email_on'        => array( 'success', __( 'Email codes are on.', 'maxtdesign-mfa' ) ),
+			'email_off'       => array( 'success', __( 'Email codes are off.', 'maxtdesign-mfa' ) ),
+			'trusted_off'     => array( 'success', __( 'Trusted devices forgotten. Every device will be asked for the second step again.', 'maxtdesign-mfa' ) ),
 			'codes_new'       => array( 'success', __( 'New recovery codes created. The old ones no longer work.', 'maxtdesign-mfa' ) ),
 			'stepup_ok'       => array( 'success', __( 'Confirmed. You can make changes for the next 10 minutes.', 'maxtdesign-mfa' ) ),
 			'stepup_needed'   => array( 'error', __( 'Confirm it is you with a code first.', 'maxtdesign-mfa' ) ),

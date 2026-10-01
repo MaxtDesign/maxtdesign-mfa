@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 works with authenticator apps (TOTP), passkeys and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. Emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
+**Development build.** Version 0.1.0 works with authenticator apps (TOTP), passkeys, emailed codes and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. The settings screens are still being built, so the per-role options use their defaults for now. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -70,6 +70,10 @@ No rewrite rules and no permalink change. The server has to send unknown paths t
 
 It removes noise from bots that hammer `wp-login.php`. The address becomes known the moment you link to it or share it, so treat the second factor as the protection, not the address.
 
+= Do application passwords skip two-step verification? =
+
+Yes, by design. An application password is a separate, revocable password for one app, and apps cannot answer a second step. That is why roles that must use two-step verification have no application passwords unless you allow them, and why creating one needs a recent verification.
+
 = Where are the encryption keys? =
 
 Authenticator secrets are encrypted with a key derived from your `wp-config.php` salts, or from a dedicated `MDMFA_ENCRYPTION_KEY` constant if you define one. The key never appears in the admin screens.
@@ -104,4 +108,11 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: a passkey that reports an unexpected counter (a sign it may have been copied) is flagged on the security screen and logged. Sites can choose to block it.
 * New: adding a second method to an account that already has one needs a verification in the last 10 minutes, the same as removing one.
 * New: the passkey script (under 1 KB compressed) loads only on screens that offer a passkey. Every other page stays free of plugin CSS and JavaScript.
+* New: emailed sign-in codes for roles that allow them (customers by default, never staff by default). A code works for 10 minutes, 5 tries, and is tied to the sign-in it was sent for. At most 3 are sent in 15 minutes and 10 in a day.
+* New: trusted devices, off for every role until the owner turns them on. A trusted device skips the second step for 30 days. Changing the password or removing a method forgets every trusted device, and a trusted sign-in still has to confirm before sensitive changes.
+* New: application passwords follow the role policy. Roles that must use two-step verification have none unless the owner allows them, and creating one needs a verification in the last 10 minutes.
+* New: XML-RPC refuses account passwords for users with two-step verification and says to use an application password. The owner can also switch XML-RPC logins off, or allow passwords.
+* New: plugins that take a username and password over the REST API are refused for users with two-step verification.
+* New: email recovery from the sign-in challenge, for roles that allow it (customers by default). The emailed link opens a confirmation page first, staff accounts wait 24 hours, and signing in normally cancels a pending reset.
+* New: an optional block for WordPress.com sign-in (Jetpack), and a warning when another two-step verification plugin is active.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.

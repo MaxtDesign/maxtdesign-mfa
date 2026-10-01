@@ -53,13 +53,16 @@ final class FlowState {
 	 * @param PendingRecord|null   $record     Pending record (null when expired).
 	 * @param \WP_User|null        $user       User (null when expired).
 	 * @param \WP_Error            $errors     Messages, already escaped.
-	 * @param string               $method     totp or recovery (verify screen).
+	 * @param string               $method     passkey, totp, email or recovery (verify screen).
 	 * @param string|null          $secret     Raw TOTP secret (enroll screen).
 	 * @param string[]             $codes      Recovery codes to show once (recovery screen).
 	 * @param string               $message    Plain-text reason (expired screen).
 	 * @param int                  $grace_days Days of grace left (grace screen).
 	 * @param array<string, mixed> $passkey  WebAuthn options for this screen (verify: request, enroll: creation), or empty.
 	 * @param string[]             $methods    Verification methods the user can switch between.
+	 * @param bool                 $email_sent Whether a live emailed code exists (verify screen, email method).
+	 * @param bool                 $can_trust  Whether to offer "trust this device".
+	 * @param bool                 $can_recover Whether to offer email recovery.
 	 */
 	public function __construct(
 		public readonly string $screen,
@@ -72,7 +75,10 @@ final class FlowState {
 		public readonly string $message = '',
 		public readonly int $grace_days = 0,
 		public readonly array $passkey = array(),
-		public readonly array $methods = array()
+		public readonly array $methods = array(),
+		public readonly bool $email_sent = false,
+		public readonly bool $can_trust = false,
+		public readonly bool $can_recover = false
 	) {
 	}
 

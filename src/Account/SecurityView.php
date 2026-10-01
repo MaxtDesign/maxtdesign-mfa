@@ -11,6 +11,8 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Account;
 
 use MaxtDesign\Mfa\Auth\StepUp;
+use MaxtDesign\Mfa\Auth\TrustedDevice;
+use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\PasskeyStore;
 use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
@@ -33,7 +35,7 @@ final class SecurityView {
 	 *
 	 * @param \WP_User              $user     Current user.
 	 * @param string                $form_url URL forms post to.
-	 * @param string                $view     'totp' while setting up the authenticator.
+	 * @param string                $view     'totp' or 'email' while setting that method up.
 	 * @param string[]              $codes    Recovery codes to show once.
 	 * @param array<string, string> $ui Class names for the host.
 	 * @phpstan-param Ui $ui
@@ -85,6 +87,8 @@ final class SecurityView {
 		}
 
 		self::passkeys( $user, $form_url, $ui );
+		self::email( $user, $form_url, $view, $ui );
+		self::trusted_devices( $user, $form_url, $ui );
 
 		if ( ! $enrolled ) {
 			return;
@@ -99,8 +103,16 @@ final class SecurityView {
 		echo '<h3>' . esc_html__( 'Confirm it is you', 'maxtdesign-mfa' ) . '</h3>';
 		echo '<p>' . esc_html__( 'Adding or removing a method, or creating new recovery codes, needs a verification in the last 10 minutes.', 'maxtdesign-mfa' ) . '</p>';
 		self::form_start( $form_url, 'stepup' );
-		echo '<fieldset><label><input type="radio" name="mdmfa_method" value="totp" checked> ' . esc_html__( 'Authenticator code', 'maxtdesign-mfa' ) . '</label> ';
-		echo '<label><input type="radio" name="mdmfa_method" value="recovery"> ' . esc_html__( 'Recovery code', 'maxtdesign-mfa' ) . '</label></fieldset>';
+		$has_totp  = TotpStore::has( $user->ID );
+		$has_email = EmailCode::has( $user->ID );
+		echo '<fieldset>';
+		if ( $has_totp ) {
+			echo '<label><input type="radio" name="mdmfa_method" value="totp" checked> ' . esc_html__( 'Authenticator code', 'maxtdesign-mfa' ) . '</label> ';
+		}
+		if ( $has_email ) {
+			echo '<label><input type="radio" name="mdmfa_method" value="email"' . ( $has_totp ? '' : ' checked' ) . '> ' . esc_html__( 'Emailed code', 'maxtdesign-mfa' ) . '</label> ';
+		}
+		echo '<label><input type="radio" name="mdmfa_method" value="recovery"' . ( $has_totp || $has_email ? '' : ' checked' ) . '> ' . esc_html__( 'Recovery code', 'maxtdesign-mfa' ) . '</label></fieldset>';
 		printf(
 			'<p class="%1$s"><label for="mdmfa_stepup_code">%2$s</label> <input type="text" name="mdmfa_code" id="mdmfa_stepup_code" class="%3$s" autocomplete="one-time-code" required></p>',
 			esc_attr( $ui['row'] ),
@@ -108,6 +120,10 @@ final class SecurityView {
 			esc_attr( $ui['input'] )
 		);
 		printf( '<p><button type="submit" class="%1$s">%2$s</button></p></form>', esc_attr( $ui['button'] ), esc_html__( 'Confirm', 'maxtdesign-mfa' ) );
+
+		if ( $has_email ) {
+			self::button_form( $form_url, 'stepup_send', __( 'Email me a code', 'maxtdesign-mfa' ), $ui['button'] );
+		}
 
 		if ( Passkeys::has( $user->ID ) ) {
 			self::form_start( $form_url, 'stepup' );
@@ -180,6 +196,58 @@ final class SecurityView {
 			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			echo '</form>';
 		}
+	}
+
+	/**
+	 * Emailed codes: turn on (confirmed by a code), or turn off.
+	 *
+	 * @param \WP_User              $user     Current user.
+	 * @param string                $form_url Form action.
+	 * @param string                $view     'email' while confirming the address.
+	 * @param array<string, string> $ui       Class names.
+	 */
+	private static function email( \WP_User $user, string $form_url, string $view, array $ui ): void {
+		$has = EmailCode::has( $user->ID );
+		if ( ! $has && ! EmailCode::allowed( $user ) ) {
+			return;
+		}
+		echo '<h3>' . esc_html__( 'Email codes', 'maxtdesign-mfa' ) . '</h3>';
+		if ( $has ) {
+			/* translators: %s: masked email address. */
+			echo '<p>' . esc_html( sprintf( __( 'Sign-in codes can be sent to %s.', 'maxtdesign-mfa' ), EmailCode::masked( $user->user_email ) ) ) . '</p>';
+			self::button_form( $form_url, 'email_remove', __( 'Turn off email codes', 'maxtdesign-mfa' ), $ui['danger'] );
+		} elseif ( 'email' === $view && EmailCode::issued( $user->ID, 'setup' ) ) {
+			self::form_start( $form_url, 'email_confirm' );
+			echo Fragments::code_field( 'mdmfa_code', __( 'Code from the email', 'maxtdesign-mfa' ), false, $ui['input'], $ui['row'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			printf( '<p><button type="submit" class="%1$s">%2$s</button></p></form>', esc_attr( $ui['primary'] ), esc_html__( 'Confirm and turn on', 'maxtdesign-mfa' ) );
+		} else {
+			/* translators: %s: masked email address. */
+			echo '<p>' . esc_html( sprintf( __( 'Get a sign-in code by email at %s. An authenticator app or a passkey is safer: anyone who can read your email could use the code.', 'maxtdesign-mfa' ), EmailCode::masked( $user->user_email ) ) ) . '</p>';
+			self::button_form( $form_url, 'email_begin', __( 'Turn on email codes', 'maxtdesign-mfa' ), $ui['button'] );
+		}
+	}
+
+	/**
+	 * Trusted devices: how many, and a way to forget them all.
+	 *
+	 * @param \WP_User              $user     Current user.
+	 * @param string                $form_url Form action.
+	 * @param array<string, string> $ui       Class names.
+	 */
+	private static function trusted_devices( \WP_User $user, string $form_url, array $ui ): void {
+		$count = TrustedDevice::count( $user->ID );
+		if ( 0 === $count ) {
+			return;
+		}
+		echo '<h3>' . esc_html__( 'Trusted devices', 'maxtdesign-mfa' ) . '</h3>';
+		echo '<p>' . esc_html(
+			sprintf(
+				/* translators: %d: number of devices. */
+				_n( '%d device skips the second step when you sign in.', '%d devices skip the second step when you sign in.', $count, 'maxtdesign-mfa' ),
+				$count
+			)
+		) . '</p>';
+		self::button_form( $form_url, 'trusted_forget', __( 'Forget all trusted devices', 'maxtdesign-mfa' ), $ui['button'] );
 	}
 
 	/**

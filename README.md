@@ -5,9 +5,10 @@ passkeys (second factor and passwordless), recovery codes, an optional email cod
 Off / Optional / Required policy for staff and customers. Free, on WordPress.org, with no outbound
 HTTP and no front-end weight on normal pages.
 
-**Status:** development (0.1.0, unreleased). TOTP, passkeys and recovery codes work on the core
-login screen and on WooCommerce My Account and checkout, and the login moves to a random address.
-Emailed codes, side-door settings and the admin settings screens are still in progress.
+**Status:** development (0.1.0, unreleased). TOTP, passkeys, emailed codes, recovery codes,
+trusted devices, email recovery and the side-door policy (application passwords, XML-RPC, REST
+password logins) work on the core login screen and on WooCommerce My Account and checkout, and the
+login moves to a random address. The admin settings screens are still in progress.
 
 - WordPress.org readme: [readme.txt](readme.txt)
 - Security policy and private reporting: [SECURITY.md](SECURITY.md) (security@maxtdesign.com)

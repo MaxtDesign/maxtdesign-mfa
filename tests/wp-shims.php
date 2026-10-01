@@ -151,6 +151,23 @@ class WP_Error {
 	}
 }
 
+function wp_fast_hash( string $message ): string {
+	return '$generic$' . hash_hmac( 'sha256', $message, 'fast-hash-test-key' );
+}
+
+function wp_verify_fast_hash( string $message, string $hash ): bool {
+	return hash_equals( $hash, wp_fast_hash( $message ) );
+}
+
+function get_transient( string $key ): mixed {
+	return $GLOBALS['mdmfa_test']['transients'][ $key ] ?? false;
+}
+
+function set_transient( string $key, mixed $value, int $expiration = 0 ): bool {
+	$GLOBALS['mdmfa_test']['transients'][ $key ] = $value;
+	return true;
+}
+
 function home_url( string $path = '' ): string {
 	return 'https://example.test' . $path;
 }

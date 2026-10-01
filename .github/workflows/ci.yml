@@ -148,6 +148,8 @@ jobs:
           wp core download --path="$WP_PATH" --version=latest --quiet
           wp config create --path="$WP_PATH" --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check --quiet
           wp config set --path="$WP_PATH" MDMFA_E2E_FIXTURES true --raw --type=constant --quiet
+          # Application passwords need https or a "local" environment (wp_is_application_passwords_supported).
+          wp config set --path="$WP_PATH" WP_ENVIRONMENT_TYPE local --type=constant --quiet
           # Throwaway CI-only admin password; the database is discarded with the runner.
           wp core install --path="$WP_PATH" --url="${MDMFA_E2E_URL%/}" --title=MFA --admin_user=admin --admin_password="$(openssl rand -hex 16)" --admin_email=admin@example.com --skip-email --quiet
           mkdir -p "$WP_PATH/wp-content/plugins/maxtdesign-mfa" "$WP_PATH/wp-content/mu-plugins"

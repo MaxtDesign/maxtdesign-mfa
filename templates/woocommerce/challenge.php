@@ -28,8 +28,14 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 <div class="mdmfa-challenge">
 	<h2><?php echo esc_html( FlowState::RECOVERY === $mdmfa_state->screen ? __( 'Recovery codes', 'maxtdesign-mfa' ) : __( 'Two-step verification', 'maxtdesign-mfa' ) ); ?></h2>
 
-	<?php foreach ( $mdmfa_state->errors->get_error_messages() as $mdmfa_error ) : ?>
-		<ul class="woocommerce-error" role="alert"><li><?php echo esc_html( wp_strip_all_tags( $mdmfa_error ) ); ?></li></ul>
+	<?php foreach ( $mdmfa_state->errors->get_error_codes() as $mdmfa_code ) : ?>
+		<?php foreach ( $mdmfa_state->errors->get_error_messages( $mdmfa_code ) as $mdmfa_error ) : ?>
+			<?php if ( 'message' === $mdmfa_state->errors->get_error_data( $mdmfa_code ) ) : ?>
+				<div class="woocommerce-message" role="status"><?php echo esc_html( wp_strip_all_tags( $mdmfa_error ) ); ?></div>
+			<?php else : ?>
+				<ul class="woocommerce-error" role="alert"><li><?php echo esc_html( wp_strip_all_tags( $mdmfa_error ) ); ?></li></ul>
+			<?php endif; ?>
+		<?php endforeach; ?>
 	<?php endforeach; ?>
 
 	<?php if ( FlowState::ENROLL === $mdmfa_state->screen && array() !== $mdmfa_state->passkey ) : ?>
@@ -71,12 +77,30 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 				$mdmfa_button
 			);
 			echo $mdmfa_passkey_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo Fragments::trust_field( $mdmfa_state, 'form-row' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			?>
 
+		<?php elseif ( FlowState::VERIFY === $mdmfa_state->screen && 'email' === $mdmfa_state->method && ! $mdmfa_state->email_sent ) : ?>
+			<p><?php esc_html_e( 'Use a code we send to your email address.', 'maxtdesign-mfa' ); ?></p>
+			<input type="hidden" name="mdmfa_send" value="1">
+			<p class="form-row"><button type="submit" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Email me a code', 'maxtdesign-mfa' ); ?></button></p>
+
 		<?php elseif ( FlowState::VERIFY === $mdmfa_state->screen ) : ?>
-			<?php $mdmfa_recovery = 'recovery' === $mdmfa_state->method; ?>
-			<p><?php echo esc_html( $mdmfa_recovery ? __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' ) : __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' ) ); ?></p>
-			<?php echo Fragments::code_field( 'mdmfa_code', $mdmfa_recovery ? __( 'Recovery code', 'maxtdesign-mfa' ) : __( 'Authentication code', 'maxtdesign-mfa' ), $mdmfa_recovery, $mdmfa_input, $mdmfa_row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
+			<?php
+			$mdmfa_recovery = 'recovery' === $mdmfa_state->method;
+			$mdmfa_intro    = __( 'Enter the 6-digit code from your authenticator app.', 'maxtdesign-mfa' );
+			$mdmfa_label    = __( 'Authentication code', 'maxtdesign-mfa' );
+			if ( $mdmfa_recovery ) {
+				$mdmfa_intro = __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' );
+				$mdmfa_label = __( 'Recovery code', 'maxtdesign-mfa' );
+			} elseif ( 'email' === $mdmfa_state->method ) {
+				$mdmfa_intro = __( 'Enter the 6-digit code from the email.', 'maxtdesign-mfa' );
+				$mdmfa_label = __( 'Code from the email', 'maxtdesign-mfa' );
+			}
+			?>
+			<p><?php echo esc_html( $mdmfa_intro ); ?></p>
+			<?php echo Fragments::code_field( 'mdmfa_code', $mdmfa_label, $mdmfa_recovery, $mdmfa_input, $mdmfa_row ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
+			<?php echo Fragments::trust_field( $mdmfa_state, 'form-row' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value. ?>
 			<p class="form-row"><button type="submit" class="<?php echo esc_attr( $mdmfa_button ); ?>"><?php esc_html_e( 'Verify', 'maxtdesign-mfa' ); ?></button></p>
 
 		<?php elseif ( FlowState::GRACE === $mdmfa_state->screen ) : ?>
@@ -101,6 +125,17 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 		<?php endif; ?>
 	</form>
 	<?php endif; ?>
+
+	<?php
+	if ( FlowState::VERIFY === $mdmfa_state->screen ) {
+		if ( 'email' === $mdmfa_state->method && $mdmfa_state->email_sent ) {
+			echo Fragments::mail_form( AccountChallenge::form_action( $mdmfa_state ), $mdmfa_state, 'mdmfa_send', __( 'Send a new code', 'maxtdesign-mfa' ), $mdmfa_button, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+		}
+		if ( $mdmfa_state->can_recover ) {
+			echo Fragments::mail_form( AccountChallenge::form_action( $mdmfa_state ), $mdmfa_state, 'mdmfa_recover', __( 'Lost access? Reset by email', 'maxtdesign-mfa' ), $mdmfa_button, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+		}
+	}
+	?>
 
 	<?php if ( FlowState::VERIFY === $mdmfa_state->screen && count( $mdmfa_state->methods ) > 1 ) : ?>
 		<p>

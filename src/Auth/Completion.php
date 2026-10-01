@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
+use MaxtDesign\Mfa\Flow\EmailRecovery;
 use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Support\Clock;
 
@@ -101,6 +102,9 @@ final class Completion {
 		do_action( 'wp_login', $user->user_login, $user ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook, fired where wp_signon() would have fired it.
 
 		if ( null !== $factor ) {
+			if ( TrustedDevice::FACTOR !== $factor ) {
+				EmailRecovery::cancel( $user->ID );
+			}
 			Lockout::reset( $user->ID );
 			Logger::log( 'challenge_ok', $user->ID, $factor, $record->context() );
 			do_action( 'mdmfa_login_completed', $user, $factor, $record->context() );
