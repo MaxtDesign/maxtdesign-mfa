@@ -149,7 +149,20 @@ final class EmailCodeTest extends TestCase {
 		// write, another plugin): the factor still stops, because the fingerprint differs.
 		$user->user_email = 'attacker@evil.example';
 		self::assertFalse( EmailCode::has( 5 ), 'codes are never sent to an address the user did not confirm' );
-		self::assertFalse( Policy::is_enrolled( 5 ) );
+		self::assertTrue( Policy::is_enrolled( 5 ), 'but the account keeps its second step: it is challenged, not waved through' );
+	}
+
+	public function test_an_enrollment_stored_before_addresses_were_recorded_stays_enrolled_and_gets_bound(): void {
+		$user = new \WP_User( 5, array( 'customer' ) );
+		// What the previous version stored.
+		update_user_meta( 5, EmailCode::META, array( 'enabled' => true, 'confirmed_at' => self::T0 - 100 ) );
+
+		self::assertTrue( EmailCode::has( 5 ), 'never silently dropped to password-only' );
+		self::assertTrue( Policy::is_enrolled( 5 ) );
+		self::assertSame( hash( 'sha256', 'user5@example.com' ), get_user_meta( 5, EmailCode::META, true )['address'], 'bound on first read' );
+
+		$user->user_email = 'other@example.com';
+		self::assertFalse( EmailCode::has( 5 ), 'and from then on tied to that address' );
 	}
 
 	public function test_an_address_change_switches_the_factor_off_and_closes_email_recovery_for_a_day(): void {
@@ -166,14 +179,19 @@ final class EmailCodeTest extends TestCase {
 		EmailCode::address_changed( 5, $old );
 
 		self::assertFalse( EmailCode::has( 5 ) );
+		self::assertTrue( EmailCode::enrolled( 5 ), 'an email-only account is not de-enrolled by an address change' );
+		self::assertTrue( Policy::is_enrolled( 5 ) );
 		self::assertSame( 0, \MaxtDesign\Mfa\Auth\TrustedDevice::count( 5 ) );
 		self::assertSame( '', get_user_meta( 5, \MaxtDesign\Mfa\Flow\EmailRecovery::META, true ), 'a waiting recovery is dropped' );
 		self::assertFalse( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $user ), 'a mailbox that just changed proves nothing' );
 		Clock::freeze( self::T0 + DAY_IN_SECONDS + 1 );
 		self::assertTrue( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $user ) );
 
-		// Same address in another case is not a change.
+		// Confirming the new address on the security screen turns codes back on.
 		EmailCode::enable( 5 );
+		self::assertTrue( EmailCode::has( 5 ) );
+
+		// Same address in another case is not a change.
 		$same             = clone $user;
 		$same->user_email = 'NEW@example.com';
 		EmailCode::address_changed( 5, $same );

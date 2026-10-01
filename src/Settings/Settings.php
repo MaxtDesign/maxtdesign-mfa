@@ -213,7 +213,7 @@ final class Settings {
 		// The one setting a hot path needs (Integrations\Jetpack) lives in the autoloaded
 		// login option too.
 		$login = get_option( Options::LOGIN );
-		if ( is_array( $login ) && ! empty( $login['block_sso'] ) !== ! empty( $resolved['block_wpcom_sso'] ) ) {
+		if ( is_array( $login ) && ( ! array_key_exists( 'block_sso', $login ) || ! empty( $login['block_sso'] ) !== ! empty( $resolved['block_wpcom_sso'] ) ) ) {
 			$login['block_sso'] = ! empty( $resolved['block_wpcom_sso'] );
 			update_option( Options::LOGIN, $login, true );
 		}

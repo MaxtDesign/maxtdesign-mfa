@@ -66,6 +66,13 @@ final class PolicyTest extends TestCase {
 		self::assertSame( Policy::ENROLL, Policy::decide( $user ), 'a password alone gets no network-wide session here' );
 		self::assertTrue( Policy::is_subject( $user ) );
 
+		// A capability row left behind by a deleted site sets no policy.
+		$GLOBALS['mdmfa_test']['usermeta'][10]['wp_capabilities']   = array( 'editor' => true );
+		$GLOBALS['mdmfa_test']['usermeta'][10]['wp_2_capabilities'] = array( 'subscriber' => true );
+		$GLOBALS['mdmfa_test']['deleted_sites']                     = array( 1 );
+		self::assertSame( Settings::POLICY_OFF, Policy::policy( new \WP_User( 10, array( 'subscriber' ) ) ) );
+		$GLOBALS['mdmfa_test']['deleted_sites'] = array();
+
 		// Someone who only belongs to site 2 follows site 2.
 		self::assertSame( Settings::POLICY_OFF, Policy::policy( new \WP_User( 8, array( 'subscriber' ) ) ) );
 	}

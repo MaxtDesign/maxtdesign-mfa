@@ -114,13 +114,14 @@ final class Policy {
 	 * emailed code where the role allows it. Recovery codes alone do not count.
 	 *
 	 * A passkey counts even when it cannot be used here (registered for another site of
-	 * the network, or the site address changed): the account must stay challenged, with
-	 * its other methods or a recovery code, rather than fall back to the password alone.
+	 * the network, or the site address changed), and so does an email factor whose address
+	 * has changed and is not confirmed yet: the account must stay challenged, with its
+	 * other methods or a recovery code, rather than fall back to the password alone.
 	 *
 	 * @param int $user_id User ID.
 	 */
 	public static function is_enrolled( int $user_id ): bool {
-		return TotpStore::has( $user_id ) || PasskeyStore::count( $user_id ) > 0 || EmailCode::has( $user_id );
+		return TotpStore::has( $user_id ) || PasskeyStore::count( $user_id ) > 0 || EmailCode::enrolled( $user_id );
 	}
 
 	/**
@@ -149,7 +150,8 @@ final class Policy {
 			}
 		}
 		foreach ( array_slice( array_unique( $sites ), 0, 50 ) as $blog_id ) {
-			if ( get_current_blog_id() === $blog_id ) {
+			// A capability row can outlive its site; a deleted site sets no policy.
+			if ( get_current_blog_id() === $blog_id || null === get_site( $blog_id ) ) {
 				continue;
 			}
 			$caps     = get_user_meta( $user->ID, $wpdb->get_blog_prefix( $blog_id ) . 'capabilities', true );

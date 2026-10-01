@@ -146,6 +146,39 @@ final class AuditRegressionTest extends E2eTestCase {
 		self::wp( 'user', 'update', (string) $id, '--user_email=attacker-' . $login . '@evil.example', '--skip-email' );
 
 		self::assertSame( 'false', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\EmailCode::has( %d ) ? "true" : "false";', $id ) ), 'the email factor waits for the new address to be confirmed' );
+
+		// An email-only account must not become password-only through an address change.
+		list( $only, $only_login, $only_pass ) = self::user( 'author' );
+		self::enroll_email( $only );
+		self::wp( 'user', 'update', (string) $only, '--user_email=moved-' . $only_login . '@evil.example', '--skip-email' );
+		$attempt = $this->password( $this->browser(), $only_login, $only_pass );
+		self::assertNoAuthCookie( $attempt, 'still challenged' );
+		self::assertStringContainsString( 'action=mdmfa-verify', $attempt->location() );
+		self::assertSame( 0, self::sessions( $only ) );
+
+		// And changing your own address from a stale session is refused outright.
+		$stale = $this->browser();
+		list( $self_id, $self_login, $self_pass ) = self::user( 'author' );
+		$self_secret                              = self::enroll( $self_id );
+		$this->password( $stale, $self_login, $self_pass );
+		$this->submit_code( $stale, self::code( $self_secret ) );
+		self::age_sessions( $self_id );
+		$profile = $stale->get( 'wp-admin/profile.php' );
+		$stale->post(
+			'wp-admin/profile.php',
+			array(
+				'_wpnonce'        => $profile->input( '_wpnonce' ),
+				'action'          => 'update',
+				'user_id'         => (string) $self_id,
+				'checkuser_id'    => (string) $self_id,
+				'email'           => 'elsewhere-' . $self_login . '@evil.example',
+				'nickname'        => $self_login,
+				'display_name'    => $self_login,
+				'from'            => 'profile',
+			)
+		);
+		self::assertSame( $self_login . '@example.com', self::wp( 'user', 'get', (string) $self_id, '--field=user_email' ), 'the address is unchanged' );
+		self::assertSame( '', self::eval( sprintf( 'echo (string) get_user_meta( %d, "_new_email", true ) ? "pending" : "";', $self_id ) ), 'and no confirmation mail is pending for it' );
 		self::assertSame( '0', self::eval( sprintf( 'echo MaxtDesign\Mfa\Auth\TrustedDevice::count( %d );', $id ) ) );
 		self::assertContains( 'email_changed', array_column( self::log_events( $id ), 'event' ) );
 
@@ -242,7 +275,9 @@ final class AuditRegressionTest extends E2eTestCase {
 			self::wp( 'config', 'set', 'MDMFA_ENCRYPTION_KEY', base64_encode( random_bytes( 32 ) ), '--type=constant' );
 			self::assertSame( 'older key', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\TotpStore::key_state( %d );', $id ) ) );
 			self::assertTrue( (bool) self::mfa_status()['key_migrating'] );
-			self::assertStringContainsString( 'Re-encrypted', self::wp( 'mdmfa', 'key', 'rewrap' ) );
+			// Converts every secret an older key of this site can read (a warning, on stderr,
+			// when some other account's secret is beyond recovery).
+			self::wp( 'mdmfa', 'key', 'rewrap' );
 			self::assertSame( 'current', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\TotpStore::key_state( %d );', $id ) ) );
 			$again = $this->browser();
 			$this->password( $again, $login, $pass );

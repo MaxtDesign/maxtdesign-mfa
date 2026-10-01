@@ -394,7 +394,10 @@ final class Passkeys {
 			do_action( 'mdmfa_passkey_counter_anomaly', $user, (int) $row['id'] );
 			$settings = Settings::get();
 			PasskeyStore::used( (int) $row['id'], max( $result->sign_count, (int) $row['sign_count'] ), $result->bs, true );
-			return empty( $settings['counter_anomaly_block'] );
+			// A passkey that cannot be synced has exactly one copy, so a counter that
+			// did not grow means a clone: refused. Synced passkeys (backup eligible) are
+			// flagged and allowed unless the owner chose to block them too.
+			return ! empty( $row['be'] ) && empty( $settings['counter_anomaly_block'] );
 		}
 		PasskeyStore::used( (int) $row['id'], $result->sign_count, $result->bs, false );
 

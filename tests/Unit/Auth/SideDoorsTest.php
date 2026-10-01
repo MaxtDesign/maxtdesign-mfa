@@ -122,6 +122,12 @@ final class SideDoorsTest extends TestCase {
 
 		\MaxtDesign\Mfa\Settings\Settings::save( array( 'block_wpcom_sso' => false ) );
 		self::assertSame( $modules, Jetpack::filter_modules( $modules ), 'and unmirrors it' );
+
+		// A block saved before the mirror existed must not lapse: it is seeded on first read.
+		$GLOBALS['mdmfa_test']['options']['mdmfa_login']    = array( 'enabled' => true, 'slug' => 'abc123def456' );
+		$GLOBALS['mdmfa_test']['options']['mdmfa_settings'] = array( 'block_wpcom_sso' => true );
+		self::assertTrue( Jetpack::sso_blocked() );
+		self::assertTrue( $GLOBALS['mdmfa_test']['options']['mdmfa_login']['block_sso'] );
 		self::assertSame( 'not-an-array', Jetpack::filter_modules( 'not-an-array' ) );
 	}
 

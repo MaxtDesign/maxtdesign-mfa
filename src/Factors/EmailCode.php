@@ -11,6 +11,8 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Factors;
 
+use MaxtDesign\Mfa\Auth\StepUp;
+use MaxtDesign\Mfa\Auth\TrustedDevice;
 use MaxtDesign\Mfa\Flow\EmailRecovery;
 use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Notify\Mailer;
@@ -42,6 +44,13 @@ final class EmailCode {
 	public const TTL          = 600;
 	public const MAX_ATTEMPTS = 5;
 
+	/**
+	 * Whether this request's own-address change was refused for want of a fresh verification.
+	 *
+	 * @var bool
+	 */
+	private static bool $refused_change = false;
+
 	public const SENT    = 'sent';
 	public const LIMITED = 'limited';
 	public const FAILED  = 'failed';
@@ -51,12 +60,20 @@ final class EmailCode {
 	 */
 	public static function register(): void {
 		add_action( 'profile_update', array( self::class, 'address_changed' ), 10, 2 );
+		// Before core's own handler, which mails a confirmation link to the new address.
+		add_action( 'personal_options_update', array( self::class, 'guard_profile_request' ), 0, 1 );
+		add_action( 'user_profile_update_errors', array( self::class, 'guard_profile_change' ), 10, 3 );
+		add_action( 'woocommerce_save_account_details_errors', array( self::class, 'guard_wc_change' ), 10, 2 );
 	}
 
 	/**
-	 * A changed address is an unproven mailbox: the email factor goes off until it is
-	 * confirmed again, trusted devices are forgotten and any waiting recovery is dropped.
-	 * Email recovery then stays closed for a day (EmailRecovery::allowed()).
+	 * A changed address is an unproven mailbox: no code is sent to it until it is confirmed
+	 * again on the security screen, trusted devices are forgotten and any waiting recovery
+	 * is dropped. Email recovery then stays closed for a day (EmailRecovery::allowed()).
+	 *
+	 * The account stays enrolled (Policy::is_enrolled() counts a stored email factor), so
+	 * it is still challenged, with its other methods or a recovery code. Switching the
+	 * factor off here would hand a password-only login to whoever changed the address.
 	 *
 	 * @param mixed $user_id  User ID.
 	 * @param mixed $old_user User data before the update.
@@ -68,8 +85,8 @@ final class EmailCode {
 		}
 		update_user_meta( $user->ID, self::CHANGED, Clock::now() );
 		$had = self::stored( $user->ID );
-		self::remove( $user->ID );
-		Reset::after_change( $user->ID );
+		delete_user_meta( $user->ID, self::CODES );
+		TrustedDevice::revoke_all( $user->ID );
 		delete_user_meta( $user->ID, EmailRecovery::META );
 		Logger::log( 'email_changed', $user->ID, $had ? 'email' : '', 'account', get_current_user_id() > 0 ? get_current_user_id() : null );
 	}
@@ -94,11 +111,102 @@ final class EmailCode {
 		}
 		$meta = get_user_meta( $user_id, self::META, true );
 		$user = get_userdata( $user_id );
+		if ( ! $user instanceof \WP_User || ! is_array( $meta ) || ! self::allowed( $user ) ) {
+			return false;
+		}
+		// An enrollment stored before addresses were recorded: bind it to the address the
+		// account has now. Treating it as absent would drop the account to password-only.
+		if ( ! isset( $meta['address'] ) || ! is_string( $meta['address'] ) || '' === $meta['address'] ) {
+			$meta['address'] = self::address_hash( $user->user_email );
+			update_user_meta( $user_id, self::META, $meta );
+		}
 
 		// Only for the address the user proved they can read.
-		return $user instanceof \WP_User && self::allowed( $user )
-			&& is_array( $meta ) && isset( $meta['address'] ) && is_string( $meta['address'] )
-			&& hash_equals( $meta['address'], self::address_hash( $user->user_email ) );
+		return hash_equals( $meta['address'], self::address_hash( $user->user_email ) );
+	}
+
+	/**
+	 * Whether the user turned email codes on and the role still allows them, whatever
+	 * address the account has now. This is what "enrolled" means for the policy: an
+	 * unconfirmed new address stops codes being sent, it does not remove the second step.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	public static function enrolled( int $user_id ): bool {
+		$user = self::stored( $user_id ) ? get_userdata( $user_id ) : false;
+
+		return $user instanceof \WP_User && Policy::allows( $user, 'email' );
+	}
+
+	/**
+	 * Changing your own email address on an account with two-step verification needs a
+	 * recent verification: wp-admin profile form.
+	 *
+	 * @param mixed $errors Errors to add to.
+	 * @param mixed $update Whether this is an update.
+	 * @param mixed $user   Submitted user data.
+	 */
+	public static function guard_profile_change( mixed $errors, mixed $update = true, mixed $user = null ): void {
+		$new = is_object( $user ) && isset( $user->user_email ) && is_string( $user->user_email ) ? $user->user_email : '';
+		$id  = is_object( $user ) && isset( $user->ID ) ? (int) $user->ID : 0;
+		if ( $errors instanceof \WP_Error && $update && ( self::$refused_change || self::change_needs_stepup( $id, $new ) ) ) {
+			$errors->add( 'mdmfa_stepup_required', esc_html( self::stepup_message() ) );
+		}
+	}
+
+	/**
+	 * The wp-admin profile form posts a new address to core, which mails a confirmation
+	 * link to it before any validation hook runs. When the change is not allowed, the
+	 * posted address is put back to the current one, so no link is sent, and the refusal
+	 * is reported by guard_profile_change().
+	 *
+	 * @param mixed $user_id User whose profile is being saved (always the current user here).
+	 */
+	public static function guard_profile_request( mixed $user_id ): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- core verified the profile nonce before firing this action.
+		$new = isset( $_POST['email'] ) && is_string( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		if ( is_numeric( $user_id ) && self::change_needs_stepup( (int) $user_id, $new ) ) {
+			$user                 = get_userdata( (int) $user_id );
+			$_POST['email']       = $user instanceof \WP_User ? $user->user_email : '';
+			self::$refused_change = true;
+		}
+		// phpcs:enable
+	}
+
+	/**
+	 * The same rule for WooCommerce My Account, Account details.
+	 *
+	 * @param mixed $errors Errors to add to.
+	 * @param mixed $user   Submitted user data.
+	 */
+	public static function guard_wc_change( mixed $errors, mixed $user = null ): void {
+		$new = is_object( $user ) && isset( $user->user_email ) && is_string( $user->user_email ) ? $user->user_email : '';
+		$id  = is_object( $user ) && isset( $user->ID ) ? (int) $user->ID : 0;
+		if ( $errors instanceof \WP_Error && self::change_needs_stepup( $id, $new ) ) {
+			$errors->add( 'mdmfa_stepup_required', esc_html( self::stepup_message() ) );
+		}
+	}
+
+	/**
+	 * Whether the current user is changing their own address without a fresh verification.
+	 * An administrator editing someone else is not held to the other person's second step.
+	 *
+	 * @param int    $user_id User being edited.
+	 * @param string $address Submitted address.
+	 */
+	private static function change_needs_stepup( int $user_id, string $address ): bool {
+		$user = $user_id > 0 && get_current_user_id() === $user_id ? get_userdata( $user_id ) : false;
+
+		return $user instanceof \WP_User && '' !== $address
+			&& strtolower( $address ) !== strtolower( $user->user_email )
+			&& Policy::is_enrolled( $user_id ) && ! StepUp::is_fresh( $user_id );
+	}
+
+	/**
+	 * Message shown when the address change is refused.
+	 */
+	private static function stepup_message(): string {
+		return __( 'To change your email address, first confirm it is you on your security page, then make the change within 10 minutes.', 'maxtdesign-mfa' );
 	}
 
 	/**

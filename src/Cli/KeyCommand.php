@@ -107,20 +107,25 @@ final class KeyCommand {
 		}
 		try {
 			$keys = KeyProvider::from_environment();
-			update_option(
-				Options::KEY_CHECK,
-				array(
-					'kid'    => $keys->kid(),
-					'source' => $keys->source(),
-				),
-				false
-			);
 		} catch ( InvalidKeyException $e ) {
 			\WP_CLI::warning( 'MDMFA_ENCRYPTION_KEY is invalid; nothing was re-encrypted.' );
 			return;
 		}
 		Snapshot::flush();
-		\WP_CLI::success( sprintf( 'Re-encrypted %d secrets. %d are unreadable and need a reset.', $done, $failed ) );
+		if ( $failed > 0 ) {
+			// Leave the stored key id alone: the Tools tab must keep saying users need a reset.
+			\WP_CLI::warning( sprintf( 'Re-encrypted %d secrets. %d are unreadable (their key is gone) and need `wp mdmfa user reset <user> --factor=totp`.', $done, $failed ) );
+			return;
+		}
+		update_option(
+			Options::KEY_CHECK,
+			array(
+				'kid'    => $keys->kid(),
+				'source' => $keys->source(),
+			),
+			false
+		);
+		\WP_CLI::success( sprintf( 'Re-encrypted %d secrets. Every authenticator secret is under the current key.', $done ) );
 	}
 
 	/**

@@ -401,6 +401,7 @@ final class AdminTest extends E2eTestCase {
 		self::assertTrue( $erase['items_removed'] );
 		self::assertTrue( $erase['items_retained'], 'methods are kept while the account exists' );
 		self::assertSame( array(), self::log_events( $id ) );
+		self::assertSame( '0', self::eval( sprintf( 'global $wpdb; echo (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %%i WHERE actor_id = %%d", $wpdb->prefix . "mdmfa_log", %d ) );', $id ) ), 'nor as the actor of a row' );
 		self::assertSame( 'true', self::eval( sprintf( 'echo MaxtDesign\Mfa\Policy\Policy::is_enrolled( %d ) ? "true" : "false";', $id ) ) );
 
 		self::assertSame( array( 'data' => array(), 'done' => true ), json_decode( self::eval( 'echo wp_json_encode( MaxtDesign\Mfa\Privacy\Privacy::export( "nobody@example.com", 1 ) );' ), true ) );

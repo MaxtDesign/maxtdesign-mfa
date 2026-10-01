@@ -213,7 +213,14 @@ final class ChallengeFlow {
 	 * @phpstan-param Input $input
 	 */
 	private static function attempt( PendingRecord &$record, \WP_User $user, array $input, string $method, string $purpose, \WP_Error $errors, callable $state ): FlowState {
-		$until = Lockout::blocked_until( $user->ID );
+		// The record as it is now: a request that waited for the lock may hold a copy
+		// whose passkey challenge or attempt count another request already used.
+		$current = PendingStore::find( (string) PendingCookie::get() );
+		if ( null === $current || $current->user_id !== $user->ID ) {
+			return FlowState::expired( __( 'This sign-in was already completed or has expired. Please log in again.', 'maxtdesign-mfa' ) );
+		}
+		$record = $current;
+		$until  = Lockout::blocked_until( $user->ID );
 		if ( $until > 0 ) {
 			$errors->add(
 				'mdmfa_wait',

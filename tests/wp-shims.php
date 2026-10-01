@@ -189,6 +189,10 @@ function maybe_unserialize( mixed $data ): mixed {
 	return is_string( $data ) && 1 === preg_match( '/^[aOs]:\d+:/', $data ) ? unserialize( $data ) : $data;
 }
 
+function get_site( int $site_id ): ?object {
+	return in_array( $site_id, $GLOBALS['mdmfa_test']['deleted_sites'] ?? array(), true ) ? null : (object) array( 'blog_id' => $site_id );
+}
+
 function is_admin(): bool {
 	return ! empty( $GLOBALS['mdmfa_test']['is_admin'] );
 }

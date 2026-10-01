@@ -145,8 +145,8 @@ final class SettingsViews {
 		printf(
 			'<tr><th scope="row">%1$s</th><td>%2$s <p class="description">%3$s</p></td></tr>',
 			esc_html__( 'Copied passkeys', 'maxtdesign-mfa' ),
-			Ui::checkbox( 'counter_anomaly_block', ! empty( $settings['counter_anomaly_block'] ), __( 'Refuse a passkey that reports an unexpected counter', 'maxtdesign-mfa' ) ),
-			esc_html__( 'An unexpected counter can mean the passkey was copied. It is always flagged and logged; this also refuses the sign-in. Passkeys synced by a phone or password manager report no counter and are not affected.', 'maxtdesign-mfa' )
+			Ui::checkbox( 'counter_anomaly_block', ! empty( $settings['counter_anomaly_block'] ), __( 'Also refuse a synced passkey that reports an unexpected counter', 'maxtdesign-mfa' ) ),
+			esc_html__( 'An unexpected counter can mean the passkey was copied. It is always flagged and logged. A passkey that lives on one device only (a security key) is always refused when that happens. Passkeys synced by a phone or password manager usually report no counter and are not affected; tick this to refuse them too if one ever does.', 'maxtdesign-mfa' )
 		);
 		echo '</tbody></table>';
 		echo '<p>' . Ui::submit( __( 'Save factor settings', 'maxtdesign-mfa' ) ) . '</p></form>';

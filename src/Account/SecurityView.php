@@ -212,6 +212,9 @@ final class SecurityView {
 			return;
 		}
 		echo '<h3>' . esc_html__( 'Email codes', 'maxtdesign-mfa' ) . '</h3>';
+		if ( ! $has && EmailCode::enrolled( $user->ID ) ) {
+			echo '<p><strong>' . esc_html__( 'Your email address changed, so codes are not sent to it yet. Confirm the new address to use email codes again.', 'maxtdesign-mfa' ) . '</strong></p>';
+		}
 		if ( $has ) {
 			/* translators: %s: masked email address. */
 			echo '<p>' . esc_html( sprintf( __( 'Sign-in codes can be sent to %s.', 'maxtdesign-mfa' ), EmailCode::masked( $user->user_email ) ) ) . '</p>';

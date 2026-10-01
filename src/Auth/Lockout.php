@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
-use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Notify\Mailer;
+use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Settings\Settings;
 use MaxtDesign\Mfa\Support\Clock;
 
@@ -50,6 +50,12 @@ final class Lockout {
 		$got  = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a named lock, not data.
 		if ( null !== $got && '1' !== (string) $got ) {
 			return null;
+		}
+		if ( null === $got && false === get_transient( 'mdmfa_lock_unavailable' ) ) {
+			// Recorded once a day: on this database the counters are not exact under
+			// parallel attempts.
+			set_transient( 'mdmfa_lock_unavailable', 1, DAY_IN_SECONDS );
+			Logger::log( 'lock_unavailable', $user_id, '', '', null, 'GET_LOCK' );
 		}
 		// This request read the user's meta before it held the lock. Drop that copy, so
 		// the counter, the TOTP step and the email-code state are read fresh inside it.
