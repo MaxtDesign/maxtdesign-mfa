@@ -1,0 +1,125 @@
+/* MaxtDesign MFA admin. Tier 2: native WordPress look on its own; the suite stylesheet takes over the md-suite-* shapes when present. */
+.mdmfa-admin .mdmfa-matrix th,
+.mdmfa-admin .mdmfa-matrix td {
+	vertical-align: middle;
+	white-space: nowrap;
+}
+.mdmfa-admin .md-suite-table-region {
+	overflow-x: auto;
+	margin: 12px 0;
+}
+.mdmfa-admin .md-suite-table-region:focus-visible,
+.mdmfa-admin :focus-visible {
+	outline: 2px solid var(--md-suite-color-brand-bright, currentColor);
+	outline-offset: 1px;
+}
+.mdmfa-admin .mdmfa-notes {
+	list-style: disc;
+	margin: 12px 0 12px 20px;
+	color: var(--md-suite-color-muted, #646970);
+	max-width: 70em;
+}
+.mdmfa-admin .mdmfa-filter,
+.mdmfa-admin .mdmfa-bulk,
+.mdmfa-admin .mdmfa-pages,
+.mdmfa-admin .mdmfa-summary {
+	margin: 12px 0;
+}
+.mdmfa-admin .mdmfa-summary .md-suite-badge {
+	margin-right: 4px;
+}
+.mdmfa-admin .mdmfa-copied {
+	color: var(--md-suite-color-good-ink, #15803d);
+}
+.mdmfa-dialog {
+	border: 1px solid var(--md-suite-color-border-strong, #c3c4c7);
+	border-radius: var(--md-suite-radius, 6px);
+	padding: 16px;
+	max-width: 32em;
+}
+.mdmfa-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.4);
+}
+.mdmfa-dialog .button {
+	margin-right: 8px;
+}
+.mdmfa-dialog .mdmfa-danger {
+	border-color: var(--md-suite-color-bad, #dc2626);
+	color: var(--md-suite-color-bad-ink, #b91c1c);
+}
+
+/* Fallback shapes, only when suite-core is absent. */
+.mdmfa-standalone .md-suite-page-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	margin: 16px 0 24px;
+}
+.mdmfa-standalone .md-suite-page-header__brand {
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+.mdmfa-standalone .md-suite-page-header__sep {
+	color: var(--md-suite-color-faint, #8c8f94);
+}
+.mdmfa-standalone .md-suite-page-header__title {
+	margin: 0;
+	padding: 0;
+	font-size: 23px;
+	font-weight: 400;
+}
+.mdmfa-standalone .md-suite-page-header__meta {
+	margin-left: auto;
+}
+.mdmfa-standalone .md-suite-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid var(--md-suite-color-border, #dcdcde);
+	border-radius: var(--md-suite-radius-pill, 999px);
+	background: var(--md-suite-color-surface-2, #f0f0f1);
+	color: var(--md-suite-color-text, #1d2327);
+	font-size: 12px;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+.mdmfa-standalone .md-suite-badge--good {
+	background: var(--md-suite-color-good-tint, #ecfdf5);
+	border-color: var(--md-suite-color-good-tint-border, #a7f3d0);
+	color: var(--md-suite-color-good-ink, #15803d);
+}
+.mdmfa-standalone .md-suite-badge--warn {
+	background: var(--md-suite-color-warn-tint, #fffbeb);
+	border-color: var(--md-suite-color-warn-tint-border, #fde68a);
+	color: var(--md-suite-color-warn-ink, #b45309);
+}
+.mdmfa-standalone .md-suite-badge--bad {
+	background: var(--md-suite-color-bad-tint, #fef2f2);
+	border-color: var(--md-suite-color-bad-tint-border, #fecaca);
+	color: var(--md-suite-color-bad-ink, #b91c1c);
+}
+.mdmfa-standalone .md-suite-card {
+	background: var(--md-suite-color-bg, #ffffff);
+	border: 1px solid var(--md-suite-color-border, #dcdcde);
+	border-radius: var(--md-suite-radius, 6px);
+	padding: 16px;
+	margin: 0 0 24px;
+	max-width: 70em;
+}
+.mdmfa-standalone .md-suite-card__title {
+	margin: 0 0 8px;
+	font-size: 13px;
+	text-transform: uppercase;
+	color: var(--md-suite-color-muted, #646970);
+}
+.mdmfa-standalone .md-suite-empty {
+	padding: 24px 0;
+}
+.mdmfa-standalone .md-suite-empty__title {
+	font-weight: 600;
+	margin: 0 0 4px;
+}
+.mdmfa-standalone .md-suite-empty__message {
+	color: var(--md-suite-color-muted, #646970);
+	margin: 0;
+}

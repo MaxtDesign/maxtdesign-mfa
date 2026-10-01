@@ -93,14 +93,20 @@ final class LoginLocation {
 
 	/**
 	 * Where logged-out visitors are sent to log in (plan 5.3, decision 8): WooCommerce My
-	 * Account when present, else the slug. Filter: mdmfa_public_login_url.
+	 * Account when present, else the slug; or a published page the owner chose. Filter:
+	 * mdmfa_public_login_url.
 	 */
 	public static function public_url(): string {
 		$option  = get_option( Options::LOGIN );
 		$mode    = is_array( $option ) && isset( $option['public_login'] ) && is_string( $option['public_login'] ) ? $option['public_login'] : 'auto';
 		$account = ChallengeUrl::account();
 		$url     = ( 'slug' !== $mode && '' !== $account ) ? $account : self::url();
-		$url     = apply_filters( 'mdmfa_public_login_url', $url );
+		if ( 'page' === $mode ) {
+			$page = is_array( $option ) && isset( $option['public_page'] ) ? (int) $option['public_page'] : 0;
+			$link = $page > 0 && 'publish' === get_post_status( $page ) ? get_permalink( $page ) : false;
+			$url  = is_string( $link ) && '' !== $link ? $link : $url;
+		}
+		$url = apply_filters( 'mdmfa_public_login_url', $url );
 
 		return is_string( $url ) && '' !== $url ? $url : self::url();
 	}

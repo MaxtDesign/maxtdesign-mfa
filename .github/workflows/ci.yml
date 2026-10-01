@@ -213,6 +213,8 @@ jobs:
           echo "0 hits"
       - name: Passkey module parses (node --check)
         run: node --check assets/front/mdmfa-passkey.js
+      - name: Admin script parses (node --check)
+        run: node --check assets/admin/mdmfa-admin.js
       - name: Size-check self-test (the check must fail when it should)
         run: php tools/size-check.php --self-test
       - name: Byte budgets

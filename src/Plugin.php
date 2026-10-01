@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa;
 
 use MaxtDesign\Mfa\Account\AccountPage;
+use MaxtDesign\Mfa\Admin\Actions;
+use MaxtDesign\Mfa\Admin\SettingsPage;
 use MaxtDesign\Mfa\Auth\BypassGuard;
 use MaxtDesign\Mfa\Auth\Completion;
 use MaxtDesign\Mfa\Auth\Interceptor;
@@ -18,6 +20,8 @@ use MaxtDesign\Mfa\Auth\TrustedDevice;
 use MaxtDesign\Mfa\Flow\EmailRecovery;
 use MaxtDesign\Mfa\Integrations\Conflicts;
 use MaxtDesign\Mfa\Integrations\Jetpack;
+use MaxtDesign\Mfa\Integrations\Suite;
+use MaxtDesign\Mfa\Privacy\Privacy;
 use MaxtDesign\Mfa\Cli\Command;
 use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
@@ -90,6 +94,8 @@ final class Plugin {
 		SideDoors::register();
 		EmailRecovery::register();
 		Jetpack::register();
+		Suite::register();
+		Privacy::register();
 		// Login location (plan 5): routing, 404s, URL rewrites, cache signals.
 		Router::register();
 		UrlRewriter::register();
@@ -101,6 +107,8 @@ final class Plugin {
 		if ( is_admin() ) {
 			AccountPage::register();
 			Conflicts::register();
+			SettingsPage::register();
+			Actions::register();
 		}
 	}
 
