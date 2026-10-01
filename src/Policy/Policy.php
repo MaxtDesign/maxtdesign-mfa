@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Policy;
 
+use MaxtDesign\Mfa\Auth\SideDoors;
 use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\PasskeyStore;
 use MaxtDesign\Mfa\Factors\Passkeys;
@@ -24,6 +25,11 @@ defined( 'ABSPATH' ) || exit;
  * Effective policy = the strictest across the user's roles on this site (Required >
  * Optional > Off); the role that sets it also supplies factors, grace and the rest. Super
  * admins are always Required. Filter: mdmfa_user_policy.
+ *
+ * On a network the account, its factors, its sessions and a reset are shared by every
+ * site, so each site the user belongs to contributes its governing configuration and the
+ * result is the strictest of them, setting by setting (see strictest()). The answer is
+ * the same whichever site the user signs in on.
  */
 final class Policy {
 
@@ -41,6 +47,13 @@ final class Policy {
 
 	public const GRACE_META = 'mdmfa_grace_started';
 
+	/**
+	 * Other sites' configurations per "user:site", for this request.
+	 *
+	 * @var array<string, array<int, array<string, mixed>>>
+	 */
+	private static array $network = array();
+
 	private const RANK = array(
 		Settings::POLICY_OFF      => 0,
 		Settings::POLICY_OPTIONAL => 1,
@@ -48,33 +61,29 @@ final class Policy {
 	);
 
 	/**
-	 * Role configuration that governs this user, with the resolved policy.
+	 * Configuration that governs this user, with the resolved policy. Site-level switches
+	 * are folded in: `app_passwords` already reflects the site's application-password
+	 * mode, `xmlrpc_password` says whether XML-RPC accepts the account password, and
+	 * `trusted_device_days` is the lifetime of a new trusted device.
 	 *
 	 * @param \WP_User $user User.
 	 * @return array<string, mixed>
 	 */
 	public static function effective( \WP_User $user ): array {
 		$settings = Settings::get();
-		$roles    = is_array( $settings['roles'] ) ? $settings['roles'] : array();
-		$unlisted = is_array( $settings['unlisted_role'] ) ? $settings['unlisted_role'] : Settings::role_defaults( Settings::POLICY_OPTIONAL, true );
-
-		$best = null;
-		foreach ( (array) $user->roles as $role ) {
-			$config = isset( $roles[ $role ] ) && is_array( $roles[ $role ] ) ? $roles[ $role ] : $unlisted;
-			if ( null === $best || self::rank( $config['policy'] ?? '' ) > self::rank( $best['policy'] ?? '' ) ) {
-				$best = $config;
-			}
-		}
-		$best = $best ?? $unlisted;
+		$best     = self::site_rules( self::governing( $settings, (array) $user->roles ), $settings );
 
 		if ( is_multisite() ) {
-			// Sessions are network-wide, so the strictest policy across the user's sites applies.
-			$floor = self::network_floor( $user );
-			if ( self::rank( $floor ) > self::rank( $best['policy'] ?? '' ) ) {
-				$best['policy'] = $floor;
-			}
+			// Raising the policy alone would leave the weaker site's recovery, grace and
+			// application-password settings in force for a network-wide identity.
+			$best = self::strictest( array_merge( array( $best ), self::other_sites( $user ) ) );
 			if ( is_super_admin( $user->ID ) ) {
 				$best['policy'] = Settings::POLICY_REQUIRED;
+			}
+			// Sites that each allow a different strong method share none; someone Required
+			// must still be able to enroll (the rule Settings::sanitize_role() applies to a role).
+			if ( Settings::POLICY_REQUIRED === $best['policy'] && is_array( $best['factors'] ) && empty( $best['factors']['totp'] ) && empty( $best['factors']['passkey'] ) ) {
+				$best['factors']['totp'] = true;
 			}
 		}
 
@@ -131,20 +140,125 @@ final class Policy {
 	}
 
 	/**
-	 * The strictest policy any other site of the network gives this user (multisite).
-	 * Cached per request; reads one option row per site the user belongs to.
+	 * The role configuration that governs a user with these roles under these settings:
+	 * the first role with the strictest policy, or the unlisted-role configuration.
+	 *
+	 * @param array<string, mixed>    $settings Resolved settings of one site.
+	 * @param array<array-key, mixed> $roles    Role names.
+	 * @return array<string, mixed>
+	 */
+	private static function governing( array $settings, array $roles ): array {
+		$configs  = is_array( $settings['roles'] ?? null ) ? $settings['roles'] : array();
+		$unlisted = is_array( $settings['unlisted_role'] ?? null ) ? $settings['unlisted_role'] : Settings::role_defaults( Settings::POLICY_OPTIONAL, true );
+
+		$best = null;
+		foreach ( $roles as $role ) {
+			$config = is_string( $role ) && isset( $configs[ $role ] ) && is_array( $configs[ $role ] ) ? $configs[ $role ] : $unlisted;
+			if ( null === $best || self::rank( $config['policy'] ?? '' ) > self::rank( $best['policy'] ?? '' ) ) {
+				$best = $config;
+			}
+		}
+
+		return $best ?? $unlisted;
+	}
+
+	/**
+	 * Folds a site's own switches into the role configuration, so that configurations of
+	 * different sites can be compared: the application-password mode (off and on override
+	 * the role), whether XML-RPC accepts an account password, and the trusted-device lifetime.
+	 *
+	 * @param array<string, mixed> $config   Governing role configuration.
+	 * @param array<string, mixed> $settings Resolved settings of the same site.
+	 * @return array<string, mixed>
+	 */
+	private static function site_rules( array $config, array $settings ): array {
+		$mode = $settings['application_passwords'] ?? SideDoors::APP_PER_ROLE;
+		if ( SideDoors::APP_OFF === $mode ) {
+			$config['app_passwords'] = false;
+		} elseif ( SideDoors::APP_ON === $mode ) {
+			$config['app_passwords'] = true;
+		}
+		$config['xmlrpc_password']     = SideDoors::XMLRPC_ALLOW === ( $settings['xmlrpc'] ?? '' );
+		$days                          = $settings['trusted_device_days'] ?? 30;
+		$config['trusted_device_days'] = is_int( $days ) ? max( 1, $days ) : 30;
+
+		return $config;
+	}
+
+	/**
+	 * The strictest combination of several sites' configurations for one user:
+	 *
+	 * - policy: the strictest;
+	 * - email recovery, application passwords, account passwords over XML-RPC, trusted
+	 *   devices, passkey-only sign-in and each enrollable method: allowed only where every site allows it (recovery codes
+	 *   always are);
+	 * - recovery wait: the longest; trusted-device lifetime: the shortest;
+	 * - grace: the shortest among the sites that set the winning policy. A setup period
+	 *   means nothing on a site that does not require setup, so those sites do not count.
+	 *
+	 * Sites of equal rank therefore never cancel each other's restrictions.
+	 *
+	 * @param array<int, array<string, mixed>> $configs One configuration per site, never empty.
+	 * @return array<string, mixed>
+	 */
+	private static function strictest( array $configs ): array {
+		$top = 0;
+		foreach ( $configs as $config ) {
+			$top = max( $top, self::rank( $config['policy'] ?? '' ) );
+		}
+		$out     = $configs[0];
+		$factors = array_fill_keys( Settings::FACTORS, true );
+		$flags   = array_fill_keys( array( 'passwordless', 'trusted_devices', 'email_recovery', 'app_passwords', 'xmlrpc_password' ), true );
+		$grace   = null;
+		$wait    = 0;
+		$days    = null;
+		foreach ( $configs as $config ) {
+			$allowed = isset( $config['factors'] ) && is_array( $config['factors'] ) ? $config['factors'] : array();
+			foreach ( array_keys( $factors ) as $factor ) {
+				$factors[ $factor ] = $factors[ $factor ] && ( 'recovery' === $factor || ! empty( $allowed[ $factor ] ) );
+			}
+			foreach ( array_keys( $flags ) as $flag ) {
+				$flags[ $flag ] = $flags[ $flag ] && ! empty( $config[ $flag ] );
+			}
+			$wait = max( $wait, self::number( $config['recovery_wait_hours'] ?? 0 ) );
+			$life = max( 1, self::number( $config['trusted_device_days'] ?? 30 ) );
+			$days = null === $days ? $life : min( $days, $life );
+			if ( self::rank( $config['policy'] ?? '' ) === $top ) {
+				$mine  = self::number( $config['grace_days'] ?? 0 );
+				$grace = null === $grace ? $mine : min( $grace, $mine );
+			}
+		}
+
+		$out['policy']              = (string) array_search( $top, self::RANK, true );
+		$out['factors']             = $factors;
+		$out['grace_days']          = $grace ?? 0;
+		$out['recovery_wait_hours'] = $wait;
+		$out['trusted_device_days'] = $days ?? 30;
+
+		return array_merge( $out, $flags );
+	}
+
+	/**
+	 * Drops the per-request cache of other sites' configurations.
+	 */
+	public static function forget(): void {
+		self::$network = array();
+	}
+
+	/**
+	 * The governing configuration on every other site of the network the user belongs to
+	 * (multisite). Cached per request; one query per site.
 	 *
 	 * @param \WP_User $user User.
+	 * @return array<int, array<string, mixed>>
 	 */
-	private static function network_floor( \WP_User $user ): string {
+	private static function other_sites( \WP_User $user ): array {
 		global $wpdb;
-		static $cache = array();
 
 		$key = $user->ID . ':' . get_current_blog_id();
-		if ( isset( $cache[ $key ] ) ) {
-			return $cache[ $key ];
+		if ( isset( self::$network[ $key ] ) ) {
+			return self::$network[ $key ];
 		}
-		$floor = Settings::POLICY_OFF;
 		// The user's sites, from their per-site capability meta keys. Core's helpers
 		// (get_blogs_of_user(), get_blog_option()) switch blogs, and switching re-enters the
 		// current-user lookup: this runs inside it when an application password is checked.
@@ -155,27 +269,36 @@ final class Policy {
 				$sites[] = isset( $m[1] ) && '' !== $m[1] ? (int) $m[1] : 1;
 			}
 		}
-		foreach ( array_slice( array_unique( $sites ), 0, 50 ) as $blog_id ) {
+		// Every site counts: a cap here would let the site past it be ignored.
+		$configs = array();
+		foreach ( array_unique( $sites ) as $blog_id ) {
 			// A capability row can outlive its site; a deleted site sets no policy.
 			if ( get_current_blog_id() === $blog_id || null === get_site( $blog_id ) ) {
 				continue;
 			}
-			$caps     = get_user_meta( $user->ID, $wpdb->get_blog_prefix( $blog_id ) . 'capabilities', true );
-			$raw      = $wpdb->get_var( $wpdb->prepare( 'SELECT option_value FROM %i WHERE option_name = %s', $wpdb->get_blog_prefix( $blog_id ) . 'options', Options::SETTINGS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one row per site the user belongs to, at sign-in only; cached for the request.
-			$stored   = is_string( $raw ) ? maybe_unserialize( $raw ) : array();
-			$settings = Settings::resolve( is_array( $stored ) ? $stored : array() );
-			$roles    = is_array( $settings['roles'] ) ? $settings['roles'] : array();
-			$unlisted = is_array( $settings['unlisted_role'] ) ? $settings['unlisted_role'] : array();
-			foreach ( array_keys( array_filter( is_array( $caps ) ? $caps : array() ) ) as $role ) {
-				$config = isset( $roles[ $role ] ) && is_array( $roles[ $role ] ) ? $roles[ $role ] : $unlisted;
-				if ( self::rank( $config['policy'] ?? '' ) > self::rank( $floor ) ) {
-					$floor = (string) $config['policy'];
+			$prefix = $wpdb->get_blog_prefix( $blog_id );
+			$caps   = get_user_meta( $user->ID, $prefix . 'capabilities', true );
+			$rows   = $wpdb->get_results( $wpdb->prepare( 'SELECT option_name, option_value FROM %i WHERE option_name IN ( %s, %s )', $prefix . 'options', Options::SETTINGS, $prefix . 'user_roles' ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one query per site the user belongs to, when a sign-in or a credential is checked; cached for the request.
+			$values = array();
+			foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+				if ( is_array( $row ) && isset( $row['option_name'], $row['option_value'] ) && is_string( $row['option_value'] ) ) {
+					$values[ (string) $row['option_name'] ] = maybe_unserialize( $row['option_value'] );
 				}
 			}
+			$stored   = $values[ Options::SETTINGS ] ?? array();
+			$settings = Settings::resolve( is_array( $stored ) ? $stored : array() );
+			// The roles as that site sees them (WP_User::$roles: capability keys that name a
+			// role registered there), so both sites reach the same answer about each other.
+			$names      = array_keys( is_array( $caps ) ? $caps : array() );
+			$registered = $values[ $prefix . 'user_roles' ] ?? null;
+			if ( is_array( $registered ) && array() !== $registered ) {
+				$names = array_values( array_filter( $names, static fn ( mixed $name ): bool => isset( $registered[ $name ] ) ) );
+			}
+			$configs[] = self::site_rules( self::governing( $settings, $names ), $settings );
 		}
-		$cache[ $key ] = $floor;
+		self::$network[ $key ] = $configs;
 
-		return $floor;
+		return $configs;
 	}
 
 	/**
@@ -255,6 +378,15 @@ final class Policy {
 		return Settings::POLICY_REQUIRED === $policy
 			&& (int) get_user_meta( $user->ID, self::GRACE_META, true ) > 0
 			&& 0 === self::grace_remaining( $user );
+	}
+
+	/**
+	 * A stored whole number, never negative.
+	 *
+	 * @param mixed $value Stored value.
+	 */
+	private static function number( mixed $value ): int {
+		return is_int( $value ) ? max( 0, $value ) : 0;
 	}
 
 	/**

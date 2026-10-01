@@ -69,7 +69,8 @@ final class TrustedDevice {
 	 * @param \WP_User $user User.
 	 */
 	public static function lifetime( \WP_User $user ): int {
-		$days     = Settings::get()['trusted_device_days'];
+		// On a network: the shortest lifetime among the user's sites.
+		$days     = Policy::effective( $user )['trusted_device_days'] ?? null;
 		$lifetime = apply_filters( 'mdmfa_trusted_device_lifetime', ( is_int( $days ) ? max( 1, $days ) : 30 ) * DAY_IN_SECONDS, $user );
 
 		return is_int( $lifetime ) && $lifetime > 0 ? $lifetime : 30 * DAY_IN_SECONDS;

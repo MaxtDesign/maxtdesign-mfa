@@ -31,6 +31,13 @@ defined( 'ABSPATH' ) || exit;
 final class SecurityView {
 
 	/**
+	 * Nonce action of the presenter being rendered; every form on the panel carries it.
+	 *
+	 * @var string
+	 */
+	private static string $nonce = SecurityActions::NONCE_ADMIN;
+
+	/**
 	 * Renders the panel.
 	 *
 	 * @param \WP_User              $user     Current user.
@@ -38,13 +45,15 @@ final class SecurityView {
 	 * @param string                $view     'totp' or 'email' while setting that method up.
 	 * @param string[]              $codes    Recovery codes to show once.
 	 * @param array<string, string> $ui Class names for the host.
+	 * @param string                $nonce    The presenter's nonce action (SecurityActions::NONCE_*).
 	 * @phpstan-param Ui $ui
 	 */
-	public static function render( \WP_User $user, string $form_url, string $view, array $codes, array $ui ): void {
-		$enrolled  = Policy::is_enrolled( $user->ID );
-		$policy    = Policy::policy( $user );
-		$remaining = RecoveryCodes::remaining( $user->ID );
-		$labels    = array(
+	public static function render( \WP_User $user, string $form_url, string $view, array $codes, array $ui, string $nonce ): void {
+		self::$nonce = $nonce;
+		$enrolled    = Policy::is_enrolled( $user->ID );
+		$policy      = Policy::policy( $user );
+		$remaining   = RecoveryCodes::remaining( $user->ID );
+		$labels      = array(
 			Settings::POLICY_REQUIRED => __( 'Required for your account', 'maxtdesign-mfa' ),
 			Settings::POLICY_OPTIONAL => __( 'Optional for your account', 'maxtdesign-mfa' ),
 			Settings::POLICY_OFF      => __( 'Not used for your account', 'maxtdesign-mfa' ),
@@ -274,7 +283,7 @@ final class SecurityView {
 	 */
 	private static function form_start( string $form_url, string $op ): void {
 		printf( '<form method="post" action="%s">', esc_url( $form_url ) );
-		wp_nonce_field( SecurityActions::NONCE );
+		wp_nonce_field( self::$nonce );
 		printf( '<input type="hidden" name="mdmfa_op" value="%s">', esc_attr( $op ) );
 	}
 }
