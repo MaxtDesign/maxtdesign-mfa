@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-09-30 by session (Build P5, wp-plugin-dev)
+Updated: 2026-09-30 by session (Build P6, wp-plugin-dev)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -7,20 +7,28 @@ MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; pr
 `{$wpdb->base_prefix}mdmfa_credentials`; namespace `MaxtDesign\Mfa`. Registry row
 `| MaxtDesign MFA |` in `C:/maxt/ops/sops/agent-sops/naming-registry.md` (active, unshipped).
 Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free only, no licensing
-code. Version 0.1.0 (unreleased; P2-P5 folded into it, nothing on wp.org).
+code. Version 0.1.0 (unreleased; P2-P6 folded into it, nothing on wp.org).
 
 ## Status
-Build phase. `main` = P1-P4 (P2 PR #1, P3 PR #2, P4 `0a3a486` PR #3, all 2026-09-30). P5
-(passkeys) is on `feat/passkeys`, CI green (run 36790291991, 19/19 jobs), PR open for operator
-review: in-house WebAuthn verifier (`src/WebAuthn/`: restricted CBOR, COSE ES256/RS256/EdDSA,
-authenticatorData, clientData, attestation "none"); passkeys stored in
-`{base_prefix}mdmfa_credentials` with a random 32-byte user handle; passkey as second factor
-(offered first) and at enrollment, on the slug and on My Account; add/remove on My security and
-the Security tab; passkey step-up; passwordless sign-in for roles that enable it (off by default)
-with conditional UI; counter-anomaly flag/log/action with opt-in block; `mdmfa-passkey.js`
-(1,838 B raw / 977 B gzip) enqueued only while a passkey control renders.
-Not yet built: email code / side-door settings (P6), admin settings screens, privacy tools,
-owner-set public login page (P7).
+Build phase. `main` = P1-P5 (P5 `84dd781` PR #4, 2026-09-30). P6 is on
+`feat/email-code-side-doors`, CI green (run 36814321766, 19/19 jobs), PR open for operator review:
+- Email code factor (`Factors/EmailCode`): 6 digits, 10 min, 5 tries, bound to the pending login;
+  3 sends / 15 min and 10 / day per user; on both challenge screens and both security screens.
+- Trusted devices (`Auth/TrustedDevice`): per role, off everywhere by default, cookie `mdmfa_td`
+  (selector:validator, validator stored as `wp_fast_hash`), max 10, 30 days; revoked on any
+  password change (`wp_set_password`), any factor removal, reset, or "Forget all".
+- Side doors (`Auth/SideDoors`): application passwords off / per role / on, step-up to create one
+  (REST and authorize-application.php), use logged hourly; XML-RPC off / block passwords / allow;
+  non-interactive password logins (REST token plugins) refused for users with a factor.
+- Email recovery (`Flow/EmailRecovery`): requested from the challenge only, link on
+  `admin-post.php` (never the slug), GET confirms nothing, POST confirms, staff wait 24 h, a real
+  second-step sign-in cancels a waiting reset.
+- Jetpack: optional WordPress.com sign-in block (`block_wpcom_sso`). Conflict detector: warns
+  about Two Factor, WP 2FA, FluentAuth, Solid Security 2FA, miniOrange.
+- `Factors/Reset` is the one reset path (CLI, recovery). `wp mdmfa status` and `user status` report
+  the new state; `user reset --factor=email|trusted` added.
+Not yet built: admin settings screens (every P6 option is settable only through the
+`mdmfa_settings` option today), privacy tools, owner-set public login page (P7).
 
 ## Locked decisions
 - 2026-09-30: brief approved; plan ACCEPTED with every section 16 decision as recommended
@@ -44,17 +52,23 @@ owner-set public login page (P7).
   Passwordless is offered on a login page only when some role enables it; the IP soft throttle
   (30 / 10 min, transients) covers the pre-user endpoint. Oracles `web-auth/webauthn-lib` 5.3 and
   `lbuchs/webauthn` 2.2 are require-dev only (differential tests), never shipped.
+- 2026-09-30 (P6): an emailed code is sent only when the user asks (a POST), never on page load.
+  A trusted-device sign-in is stamped `trusted` and never counts as a fresh verification.
+  Self-removing a factor does not restart grace; only a reset (admin, CLI, email recovery) does.
+  The conflict detector warns and keeps enforcing (see Flags: confirm this reading of the plan).
+  Email recovery pages are plain `wp_die()` pages on `admin-post.php`, shared by staff and
+  customers, so neither wp-login.php nor the slug is ever mailed or shown.
 
 ## Next actions
-1. [operator] Review the P5 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Manual passkey pass on real devices (plan P5 DoD lists Chrome, Safari, Android,
-   Windows Hello, a YubiKey): activate on `plugin-test` (the login moves; `wp mdmfa slug get`
-   prints it), then Users, My security, Add a passkey. `plugin-test.local` is https, so WebAuthn
-   runs there. It is junction-mounted: deactivate, never delete.
-3. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
-4. [session] P6 after operator go: email code, side-door settings.
-5. [session] P7: privacy exporter/eraser (include passkeys), owner-set public login page,
-   settings screens (incl. per-role passwordless and `counter_anomaly_block`).
+1. [operator] Review the P6 PR and approve the squash merge (`--delete-branch`).
+2. [operator] Decide the conflict-detector reading (Flags, first item).
+3. [operator] Manual passkey pass on real devices (still open from P5): activate on `plugin-test`,
+   then Users, My security, Add a passkey. Junction-mounted: deactivate, never delete.
+4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
+5. [session] P7 after operator go: settings screens (policy matrix, factors, side doors, recovery,
+   activity, tools incl. conflict list and Jetpack status), step-up on settings and slug changes,
+   privacy exporter/eraser (passkeys, email, trusted devices, log) and cookie text for
+   `mdmfa_pending` and `mdmfa_td`, owner-set public login page, status contract.
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -67,6 +81,38 @@ owner-set public login page (P7).
 - External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
 
 ## Verification state
+- 2026-09-30, P6, CI run 36814321766 on `feat/email-code-side-doors` (`0787d6a`), **19/19 green**:
+  - Unit: **278 tests, 1,521 assertions** on PHP 8.3, 8.4, 8.5. P6 adds 22: email code (single use,
+    purpose and user binding, expiry, fifth miss destroys, 3/15 min and 10/day, filter validation),
+    trusted device (off by default, per-user, expiry, max 10, password change revokes, lifetime),
+    side doors (per-role, off, on, never re-enables what core disabled, XML-RPC modes, hourly
+    log), Jetpack module filter, conflict filter.
+  - **E2E core, PHP 8.3 + 8.5: 45 tests, 429 assertions.** P6 adds 15, the plan 4.3 side-door
+    rows and the DoD: application password works for an enrolled Optional user with no second
+    step and no session; refused (401) for a Required role, works when the owner allows it, off
+    site-wide; account password never works as Basic auth; REST password endpoint refused (403
+    `mdmfa_required`, no pending record, wrong password not distinguishable); XML-RPC refuses the
+    password with a helpful error, accepts an application password, `allow` and `off` modes;
+    creating an application password is 201 when fresh, 403 `mdmfa_stepup_required` when stale,
+    201 after step-up, and 403 when authenticated by an application password; email code setup
+    and sign-in (sent only on request, bound to its pending login, never names the slug); the
+    fourth send in 15 minutes is refused across pending logins; trusted device skips the
+    challenge, is HttpOnly + SameSite=Lax, is not a fresh verification, fails with a wrong
+    password, and is revoked by a password change, by factor removal, and never set when the
+    role disallows it; email recovery (GET changes nothing, forged POST 403, single use, never
+    signs in, user mailed), staff 24 h wait, cancelled by a real sign-in, applied after the wait
+    with a fresh grace period; not offered to staff by default.
+  - **E2E WooCommerce, PHP 8.3 + 8.5: 12 tests, 370 assertions.** Adds: a customer turns on
+    email codes on the Security tab, signs in on My Account with one, and resets by email; the
+    mail and the result page never contain the slug or wp-login.php.
+  - Fuzz (4M inputs, 0 crashes), smoke, QR, lint, outbound grep 0, PHPStan L8 0, PHPCS 0, size.
+- 2026-09-30, local: **Plugin Check on `plugin-test`: "No errors found"** with the P6 code.
+- 2026-09-30, local: core E2E (42 of 45; the 3 skipped need multiple server workers or bare `wp`)
+  and the new WooCommerce test also passed against a throwaway WordPress (scratch MariaDB,
+  `php -S`, WooCommerce 10.9.4 copied from `plugin-test`), removed after.
+- UNVERIFIED (P6): Jetpack itself (the `jetpack_get_available_modules` block, SSO through the
+  guard, `jetpack.*` XML-RPC) was not run; only the filter callback is unit-tested. Real mail
+  delivery. The authorize-application.php step-up path has no E2E (the REST path does).
 - 2026-09-30, P5, CI run 36790291991 on `feat/passkeys` (`a589250`), **19/19 jobs green**:
   - Unit: **256 tests, 1,413 assertions** on PHP 8.3, 8.4, 8.5; of these **129 WebAuthn tests**
     (CBOR, verifier negatives per check, all three algorithms) incl. **34 differential tests**
@@ -113,6 +159,24 @@ owner-set public login page (P7).
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-09-30 (P6, needs operator decision): the plan says the conflict detector should "warn and
+  do not co-enforce". Built as: warn, and keep enforcing this plugin's policy. The other reading
+  (stand down when another 2FA plugin is active) would let any such plugin switch MFA off, so it
+  was not built. Confirm or change.
+- 2026-09-30 (P6): plan 4.3 lists "sign out everywhere" as a trusted-device revocation trigger.
+  Core has no hook for destroying all sessions, so it is not wired; password change, factor
+  removal, reset and the "Forget all trusted devices" button are.
+- 2026-09-30 (P6): plan step-up list includes "changing MFA settings or the login slug". Those
+  screens are P7; the CLI is exempt by design. Step-up today covers removing a factor, adding one
+  to an enrolled account, new recovery codes, turning email codes off, and application passwords.
+- 2026-09-30 (P6): a role that is Required and allows only email has no in-login setup screen
+  (the enroll screen offers passkey and authenticator only). Not a default; P7's policy screen
+  should refuse that combination or the enroll screen should gain email.
+- 2026-09-30 (P6): `WP_Application_Passwords::create_new_application_password()` does not check
+  availability; only REST and the admin screen do. A plugin calling it directly can still create
+  one for a Required role, but it will not authenticate while the role disallows them.
+- 2026-09-30 (P6): E2E needs `WP_ENVIRONMENT_TYPE=local` because core only supports application
+  passwords over https or in a local environment.
 - 2026-09-30 (P5): differential findings kept as documented divergences (we are stricter):
   `lbuchs/webauthn` 2.2 accepts an origin that only ends with the RP host (suffix trick), a
   subdomain or other port origin, `crossOrigin: true`, BS without BE, and trailing bytes after
