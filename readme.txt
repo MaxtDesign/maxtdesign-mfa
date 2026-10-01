@@ -10,7 +10,7 @@ Requires PHP: 8.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Multi-factor login for staff and customers on your own site: TOTP, passkeys, recovery codes and per-role policy. No outbound HTTP.
+Multi-factor login for staff and customers on your own site: authenticator apps, recovery codes, per-role policy, and passkeys in beta.
 
 == Description ==
 
@@ -20,7 +20,7 @@ MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and run
 
 What the finished plugin does:
 
-* **Factors:** authenticator apps (TOTP), passkeys (as a second factor or as passwordless sign-in), single-use recovery codes, and an optional emailed code.
+* **Factors:** authenticator apps (TOTP), single-use recovery codes, an optional emailed code, and passkeys (beta, as a second step after the password).
 * **Per-role policy:** Off, Optional or Required for each role, with a grace period and enrollment right inside the login flow.
 * **No session before the second factor.** WordPress does not create a login session until the second factor passes.
 * **Customers stay on your pages.** WooCommerce customers complete the challenge and enrollment on My Account and checkout, never on the WordPress login screen.
@@ -70,6 +70,16 @@ It adds no rewrite rules. The server has to send unknown paths to WordPress's `i
 
 It removes noise from bots that hammer `wp-login.php`. The address becomes known the moment you link to it or share it, so treat the second factor as the protection, not the address.
 
+= Why are passkeys "beta"? =
+
+The code that checks passkeys was written for this plugin instead of using an existing library, and it has not had an independent security review yet. It has its own tests, is compared against two established libraries and is fuzzed on every change, but nobody outside the project has examined it. So:
+
+* Passkeys are off until you turn them on for a role (Users, Login security (MFA), Policy).
+* A passkey is a second step after the password. It never replaces the password, so a mistake in the passkey code alone cannot sign anyone in.
+* Signing in with a passkey and no password exists but is switched off. A site owner who accepts the risk can turn it on with `define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true );` in `wp-config.php`.
+
+Authenticator apps, recovery codes and emailed codes do not depend on that code. If you find a problem, see the Security section below.
+
 = Does it work on multisite? =
 
 Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin applies the strictest policy among the sites a user belongs to, and an account that has two-step verification is asked for it on every site. Only super admins can reset or unlock other users.
@@ -112,7 +122,8 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: the login address is kept out of page caches (no-store, DONOTCACHEPAGE, LiteSpeed and WP Rocket exclusions, MaxtDesign Cache purge on change).
 * New: `wp mdmfa status`, `wp mdmfa disable-check`, `wp mdmfa unlock` and `wp mdmfa user status|reset`.
 * New: passkeys. Add one on My security or the My Account Security tab, or during setup at sign-in, and use it as your second step. Works with phone, computer and security-key passkeys (ES256, RS256 and Ed25519). Verification happens on your server; nothing is sent anywhere.
-* New: optional passkey-only sign-in for roles you choose (off by default). It needs a passkey that checks your fingerprint, face or screen lock.
+* New: passkeys are in beta. They are off until you turn them on for a role, and they work as a second step after the password. The passkey code has not had an independent security review yet.
+* New: passkey-only sign-in exists but is switched off; a site owner can enable it with the `MDMFA_PASSKEY_ONLY_SIGNIN` constant. It needs a passkey that checks your fingerprint, face or screen lock.
 * New: a passkey that reports an unexpected counter (a sign it may have been copied) is flagged on the security screen and logged. Sites can choose to block it.
 * New: adding a second method to an account that already has one needs a verification in the last 10 minutes, the same as removing one.
 * New: the passkey script (under 1 KB compressed) loads only on screens that offer a passkey. Every other page stays free of plugin CSS and JavaScript.

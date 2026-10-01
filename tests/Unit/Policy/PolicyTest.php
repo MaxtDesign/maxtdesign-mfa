@@ -90,6 +90,35 @@ final class PolicyTest extends TestCase {
 		self::assertTrue( Policy::is_subject( $user ) );
 	}
 
+	public function test_passkeys_are_a_beta_and_off_for_every_role_by_default(): void {
+		foreach ( array( 'administrator', 'editor', 'shop_manager', 'customer', 'subscriber' ) as $i => $role ) {
+			$user = new \WP_User( 20 + $i, array( $role ) );
+			self::assertFalse( Policy::allows( $user, 'passkey' ), $role );
+			self::assertTrue( Policy::allows( $user, 'totp' ), $role );
+		}
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array( 'roles' => array( 'editor' => array( 'factors' => array( 'passkey' => true ) ) ) );
+		self::assertTrue( Policy::allows( new \WP_User( 30, array( 'editor' ) ), 'passkey' ), 'the owner turns them on per role' );
+	}
+
+	public function test_a_stored_passkey_only_setting_has_no_effect_without_the_site_constant(): void {
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array( 'roles' => array( 'editor' => array( 'factors' => array( 'passkey' => true ), 'passwordless' => true ) ) );
+
+		self::assertFalse( \MaxtDesign\Mfa\Factors\Passkeys::passkey_only_enabled() );
+		self::assertFalse( Policy::effective( new \WP_User( 31, array( 'editor' ) ) )['passwordless'] );
+		self::assertFalse( \MaxtDesign\Mfa\Factors\Passkeys::passwordless_offered() );
+		self::assertFalse( Settings::sanitize_role( array( 'factors' => array( 'passkey' => '1' ), 'passwordless' => '1' ), array() )['passwordless'], 'and it cannot be saved either' );
+	}
+
+	#[RunInSeparateProcess]
+	public function test_the_site_constant_opts_in_to_passkey_only_sign_in(): void {
+		define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true );
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array( 'roles' => array( 'editor' => array( 'factors' => array( 'passkey' => true ), 'passwordless' => true ) ) );
+
+		self::assertTrue( Policy::effective( new \WP_User( 32, array( 'editor' ) ) )['passwordless'] );
+		self::assertTrue( Settings::sanitize_role( array( 'factors' => array( 'passkey' => '1' ), 'passwordless' => '1' ), array() )['passwordless'] );
+		self::assertFalse( Settings::sanitize_role( array( 'factors' => array( 'totp' => '1' ), 'passwordless' => '1' ), array() )['passwordless'], 'still needs the passkey method' );
+	}
+
 	public function test_policy_filter_is_validated(): void {
 		add_filter( 'mdmfa_user_policy', static fn (): string => 'off' );
 		self::assertSame( Settings::POLICY_OFF, Policy::policy( new \WP_User( 2, array( 'administrator' ) ) ) );

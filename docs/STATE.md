@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-01 by session (Review P8)
+Updated: 2026-10-01 by session (Gate P9, step 1)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -10,9 +10,13 @@ Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free on
 code. Version 0.1.0 (unreleased; P2-P7 folded into it, nothing on wp.org).
 
 ## Status
-Review phase (P8). `main` = P1-P7 (P7 `6bb10f5` PR #6, 2026-10-01). P8 is on `chore/p8-review`,
-required CI green (run 36883628284), PR open for operator review. It holds the review evidence
-and every fix that came out of it:
+Review done, release preparation started. `main` = P1-P8 (P8 `f1a09d2` PR #7, 2026-10-01).
+On `feat/passkeys-beta` (PR open): **passkeys ship as an opt-in beta** (operator decision
+2026-10-01, replacing plan decision 4: a paid external review is not affordable). Passkeys are
+off for every role until the owner allows them, they are a second step only, and passkey-only
+sign-in exists only with `define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true )`. The readme, the Policy
+tab, the Tools tab and the user's security screen say the passkey code has had no independent
+review. What P8 produced:
 - Reports: [security audit](security-audit-p8.md), [lanes review](review-p8.md),
   [footprint audit](footprint-audit-p8.md), [compatibility matrix](compat-matrix-p8.md).
 - Result at `main`: 0 Critical, **1 High, 7 Medium** (security) and **4 Blocks** (review).
@@ -29,8 +33,8 @@ and every fix that came out of it:
   Neither found an exploitable flaw in the verifier. Recorded in the security audit.
 - [External review brief](webauthn-review-brief.md) written: scope, design decisions, threat
   model, what was already done, where to look hardest, how to run everything.
-Still required before 1.0: the external WebAuthn review (decision 4), the manual passkey pass
-on real devices, and the UNVERIFIED cells of the compatibility matrix the operator wants run.
+Still required before 1.0: the operator's manual pass on real devices (passkeys and the settings
+screens), then P9 proper. The external review is no longer a gate; the brief stays ready.
 
 ## Locked decisions
 - 2026-09-30: brief approved; plan ACCEPTED with every section 16 decision as recommended
@@ -75,21 +79,27 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
   exemption is per user. Email codes are 8 digits (plan 10.1). The login is not moved on plain
   permalinks at install. The Jetpack SSO flag is mirrored into the autoloaded login option.
   The privacy eraser anonymises log rows instead of deleting them.
+- 2026-10-01 (operator): the conflict detector warns and keeps enforcing this plugin's policy
+  when another two-step plugin is active. It never stands down.
+- 2026-10-01 (operator): no paid external review. Passkeys ship as an opt-in beta, second step
+  only; passkey-only sign-in behind `MDMFA_PASSKEY_ONLY_SIGNIN`. No "audited" or "reviewed"
+  claim anywhere. Plan decision 4 amended in place. The beta label and the constant go when an
+  independent review is recorded.
 
 ## Next actions
-1. [operator] Review the P8 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Commission the external WebAuthn review (decision 4) and send the reviewer
-   [webauthn-review-brief.md](webauthn-review-brief.md). Fee, timing and publication are yours
-   to agree with them.
-3. [operator] Decide the conflict detector's behaviour (Flags). Built: warn and keep enforcing.
-4. [operator] Manual pass on `plugin-test`: passkeys on real devices, the settings screens,
-   keyboard only. Activation moves that site's login and now emails its administrators.
-   Junction-mounted: deactivate, never delete.
-5. [operator] Say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
+1. [operator] Review the passkeys-beta PR and approve the squash merge (`--delete-branch`).
+2. [operator] Manual pass on `plugin-test`: activate (the login moves and administrators are
+   emailed the address), turn passkeys on for your role under Users, Login security (MFA),
+   Policy, add a passkey on Users, My security with each device you have, and sign in with it
+   as the second step. Also walk the settings tabs with the keyboard only. Junction-mounted:
+   deactivate, never delete.
+3. [operator] Say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
    paid membership plugins, subdomain networks, block checkout new-account).
-6. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
-7. [session] After the external review: close its findings, then P9 (screenshots, remove the
-   "Development build" paragraph, version triple, `release-gate.php`, SVN).
+4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
+5. [session] P9 after the manual pass: wp.org screenshots (needs a visible browser), remove the
+   "Development build" paragraph, version triple and changelog for 1.0.0, `release-gate.php` on
+   the exact tree (zip preflight, SBOM from the zip), then SVN by the operator.
+6. [anyone] If an independent review ever happens, send [webauthn-review-brief.md](webauthn-review-brief.md).
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -141,6 +151,10 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-01: turning passkeys off by default changes what a fresh install offers. A Required
+  role now sets up an authenticator app during sign-in; the passkey choice appears there only
+  for roles the owner allowed. Existing passkeys keep counting as enrolled if a role is later
+  switched off, so nobody drops to password-only.
 - 2026-10-01 (P8, limitation): where another plugin keeps members out of wp-admin and there is no
   WooCommerce, members cannot reach a screen to manage their methods (found with Ultimate
   Member). Setup at sign-in still works. A front-end security panel is not in the plan.
@@ -173,10 +187,6 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
 - 2026-10-01 (P7): the status scans at most 1,000 users for unverified sessions and 5,000 for
   the enrolled lists; larger sites get `sessions_truncated`. Fine for the cache, worth a look in
   P8's footprint audit.
-- 2026-09-30 (P6, needs operator decision): the plan says the conflict detector should "warn and
-  do not co-enforce". Built as: warn, and keep enforcing this plugin's policy. The other reading
-  (stand down when another 2FA plugin is active) would let any such plugin switch MFA off, so it
-  was not built. Confirm or change.
 - 2026-09-30 (P6): plan 4.3 lists "sign out everywhere" as a trusted-device revocation trigger.
   Core has no hook for destroying all sessions; since P7 the Coverage action does both.
 - 2026-09-30 (P6): `WP_Application_Passwords::create_new_application_password()` does not check

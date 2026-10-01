@@ -15,6 +15,7 @@ use MaxtDesign\Mfa\Auth\SideDoors;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
 use MaxtDesign\Mfa\Factors\EmailCode;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Install\Schema;
 use MaxtDesign\Mfa\Integrations\Conflicts;
@@ -100,6 +101,7 @@ final class Snapshot {
 			'key_source'          => $source,
 			'key_ok'              => $key_ok,
 			'key_migrating'       => $migrating,
+			'passkey_only_signin' => Passkeys::passkey_only_enabled(),
 			'app_passwords'       => SideDoors::app_password_mode(),
 			'xmlrpc'              => SideDoors::xmlrpc_mode(),
 			'jetpack'             => Jetpack::detected(),
