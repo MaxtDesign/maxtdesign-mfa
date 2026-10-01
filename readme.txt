@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 works with authenticator apps (TOTP), passkeys, emailed codes and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. The settings screens are still being built, so the per-role options use their defaults for now. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
+**Development build.** Version 0.1.0 is feature complete: authenticator apps (TOTP), passkeys, emailed codes and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, a moved login address, and settings screens for all of it. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -70,6 +70,10 @@ No rewrite rules and no permalink change. The server has to send unknown paths t
 
 It removes noise from bots that hammer `wp-login.php`. The address becomes known the moment you link to it or share it, so treat the second factor as the protection, not the address.
 
+= Where are the settings? =
+
+Under Users, Login security (MFA). Each user manages their own methods under Users, My security, and customers under My Account, Security.
+
 = Do application passwords skip two-step verification? =
 
 Yes, by design. An application password is a separate, revocable password for one app, and apps cannot answer a second step. That is why roles that must use two-step verification have no application passwords unless you allow them, and why creating one needs a recent verification.
@@ -115,4 +119,12 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: plugins that take a username and password over the REST API are refused for users with two-step verification.
 * New: email recovery from the sign-in challenge, for roles that allow it (customers by default). The emailed link opens a confirmation page first, staff accounts wait 24 hours, and signing in normally cancels a pending reset.
 * New: an optional block for WordPress.com sign-in (Jetpack), and a warning when another two-step verification plugin is active.
+* New: settings under Users, Login security (MFA): a policy table per role (Off, Optional or Required, allowed methods, passkey-only sign-in, days to set up, trusted devices), login location, side doors, recovery, and factor options. Every save is validated; a Required role always keeps a method that can be set up at sign-in.
+* New: Coverage tab showing who is set up, who is overdue and who is locked, with reset, unlock and "sign out everywhere" for the users you select.
+* New: Activity tab with the security log, a retention setting, and shortened network addresses by default.
+* New: Tools tab with the encryption key status, a warning when another two-step verification plugin is active, and a settings export that holds no secrets.
+* New: administrators who have a second step must have confirmed it in the last 10 minutes to change settings, change the login address or reset other users.
+* New: a public login page of your choice, so login links shown to visitors do not have to reveal the login address.
+* New: privacy tools. Suggested privacy policy text, a personal data export (methods, passkey names and dates, log entries, never secrets) and erasure of log entries.
+* New: `wp mdmfa status` reports policy and counts per role, lockouts and side doors, with no secrets, user names or login address in it.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.

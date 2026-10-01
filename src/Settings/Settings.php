@@ -138,6 +138,79 @@ final class Settings {
 	}
 
 	/**
+	 * Validates one role's configuration from owner input (the Policy and Recovery tabs).
+	 * Unknown values fall back to the role's current value. A Required role always keeps
+	 * an authenticator app or a passkey: without one, nobody in the role could enroll.
+	 *
+	 * @param array<array-key, mixed> $input   Owner input for the role.
+	 * @param array<array-key, mixed> $current The role's current configuration.
+	 * @return RoleConfig
+	 */
+	public static function sanitize_role( array $input, array $current ): array {
+		$base    = self::merge( self::role_defaults( self::POLICY_OPTIONAL, true ), $current );
+		$policy  = isset( $input['policy'] ) && is_string( $input['policy'] ) && in_array( $input['policy'], array( self::POLICY_OFF, self::POLICY_OPTIONAL, self::POLICY_REQUIRED ), true ) ? $input['policy'] : $base['policy'];
+		$factors = isset( $input['factors'] ) && is_array( $input['factors'] ) ? $input['factors'] : array();
+		$totp    = ! empty( $factors['totp'] );
+		$passkey = ! empty( $factors['passkey'] );
+		if ( self::POLICY_REQUIRED === $policy && ! $totp && ! $passkey ) {
+			$totp = true;
+		}
+
+		return array(
+			'policy'              => $policy,
+			'factors'             => array(
+				'totp'     => $totp,
+				'passkey'  => $passkey,
+				'recovery' => true,
+				'email'    => ! empty( $factors['email'] ),
+			),
+			'passwordless'        => $passkey && ! empty( $input['passwordless'] ),
+			'grace_days'          => self::clamp( $input['grace_days'] ?? $base['grace_days'], 0, 90, 7 ),
+			'trusted_devices'     => ! empty( $input['trusted_devices'] ),
+			'email_recovery'      => ! empty( $input['email_recovery'] ),
+			'recovery_wait_hours' => self::clamp( $input['recovery_wait_hours'] ?? $base['recovery_wait_hours'], 0, 168, 24 ),
+			'app_passwords'       => ! empty( $input['app_passwords'] ),
+		);
+	}
+
+	/**
+	 * An integer inside a range, or the fallback when the input is not a whole number.
+	 *
+	 * @param mixed $value    Input.
+	 * @param int   $min      Lowest allowed.
+	 * @param int   $max      Highest allowed.
+	 * @param int   $fallback Value for non-numeric input.
+	 */
+	public static function clamp( mixed $value, int $min, int $max, int $fallback ): int {
+		if ( is_string( $value ) && 1 === preg_match( '/^\d{1,6}$/', trim( $value ) ) ) {
+			$value = (int) trim( $value );
+		}
+
+		return is_int( $value ) ? max( $min, min( $max, $value ) ) : $fallback;
+	}
+
+	/**
+	 * One of a closed set of strings, or the fallback.
+	 *
+	 * @param mixed    $value    Input.
+	 * @param string[] $allowed  Allowed values.
+	 * @param string   $fallback Fallback.
+	 */
+	public static function choice( mixed $value, array $allowed, string $fallback ): string {
+		return is_string( $value ) && in_array( $value, $allowed, true ) ? $value : $fallback;
+	}
+
+	/**
+	 * Stores settings (not autoloaded) and drops the cached status.
+	 *
+	 * @param array<string, mixed> $settings Complete, validated settings.
+	 */
+	public static function save( array $settings ): void {
+		update_option( Options::SETTINGS, self::resolve( $settings ), false );
+		delete_transient( 'mdmfa_status_cache' );
+	}
+
+	/**
 	 * Recursive merge over a closed key set. Unknown keys are dropped and a stored
 	 * value whose type differs from the default is ignored.
 	 *
@@ -164,13 +237,14 @@ final class Settings {
 	/**
 	 * Default login location option (plan 6.3, 5.4).
 	 *
-	 * @return array{enabled: bool, slug: string, public_login: string, allow_core_register: bool}
+	 * @return array{enabled: bool, slug: string, public_login: string, public_page: int, allow_core_register: bool}
 	 */
 	public static function login_defaults(): array {
 		return array(
 			'enabled'             => true,
 			'slug'                => LoginSlug::generate(),
 			'public_login'        => 'auto',
+			'public_page'         => 0,
 			'allow_core_register' => false,
 		);
 	}

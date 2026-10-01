@@ -8,7 +8,8 @@ HTTP and no front-end weight on normal pages.
 **Status:** development (0.1.0, unreleased). TOTP, passkeys, emailed codes, recovery codes,
 trusted devices, email recovery and the side-door policy (application passwords, XML-RPC, REST
 password logins) work on the core login screen and on WooCommerce My Account and checkout, and the
-login moves to a random address. The admin settings screens are still in progress.
+login moves to a random address. Settings live under Users, Login security (MFA). Feature complete;
+review, compatibility testing and the external passkey review come before a release.
 
 - WordPress.org readme: [readme.txt](readme.txt)
 - Security policy and private reporting: [SECURITY.md](SECURITY.md) (security@maxtdesign.com)

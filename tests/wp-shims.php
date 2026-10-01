@@ -163,6 +163,11 @@ function get_transient( string $key ): mixed {
 	return $GLOBALS['mdmfa_test']['transients'][ $key ] ?? false;
 }
 
+function delete_transient( string $key ): bool {
+	unset( $GLOBALS['mdmfa_test']['transients'][ $key ] );
+	return true;
+}
+
 function set_transient( string $key, mixed $value, int $expiration = 0 ): bool {
 	$GLOBALS['mdmfa_test']['transients'][ $key ] = $value;
 	return true;

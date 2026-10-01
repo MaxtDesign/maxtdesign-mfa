@@ -10,14 +10,8 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Cli;
 
 use MaxtDesign\Mfa\Auth\Lockout;
-use MaxtDesign\Mfa\Crypto\InvalidKeyException;
-use MaxtDesign\Mfa\Crypto\KeyProvider;
-use MaxtDesign\Mfa\Install\Schema;
-use MaxtDesign\Mfa\Auth\SideDoors;
-use MaxtDesign\Mfa\Integrations\Conflicts;
-use MaxtDesign\Mfa\Integrations\Jetpack;
 use MaxtDesign\Mfa\Plugin;
-use MaxtDesign\Mfa\Settings\Options;
+use MaxtDesign\Mfa\Status\Snapshot;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -28,9 +22,13 @@ defined( 'ABSPATH' ) || exit;
 final class Command {
 
 	/**
-	 * Shows plugin, schema and key status.
+	 * Shows the read-only status: plugin, schema and key state, policy and counts per role,
+	 * side doors, lockouts. No secrets, no user names, no login address. Cached 15 minutes.
 	 *
 	 * ## OPTIONS
+	 *
+	 * [--fresh]
+	 * : Rebuild the status instead of reading the cached one.
 	 *
 	 * [--format=<format>]
 	 * : Output format.
@@ -51,11 +49,14 @@ final class Command {
 	public function status( array $args, array $assoc_args ): void {
 		unset( $args );
 		$rows   = array();
-		$status = self::snapshot();
+		$status = Snapshot::get( isset( $assoc_args['fresh'] ) );
 		foreach ( $status as $key => $value ) {
+			if ( is_bool( $value ) ) {
+				$value = $value ? 'true' : 'false';
+			}
 			$rows[] = array(
 				'key'   => $key,
-				'value' => is_bool( $value ) ? ( $value ? 'true' : 'false' ) : (string) $value,
+				'value' => is_scalar( $value ) ? (string) $value : (string) wp_json_encode( $value ),
 			);
 		}
 
@@ -109,48 +110,5 @@ final class Command {
 		}
 		Lockout::unlock( $user->ID, null );
 		\WP_CLI::success( sprintf( 'Unlocked %s.', $user->user_login ) );
-	}
-
-	/**
-	 * Read-only status values. No secrets, no key material, no slug.
-	 *
-	 * @return array<string, string|bool|int>
-	 */
-	public static function snapshot(): array {
-		global $wpdb;
-
-		$login   = get_option( Options::LOGIN, array() );
-		$stored  = get_option( Options::KEY_CHECK, array() );
-		$kid     = '';
-		$source  = 'invalid';
-		$key_ok  = false;
-		$db_ver  = get_option( Options::DB_VERSION, '' );
-		$enabled = is_array( $login ) && ! empty( $login['enabled'] );
-
-		try {
-			$keys   = KeyProvider::from_environment();
-			$kid    = $keys->kid();
-			$source = $keys->source();
-			$key_ok = is_array( $stored ) && isset( $stored['kid'] ) && is_string( $stored['kid'] ) && hash_equals( $stored['kid'], $kid );
-		} catch ( InvalidKeyException $e ) {
-			$key_ok = false;
-		}
-
-		return array(
-			'version'        => MDMFA_VERSION,
-			'schema'         => is_string( $db_ver ) ? $db_ver : '',
-			'schema_current' => Schema::VERSION === $db_ver,
-			'disabled'       => Plugin::is_disabled(),
-			'login_location' => $enabled,
-			'key_source'     => $source,
-			'key_ok'         => $key_ok,
-			// Network-wide user meta; P7's status contract adds the per-role breakdown.
-			'app_passwords'  => SideDoors::app_password_mode(),
-			'xmlrpc'         => SideDoors::xmlrpc_mode(),
-			'jetpack'        => Jetpack::detected(),
-			'wpcom_sso'      => Jetpack::sso_blocked() ? 'blocked' : ( Jetpack::sso_active() ? 'challenged' : 'inactive' ),
-			'conflicts'      => implode( ', ', Conflicts::detect() ),
-			'enrolled_users' => (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(DISTINCT user_id) FROM %i WHERE meta_key = %s', $wpdb->usermeta, 'mdmfa_enrolled' ) ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- CLI-only count.
-		);
 	}
 }
