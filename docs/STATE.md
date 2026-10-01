@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-01 by session (Build P7, wp-plugin-dev)
+Updated: 2026-10-01 by session (Review P8)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -10,28 +10,22 @@ Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free on
 code. Version 0.1.0 (unreleased; P2-P7 folded into it, nothing on wp.org).
 
 ## Status
-Build phase complete through P7. `main` = P1-P6 (P6 `79ec66d` PR #5, 2026-10-01). P7 is on
-`feat/admin-ux`, CI green (run 36870781642, 19/19 jobs), PR open for operator review:
-- One admin entry, page `md-mfa`: Users > "Login security (MFA)" on its own, or "MFA" under the
-  MaxtDesign menu when another plugin has started suite-core (`$GLOBALS['md_suite_loaded']`).
-  Tabs: Policy, Factors, Login location, Side doors, Recovery, Coverage, Activity, Tools
-  (filter `mdmfa_admin_tabs`, action `mdmfa_admin_tab_{slug}`). Plugins-screen Settings link.
-- Saves: `admin-post.php`, nonce `mdmfa_admin`, `mdmfa_manage`, step-up for enrolled
-  administrators, validation (`Settings::sanitize_role`, `clamp`, `choice`), notice codes, log
-  row `policy_changed`. A Required role always keeps an authenticator app or a passkey.
-- Coverage: per-user state with search and filter; bulk reset, unlock, sign out everywhere
-  (needs `edit_user` on each target; a super admin only by a super admin).
-- Activity: the log with an event filter; retention and IP mode settings.
-- Tools: key status, conflicts, status refresh, settings export (no secrets, no slug).
-- Status contract `Status\Snapshot` (15 min cache `mdmfa_status_cache`, filter `mdmfa_status`):
-  feeds `wp mdmfa status [--fresh]`, the admin counts and the suite status (`md_suite_status`@5).
-- Owner-set public login page (`mdmfa_login.public_login = page`, `public_page`).
-- Privacy: policy text, exporter (methods, passkey names and dates, log), eraser (log rows).
-- Assets, on the plugin's screen only: `assets/admin/mdmfa-admin.css` 3,506 B (budget 4,096),
-  `assets/admin/mdmfa-admin.js` 1,754 B (budget 8,192): copy button and the confirm dialog
-  when the suite script is absent.
-Next: P8 (review, security audit, footprint audit, compatibility matrix, external WebAuthn
-review), then P9 (gate and release).
+Review phase (P8). `main` = P1-P7 (P7 `6bb10f5` PR #6, 2026-10-01). P8 is on `chore/p8-review`,
+required CI green (run 36883628284), PR open for operator review. It holds the review evidence
+and every fix that came out of it:
+- Reports: [security audit](security-audit-p8.md), [lanes review](review-p8.md),
+  [footprint audit](footprint-audit-p8.md), [compatibility matrix](compat-matrix-p8.md).
+- Result at `main`: 0 Critical, **1 High, 7 Medium** (security) and **4 Blocks** (review).
+  After P8: **0 open Critical, High, Medium or Block.** 7 of 8 exploit tests fail on `main`
+  and pass on this branch; the eighth (the lockout race) needs several server workers and
+  failed in CI until fixed.
+- Behaviour changes: multisite is network-activated only, with the strictest policy across a
+  user's sites; first activation emails the login address and leaves the login alone on plain
+  permalinks; email codes are 8 digits and bound to the confirmed address; every new method is
+  announced by email; `wp mdmfa key status|export-define|rewrap` and `wp mdmfa recovery-codes`;
+  My Account endpoint slug is `login-security`.
+Still required before 1.0: the external WebAuthn review (decision 4), the manual passkey pass
+on real devices, and the UNVERIFIED cells of the compatibility matrix the operator wants run.
 
 ## Locked decisions
 - 2026-09-30: brief approved; plan ACCEPTED with every section 16 decision as recommended
@@ -68,22 +62,29 @@ review), then P9 (gate and release).
   second step yet (in the setup period) can save without step-up, because they cannot do one.
   Sign out everywhere (Coverage) also forgets trusted devices, which closes the P6 gap.
   Screens are server-rendered with native forms; no React, no build step.
+- 2026-10-01 (P8): multisite: `Network: true`; policy = strictest across the user's sites (read
+  from each site's options table directly, never by switching blogs, which would re-enter the
+  current-user lookup); an enrolled account is challenged on every site; passkeys count as
+  enrolled whatever host they were registered for. Second-step attempts for one user run under
+  a MySQL named lock, with the user's meta cache dropped inside it. The application-password
+  exemption is per user. Email codes are 8 digits (plan 10.1). The login is not moved on plain
+  permalinks at install. The Jetpack SSO flag is mirrored into the autoloaded login option.
+  The privacy eraser anonymises log rows instead of deleting them.
 
 ## Next actions
-1. [operator] Review the P7 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Look at the screens on `plugin-test`: activate, then Users > Login security (MFA).
-   Activation moves that site's login (`wp mdmfa slug get` prints it). Junction-mounted:
-   deactivate, never delete. The manual passkey pass on real devices (P5) is still open.
-3. [operator] Commission the external WebAuthn review (decision 4: 1.0 waits for it).
-   Also still open: confirm the conflict-detector reading (Flags; P6 was merged without a
-   decision either way, so it stays as built: warn and keep enforcing).
-4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check` (see Flags).
-5. [session] P8 after operator go: lanes review (`wp-reviewer`), source-to-sink security audit
-   (`wp-security-auditor`), footprint audit with numbers (`wp-perf-qa`), compatibility matrix
-   (plan 13: multisite, Jetpack 16.2, caches, membership and security plugins, block checkout),
-   escape-hatch test. Reports into `docs/`.
-6. [session] P9: wp.org screenshots (need a visible browser; see Flags), version triple,
-   `release-gate.php`, SVN.
+1. [operator] Review the P8 PR and approve the squash merge (`--delete-branch`).
+2. [operator] Commission the external WebAuthn review (decision 4). A brief for the reviewer can
+   be prepared on request (scope `src/WebAuthn/` and its callers, threat model, how to run the
+   tests and the fuzzer).
+3. [operator] Decide the conflict detector's behaviour (Flags). Built: warn and keep enforcing.
+4. [operator] Manual pass on `plugin-test`: passkeys on real devices, the settings screens,
+   keyboard only. Activation moves that site's login and now emails its administrators.
+   Junction-mounted: deactivate, never delete.
+5. [operator] Say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
+   paid membership plugins, subdomain networks, block checkout new-account).
+6. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
+7. [session] After the external review: close its findings, then P9 (screenshots, remove the
+   "Development build" paragraph, version triple, `release-gate.php`, SVN).
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -96,119 +97,60 @@ review), then P9 (gate and release).
 - External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
 
 ## Verification state
-- 2026-10-01, P7, CI run 36870781642 on `feat/admin-ux` (`45951f4`), **19/19 green, first push**:
-  - Unit: **294 tests, 1,549 assertions** on PHP 8.3, 8.4, 8.5. P7 adds 16 (role validation,
-    Required keeps a method, clamp table, choice, save structure and autoload).
-  - **E2E core, PHP 8.3 + 8.5: 55 tests, 623 assertions.** P7 adds 10: one menu entry under Users,
-    8 tabs with `aria-current`, unknown tab falls back, no inline style or script in the plugin's
-    markup, assets on the plugin's screen only (not on Dashboard, Users, Plugins or My security),
-    script deferred, Settings link; non-managers get 403 on the page and its actions; policy save
-    validates (unknown policy kept, days clamped, Required keeps the authenticator app,
-    passkey-only needs the passkey method) and other tabs' fields survive; side doors, recovery,
-    factors and log settings save with safe fallbacks; a missing or wrong nonce and a GET change
-    nothing (403); an enrolled administrator with a stale verification is refused for settings,
-    the login address and user resets, and allowed after step-up; login address change from the
-    screen (bad value refused, old address 404, admins emailed) and the public login page;
-    coverage reset (user mailed, log names the actor), unlock, sign out everywhere; **`wp mdmfa
-    status --format=json` equals the Policy tab's per-role users and set-up counts and the
-    Coverage total**; the status, the `mdmfa_status` build and the settings export contain no
-    login address, no key material, no factor data and no user names; cache vs `--fresh`;
-    privacy export and erase.
-  - E2E WooCommerce 12 tests, 370 assertions (unchanged). Fuzz, smoke, QR, lint, outbound grep 0,
-    PHPStan L8 0, PHPCS 0, size check, `node --check` on both scripts.
-- 2026-10-01, local, throwaway WordPress in a real browser (Chromium pane):
-  - Nav handoff section 8 and admin UI handoff section 10, checked: 194 controls across the 8 tabs,
-    **0 without a label**; every `widefat` table inside a focusable `role="region"`; every `th`
-    scoped; no positive `tabindex`; one `h1`; badge contrast 4.76 (good), 4.84 (warn), 5.91
-    (bad), 13.95 (neutral) against a 4.5 bar; confirm dialog opens with Cancel focused, Cancel
-    removes it and returns focus, nothing submits; 0 console errors; no raw hex in the admin
-    CSS except canonical token fallbacks.
-  - **Suite mode with suite-core 1.5.1 started by an mu-plugin:** "MFA" under the MaxtDesign menu
-    and gone from Users; suite stylesheet and script load on the page and not on the Dashboard;
-    Overview lists `maxtdesign-mfa`; Settings link points at `admin.php?page=md-mfa`;
-    `md_suite_status` carries the contribution with no login address.
-- 2026-10-01, local: **Plugin Check on `plugin-test`: "No errors found"** with the P7 code.
-- UNVERIFIED (P7): a real keyboard-only pass by a person (the checks above are programmatic);
-  a stale suite-core (older than 1.3) winning the load race (guards are in place, not run);
-  screen readers; the screens at narrow widths; multisite network admin.
-- 2026-09-30, P6, CI run 36814321766 on `feat/email-code-side-doors` (`0787d6a`), **19/19 green**:
-  - Unit: **278 tests, 1,521 assertions** on PHP 8.3, 8.4, 8.5. P6 adds 22: email code (single use,
-    purpose and user binding, expiry, fifth miss destroys, 3/15 min and 10/day, filter validation),
-    trusted device (off by default, per-user, expiry, max 10, password change revokes, lifetime),
-    side doors (per-role, off, on, never re-enables what core disabled, XML-RPC modes, hourly
-    log), Jetpack module filter, conflict filter.
-  - **E2E core, PHP 8.3 + 8.5: 45 tests, 429 assertions.** P6 adds 15, the plan 4.3 side-door
-    rows and the DoD: application password works for an enrolled Optional user with no second
-    step and no session; refused (401) for a Required role, works when the owner allows it, off
-    site-wide; account password never works as Basic auth; REST password endpoint refused (403
-    `mdmfa_required`, no pending record, wrong password not distinguishable); XML-RPC refuses the
-    password with a helpful error, accepts an application password, `allow` and `off` modes;
-    creating an application password is 201 when fresh, 403 `mdmfa_stepup_required` when stale,
-    201 after step-up, and 403 when authenticated by an application password; email code setup
-    and sign-in (sent only on request, bound to its pending login, never names the slug); the
-    fourth send in 15 minutes is refused across pending logins; trusted device skips the
-    challenge, is HttpOnly + SameSite=Lax, is not a fresh verification, fails with a wrong
-    password, and is revoked by a password change, by factor removal, and never set when the
-    role disallows it; email recovery (GET changes nothing, forged POST 403, single use, never
-    signs in, user mailed), staff 24 h wait, cancelled by a real sign-in, applied after the wait
-    with a fresh grace period; not offered to staff by default.
-  - **E2E WooCommerce, PHP 8.3 + 8.5: 12 tests, 370 assertions.** Adds: a customer turns on
-    email codes on the Security tab, signs in on My Account with one, and resets by email; the
-    mail and the result page never contain the slug or wp-login.php.
-  - Fuzz (4M inputs, 0 crashes), smoke, QR, lint, outbound grep 0, PHPStan L8 0, PHPCS 0, size.
-- 2026-09-30, local: **Plugin Check on `plugin-test`: "No errors found"** with the P6 code.
-- 2026-09-30, local: core E2E (42 of 45; the 3 skipped need multiple server workers or bare `wp`)
-  and the new WooCommerce test also passed against a throwaway WordPress (scratch MariaDB,
-  `php -S`, WooCommerce 10.9.4 copied from `plugin-test`), removed after.
-- UNVERIFIED (P6): Jetpack itself (the `jetpack_get_available_modules` block, SSO through the
-  guard, `jetpack.*` XML-RPC) was not run; only the filter callback is unit-tested. Real mail
-  delivery. The authorize-application.php step-up path has no E2E (the REST path does).
-- 2026-09-30, P5, CI run 36790291991 on `feat/passkeys` (`a589250`), **19/19 jobs green**:
-  - Unit: **256 tests, 1,413 assertions** on PHP 8.3, 8.4, 8.5; of these **129 WebAuthn tests**
-    (CBOR, verifier negatives per check, all three algorithms) incl. **34 differential tests**
-    against both oracles: ours never accepts what an oracle rejects; every case where we are
-    stricter is listed and checked strictly (see Flags).
-  - **Fuzz: 4,000,000 inputs** (1M fixed seed 20260930 + 1M random seed, on PHP 8.3 and 8.5),
-    7 targets: **0 crashes, 0 hangs, slowest input 0.9 ms** (limit 250 ms).
-  - **E2E core, PHP 8.3 + 8.5: 30 tests, 298 assertions.** P5 adds 6: add a passkey on My
-    security (options: RP ID, algs -7/-257/-8, attestation none, random user handle), replayed
-    registration adds nothing, passkey offered first as second factor, tampered signature refused,
-    session stamped `passkey`; adding to an enrolled account refused on a stale session and allowed
-    after step-up; passwordless (Ed25519) for an enabled role logs in once (wp_login once, stamp,
-    log) and a replayed assertion fails; passwordless refused without UV, with a wrong userHandle,
-    from a foreign origin, and for a role without passwordless (with the right message); counter
-    anomaly flagged, logged, shown to the owner, not blocked by default; the module loads only
-    on screens offering a passkey (deferred, once), never on the front end.
-  - **E2E WooCommerce, PHP 8.3 + 8.5: 11 tests, 320 assertions.** Adds: customer adds a passkey on
-    the Security tab (codes shown once) and finishes a My Account sign-in with it, never touching
-    wp-login.php or the slug. The Security tab now loads the passkey module (by design: it offers
-    a passkey); still no plugin CSS.
-  - Smoke (single + multisite), QR decode, lint, outbound grep 0, PHPStan L8 0, PHPCS 0, size check
-    (passkey-js 1,838 / 3,072 B raw, 977 / 1,536 B gzip), `node --check`.
-- 2026-09-30, local: **Plugin Check on `plugin-test` (WP 7.1.2, PHP 8.3.29): "No errors found"**
-  with the P5 code (plugin inactive; dev folders excluded per `.distignore`).
-- 2026-09-30, local: the P5 E2E tests were also run against a throwaway WordPress (scratch
-  MariaDB on port 3399, `php -S`, removed after) via the new `MDMFA_E2E_WP_CMD` override.
-- UNVERIFIED: real browsers and authenticators (Chrome, Safari, Firefox, Android, iOS, Windows
-  Hello, YubiKey), conditional UI autofill, and the JS module's behaviour in a browser. Only a
-  software authenticator over HTTP was tested; the module passed `node --check` only.
-- Earlier phases (P4 CI run 36779146610, 17/17 green) are unchanged; every P2-P4 E2E test still
-  passes at the slug and on My Account.
-- 2026-09-30, local on PHP 8.3.29 (Local's build, see memory): unit suite green; **Plugin Check
-  2.0.0 on `plugin-test` (WP 7.1.2): "No errors found", 0 warnings** after fixing 5 warnings
-  (dev folders excluded per `.distignore`; plugin inactive).
-- 2026-09-30: `plugin-deliverables.php .` PASSED 14/14; commit gate passed on every commit, no bypass.
-- Not yet done: footprint audit with numbers (P5/P8), security audit (P8), compat matrix incl.
-  multisite login location, Pressable/Batcache, block checkout new-account, coming-soon mode (P8),
-  manual browser pass (activation on `plugin-test` is the operator's call).
+- 2026-10-01, P8, CI run 36883628284 on `chore/p8-review` (`HEAD` before the docs commit):
+  **all 21 required jobs green**; 7 informational compatibility jobs, 4 green.
+  - Unit: **301 tests, 1,579 assertions** on PHP 8.3, 8.4, 8.5.
+  - **E2E core, PHP 8.3 + 8.5: 69 tests, 695 assertions** (5 multisite tests skipped).
+    P8 adds 9 audit regression tests and the front-end query probe.
+  - **E2E multisite (new job), PHP 8.3 + 8.5: 69 tests, 713 assertions** (recovery mode skipped:
+    core does not run it on multisite). The whole core suite on a subdirectory network's main
+    site, plus 5 cross-site tests.
+  - E2E WooCommerce: 12 tests, 368 assertions. Fuzz 4M inputs, 0 crashes. Smoke single and
+    multisite. QR, lint, outbound grep 0, PHPStan L8 0, PHPCS 0, size check.
+  - Compatibility (informational job): Two Factor 0.17.0, Jetpack 16.2 (not connected), WP Super
+    Cache 3.1.4 and W3 Total Cache 2.10.6 pass all 69. Wordfence 9.0.2 63 of 69, Ultimate Member
+    2.14.0 55 of 69, Limit Login Attempts Reloaded 3.3.10 not conclusive; reasons in the
+    [matrix](compat-matrix-p8.md), none a login-flow conflict.
+- 2026-10-01, local, same code: full core suite on a real subdirectory network (66 run, 0
+  failed) and on single site; WooCommerce 10.9.4 suite; **Plugin Check on `plugin-test`: "No
+  errors found"**; the 8 audit regression tests against unfixed `main`: 7 fail (the findings
+  were real), all pass on this branch.
+- 2026-10-01, footprint ([report](footprint-audit-p8.md)): on 11 front-end page types with the
+  plugin on vs off: 0 tags, 0 bytes, 0 references, 0 cookies, **0 plugin queries** (identical
+  SQL sets). One settings read on the logged-out My Account login form. Lab only.
+- UNVERIFIED: Lighthouse and field Core Web Vitals; the external WebAuthn review; real browsers
+  and authenticators; subdomain and mapped-domain networks; connected Jetpack; hosted caches;
+  a persistent object cache; screen readers and a human keyboard pass.
+- Earlier phases, each green in CI at merge (details in git history of this file): P7 run
+  36870781642 (admin screens; 194 controls, 0 unlabelled; suite mode with suite-core 1.5.1), P6
+  run 36814321766 (side doors, email codes, trusted devices, recovery), P5 run 36790291991
+  (passkeys; 129 verifier tests, 34 differential), P4 run 36779146610 (login location; 34-URL
+  anonymous crawl with 0 occurrences of the address).
 
 ## History
+- P8 reports: [security-audit-p8.md](security-audit-p8.md), [review-p8.md](review-p8.md),
+  [footprint-audit-p8.md](footprint-audit-p8.md), [compat-matrix-p8.md](compat-matrix-p8.md).
 - [brief-maxtdesign-mfa.md](brief-maxtdesign-mfa.md): approved brief, FluentAuth teardown, v1 scope.
 - [plan-maxtdesign-mfa.md](plan-maxtdesign-mfa.md): accepted build plan, phases P1-P9, decisions.
 - [webauthn-library-eval.md](webauthn-library-eval.md): WebAuthn library comparison; in-house verifier.
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-01 (P8, limitation): where another plugin keeps members out of wp-admin and there is no
+  WooCommerce, members cannot reach a screen to manage their methods (found with Ultimate
+  Member). Setup at sign-in still works. A front-end security panel is not in the plan.
+- 2026-10-01 (P8): on multisite only super admins can reset, unlock or sign out other users,
+  because core reserves `edit_user` for them. Site administrators see the Coverage tab but
+  their actions are skipped with a notice.
+- 2026-10-01 (P8): the multisite run found a bug in that day's own fix (reading another site's
+  policy switched blogs and recursed during application-password checks, exhausting memory).
+  It never reached `main`. Multisite needs its CI job; it has one now.
+- 2026-10-01 (P8, plan error): plan 4.3 says application passwords are exempt "by design" with
+  no word on scope. The exemption must be per user, not per request (audit High).
+- 2026-10-01 (P8, plan error): plan 5.5 assumes the login address "is in every admin's email",
+  but nothing sent it at activation. It is sent now.
+- 2026-10-01 (P8): open Low items are listed at the end of the [security audit](security-audit-p8.md)
+  and under Nits in the [review](review-p8.md).
 - 2026-10-01 (P7): wp.org screenshots are not captured. The browser pane was hidden during the
   session and screenshots timed out; one of the Policy tab rendered correctly. Needs a visible
   browser, at P9.
@@ -220,7 +162,7 @@ review), then P9 (gate and release).
 - 2026-10-01 (P7): plan section 8 says every admin action emails the affected user. A reset
   does; unlock and sign out everywhere only log. Add mail there if wanted.
 - 2026-10-01 (P7): multisite has no network settings screen (plan decision 6 defers it); each
-  site has its own page.
+  site has its own page. Since P8 one site can no longer weaken another.
 - 2026-10-01 (P7): the status scans at most 1,000 users for unverified sessions and 5,000 for
   the enrolled lists; larger sites get `sessions_truncated`. Fine for the cache, worth a look in
   P8's footprint audit.
