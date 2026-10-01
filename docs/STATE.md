@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-01 by session (independent-review fixes)
+Updated: 2026-10-01 by session (independent-review fixes merged)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -11,10 +11,11 @@ no licensing code; not approved for WordPress.org and may never be listed). Vers
 (unreleased; nothing published anywhere).
 
 ## Status
-Feature complete and reviewed. `main` = P1-P8 plus passkeys-beta (`f179387` PR #8, 2026-10-01).
-**Both findings of Codex's independent review are fixed on branch `fix/independent-review-findings`
-(`6a30b32`, PR open, not merged) and wait for independent re-review:
-[fix report](review-fix-20261001.md).** `main` still carries both until that PR merges.
+Feature complete and reviewed. `main` = P1-P8, passkeys-beta (PR #8) and the fixes for both
+findings of Codex's independent review (`dec193f`, PR #10, merged 2026-10-01 on the operator's
+word): [fix report](review-fix-20261001.md). **The fixes have not been independently
+re-reviewed yet; that is still the gate before any staging install.** The role-tie change is
+PR #12.
 **Distribution is undecided (operator, 2026-10-01): the plugin is not approved for
 WordPress.org and may never go there; no SVN work, no wp.org submission and no 1.0 release
 steps until the operator says where it ships.** Passkeys are an opt-in beta: off per role,
@@ -92,6 +93,9 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 - 2026-10-01 (review fix): self-service security forms are bound to the screen that rendered
   them by nonce action (`mdmfa_account` in wp-admin, `mdmfa_account_wc` on My Account); the
   WooCommerce handler ignores every admin request.
+- 2026-10-01 (operator): on one site, roles that tie on policy are combined the way sites are:
+  a permission needs every tied role's consent, longest recovery wait, shortest grace. A role
+  of lower rank still restricts nothing. Plan 4.1 amended in place.
 - 2026-10-01 (operator): distribution channel is TBD. Not approved for WordPress.org and may
   never be listed there, depending on other work in progress. P9's SVN and submission steps
   are on hold. If the channel changes (private, Pro via `lic`, or bundled), the plugin shape in
@@ -114,10 +118,10 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 3. [operator] Say which UNVERIFIED matrix cells matter (connected Jetpack, Pressable, paid
    membership plugins, subdomain networks, block checkout new-account).
 4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
-5. [operator] Send `fix/independent-review-findings` (`6a30b32`) for independent re-review
-   with [review-fix-20261001.md](review-fix-20261001.md), then say when to merge the PR. No
-   staging install before the re-review (the review's `STAGING-E2E-PLAN.md` gate 1).
-   [operator] Decide whether role ties on a single site should combine the same way (see Flags).
+5. [operator] Send `main` for independent re-review of the two findings with
+   [review-fix-20261001.md](review-fix-20261001.md) (fix is `6a30b32` inside squash `dec193f`;
+   the role-tie change is PR #12). No staging install before the re-review (the review's
+   `STAGING-E2E-PLAN.md` gate 1).
 6. [session, optional] Mark the known compatibility failures as expected so the informational
    `compat` checks stop showing red (Wordfence, Ultimate Member, Limit Login Attempts Reloaded).
 7. [session, only once a channel is chosen] Release preparation for that channel: screenshots
@@ -148,7 +152,11 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   - The reviewer's own `reproduce.php`, unmodified, no longer reproduces either finding.
   - A separate read-only security pass on the diff: 0 Critical/High, 3 Medium, all fixed in
     the same commit (site cap, XML-RPC mode, role parity); Lows listed in the report.
-  - UNVERIFIED for this change: WooCommerce 11.x (CI's `e2e-wc` covers it once the PR runs),
+  - CI on PR #10: every required job green (50 checks pass), including `e2e-wc` on the current
+    WooCommerce release and `multisite`; the 3 informational compat jobs fail as before.
+  - Role ties (`fix/role-tie-policy`): unit 327 tests, 1,711 assertions; PHPCS 0, PHPStan 0.
+    No E2E of its own (pure policy arithmetic, covered by unit tests).
+  - UNVERIFIED for this change: WooCommerce 11.x locally (CI ran the current release),
     real browsers, subdomain networks, object cache, concurrency, the MaxtOffroad stack.
 - 2026-10-01, P8, CI run 36896784143 on `chore/p8-review` (`4fd4d74`, with the Codex and Fable
   fixes): **all 21 required jobs green**; 7 informational compatibility jobs, 4 green.
@@ -189,17 +197,17 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
-- 2026-10-01 (FIXED on branch, awaiting re-review and merge; HIGH, from Codex's independent
-  review of `242d761`): on multisite the network floor raised only the policy mode. `main`
-  carries the defect until the PR merges.
-- 2026-10-01 (FIXED on branch, awaiting re-review and merge; MEDIUM, same review): WooCommerce's
+- 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; HIGH, from Codex's independent
+  review of `242d761`): on multisite the network floor raised only the policy mode.
+- 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; MEDIUM, same review): WooCommerce's
   handler could run wp-admin security forms. Real requests showed it needs a trigger: plain
   WooCommerce does not define `wc_add_notice()` in wp-admin, so the old handler stood down; any
   plugin calling `wc_load_cart()` there makes it fire. The reviewer's shim defined the function
   itself. Whether the MaxtOffroad stack has such a plugin is unchecked.
-- 2026-10-01 (review fix, decision wanted): on one site, when two of a user's roles tie on
-  policy, the first role supplies recovery, grace and the rest (plan 4.1). Across sites a tie
-  now keeps both sets of restrictions. A single site could do the same; it changes plan 4.1.
+- 2026-10-01 (decided, PR #12): role ties on one site used to be
+  settled by the order the roles were stored in. They are combined now; see Locked decisions.
+- 2026-10-01: PR #9 (handoff docs) closed as superseded; its commit reached `main` inside #10.
+  PR #11 was closed by GitHub when #10's branch was deleted; #12 replaces it.
 - 2026-10-01 (review fix): still per site on a network: passkey counter-anomaly blocking,
   lockout thresholds, email-code limits, log settings. Archived and spam sites still count.
 - 2026-10-01 (review fix): the local harness under Git Bash needs `MSYS_NO_PATHCONV=1`, or

@@ -82,7 +82,10 @@ Users whose effective policy is Off, or Optional-and-not-enrolled, go `FIRST_FAC
 `COMPLETE` directly (core behaviour unchanged).
 
 Effective policy for a user = strictest across their roles on the current site (Required >
-Optional > Off); super admins are always Required (multisite); filter `mdmfa_user_policy`.
+Optional > Off; amended 2026-10-01, operator: roles that tie on policy are combined, so a
+permission needs every tied role's consent, the longest recovery wait and the shortest setup
+period apply, and role order decides nothing; on a network the same combination runs across
+the user's sites); super admins are always Required (multisite); filter `mdmfa_user_policy`.
 `MDMFA_DISABLE` true -> every path behaves as core (section 11.4).
 
 ### 4.2 Interception point (verified)

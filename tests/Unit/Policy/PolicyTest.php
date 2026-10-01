@@ -39,6 +39,63 @@ final class PolicyTest extends TestCase {
 		self::assertFalse( Policy::allows( $user, 'email' ), 'the governing (staff) role supplies the factors' );
 	}
 
+	public function test_a_lower_ranked_role_does_not_restrict_the_governing_one(): void {
+		// The Required role allows email recovery; the Optional one forbids it. Required governs.
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array(
+			'roles' => array(
+				'shop_manager' => array( 'email_recovery' => true, 'grace_days' => 3 ),
+				'customer'     => array( 'email_recovery' => false, 'grace_days' => 0 ),
+			),
+		);
+		foreach ( array( array( 'customer', 'shop_manager' ), array( 'shop_manager', 'customer' ) ) as $roles ) {
+			$effective = Policy::effective( new \WP_User( 40, $roles ) );
+			self::assertSame( Settings::POLICY_REQUIRED, $effective['policy'] );
+			self::assertTrue( $effective['email_recovery'] );
+			self::assertSame( 3, $effective['grace_days'] );
+		}
+	}
+
+	public function test_roles_that_tie_on_policy_keep_each_others_restrictions_in_any_order(): void {
+		// Both Required. Each is the stricter one on something.
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array(
+			'roles' => array(
+				'editor'       => array( 'email_recovery' => true, 'recovery_wait_hours' => 0, 'grace_days' => 10, 'app_passwords' => true, 'trusted_devices' => true, 'factors' => array( 'email' => true ) ),
+				'shop_manager' => array( 'email_recovery' => false, 'recovery_wait_hours' => 48, 'grace_days' => 2, 'app_passwords' => false, 'trusted_devices' => true, 'factors' => array( 'email' => false ) ),
+			),
+		);
+		$one = new \WP_User( 41, array( 'editor', 'shop_manager' ) );
+		$two = new \WP_User( 42, array( 'shop_manager', 'editor' ) );
+
+		self::assertSame( Policy::effective( $one ), Policy::effective( $two ), 'the stored order of the roles decides nothing' );
+		$effective = Policy::effective( $one );
+		self::assertSame( Settings::POLICY_REQUIRED, $effective['policy'] );
+		self::assertFalse( $effective['email_recovery'] );
+		self::assertFalse( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $one ) );
+		self::assertSame( 48, $effective['recovery_wait_hours'] );
+		self::assertSame( 2, $effective['grace_days'] );
+		self::assertFalse( \MaxtDesign\Mfa\Auth\SideDoors::app_passwords_for_user( true, $one ) );
+		self::assertTrue( \MaxtDesign\Mfa\Auth\TrustedDevice::allowed( $one ), 'both roles allow it' );
+		self::assertFalse( Policy::allows( $one, 'email' ) );
+		self::assertTrue( Policy::allows( $one, 'totp' ) );
+
+		// A single role is untouched by any of this.
+		self::assertTrue( Policy::effective( new \WP_User( 43, array( 'editor' ) ) )['email_recovery'] );
+		self::assertSame( 10, Policy::effective( new \WP_User( 43, array( 'editor' ) ) )['grace_days'] );
+	}
+
+	public function test_tied_roles_that_share_no_strong_method_still_let_a_required_user_enroll(): void {
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array(
+			'roles' => array(
+				'editor'       => array( 'factors' => array( 'totp' => true, 'passkey' => false ) ),
+				'shop_manager' => array( 'factors' => array( 'totp' => false, 'passkey' => true ) ),
+			),
+		);
+		$user = new \WP_User( 44, array( 'editor', 'shop_manager' ) );
+
+		self::assertTrue( Policy::allows( $user, 'totp' ) );
+		self::assertFalse( Policy::allows( $user, 'passkey' ), 'the passkey beta needs the consent of both roles' );
+	}
+
 	public function test_unlisted_role_uses_the_unlisted_default(): void {
 		self::assertSame( Settings::POLICY_OPTIONAL, Policy::policy( new \WP_User( 3, array( 'author' ) ) ) );
 		self::assertSame( Settings::POLICY_OPTIONAL, Policy::policy( new \WP_User( 4, array() ) ) );

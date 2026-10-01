@@ -23,8 +23,8 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Effective policy = the strictest across the user's roles on this site (Required >
- * Optional > Off); the role that sets it also supplies factors, grace and the rest. Super
- * admins are always Required. Filter: mdmfa_user_policy.
+ * Optional > Off); the role that sets it also supplies factors, grace and the rest, and
+ * roles that tie are combined, restriction by restriction. Super admins are always Required. Filter: mdmfa_user_policy.
  *
  * On a network the account, its factors, its sessions and a reset are shared by every
  * site, so each site the user belongs to contributes its governing configuration and the
@@ -80,11 +80,11 @@ final class Policy {
 			if ( is_super_admin( $user->ID ) ) {
 				$best['policy'] = Settings::POLICY_REQUIRED;
 			}
-			// Sites that each allow a different strong method share none; someone Required
-			// must still be able to enroll (the rule Settings::sanitize_role() applies to a role).
-			if ( Settings::POLICY_REQUIRED === $best['policy'] && is_array( $best['factors'] ) && empty( $best['factors']['totp'] ) && empty( $best['factors']['passkey'] ) ) {
-				$best['factors']['totp'] = true;
-			}
+		}
+		// Roles or sites that each allow a different strong method share none; someone Required
+		// must still be able to enroll (the rule Settings::sanitize_role() applies to a role).
+		if ( Settings::POLICY_REQUIRED === ( $best['policy'] ?? '' ) && isset( $best['factors'] ) && is_array( $best['factors'] ) && empty( $best['factors']['totp'] ) && empty( $best['factors']['passkey'] ) ) {
+			$best['factors']['totp'] = true;
 		}
 
 		// A stored "passkey-only sign-in" has no effect unless the site opted in (beta).
@@ -141,7 +141,9 @@ final class Policy {
 
 	/**
 	 * The role configuration that governs a user with these roles under these settings:
-	 * the first role with the strictest policy, or the unlisted-role configuration.
+	 * the role with the strictest policy, or the unlisted-role configuration. Roles that
+	 * tie on policy are combined like sites are (strictest()), so the order the roles are
+	 * stored in decides nothing.
 	 *
 	 * @param array<string, mixed>    $settings Resolved settings of one site.
 	 * @param array<array-key, mixed> $roles    Role names.
@@ -151,15 +153,24 @@ final class Policy {
 		$configs  = is_array( $settings['roles'] ?? null ) ? $settings['roles'] : array();
 		$unlisted = is_array( $settings['unlisted_role'] ?? null ) ? $settings['unlisted_role'] : Settings::role_defaults( Settings::POLICY_OPTIONAL, true );
 
-		$best = null;
+		$top  = -1;
+		$tied = array();
 		foreach ( $roles as $role ) {
 			$config = is_string( $role ) && isset( $configs[ $role ] ) && is_array( $configs[ $role ] ) ? $configs[ $role ] : $unlisted;
-			if ( null === $best || self::rank( $config['policy'] ?? '' ) > self::rank( $best['policy'] ?? '' ) ) {
-				$best = $config;
+			$rank   = self::rank( $config['policy'] ?? '' );
+			if ( $rank > $top ) {
+				$top  = $rank;
+				$tied = array();
+			}
+			if ( $rank === $top ) {
+				$tied[] = $config;
 			}
 		}
+		if ( array() === $tied ) {
+			return $unlisted;
+		}
 
-		return $best ?? $unlisted;
+		return 1 === count( $tied ) ? $tied[0] : self::strictest( $tied );
 	}
 
 	/**
@@ -186,7 +197,8 @@ final class Policy {
 	}
 
 	/**
-	 * The strictest combination of several sites' configurations for one user:
+	 * The strictest combination of several configurations for one user (one per site of a
+	 * network, or one per role when a site's roles tie on policy):
 	 *
 	 * - policy: the strictest;
 	 * - email recovery, application passwords, account passwords over XML-RPC, trusted
