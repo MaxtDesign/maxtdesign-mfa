@@ -151,6 +151,14 @@ class WP_Error {
 	}
 }
 
+function home_url( string $path = '' ): string {
+	return 'https://example.test' . $path;
+}
+
+function site_url( string $path = '' ): string {
+	return 'https://example.test' . $path;
+}
+
 function wp_parse_url( string $url, int $component = -1 ): mixed {
 	return parse_url( $url, $component );
 }

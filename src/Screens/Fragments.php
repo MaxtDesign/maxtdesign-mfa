@@ -11,6 +11,7 @@ namespace MaxtDesign\Mfa\Screens;
 
 use MaxtDesign\Mfa\Factors\Totp;
 use MaxtDesign\Mfa\Qr\QrSvg;
+use MaxtDesign\Mfa\Support\Assets;
 use MaxtDesign\Mfa\Support\Base32;
 
 defined( 'ABSPATH' ) || exit;
@@ -80,6 +81,45 @@ final class Fragments {
 			esc_attr( $css_class ),
 			$attributes,
 			'' !== $row_class ? ' class="' . esc_attr( $row_class ) . '"' : ''
+		);
+	}
+
+	/**
+	 * A passkey control: a button the module reveals and drives, the hidden field it fills,
+	 * an error line it shows on failure, and a no-JavaScript note. Enqueues the module.
+	 *
+	 * @param array<string, mixed> $config    Module config: mode (create|get), options, field, optional conditional (input id).
+	 * @param string               $label     Button label.
+	 * @param string               $css_class Button class.
+	 */
+	public static function passkey_button( array $config, string $label, string $css_class ): string {
+		Assets::passkey();
+		$field = isset( $config['field'] ) && is_string( $config['field'] ) ? $config['field'] : 'mdmfa_credential';
+
+		return sprintf(
+			'<p class="mdmfa-passkey"><button type="button" class="%1$s" data-mdmfa-passkey="%2$s" hidden>%3$s</button></p><input type="hidden" name="%4$s" value=""><p data-mdmfa-error hidden>%5$s</p><noscript><p>%6$s</p></noscript>',
+			esc_attr( $css_class ),
+			esc_attr( (string) wp_json_encode( $config ) ),
+			esc_html( $label ),
+			esc_attr( $field ),
+			esc_html__( 'That did not work. Try again, or choose another way to sign in.', 'maxtdesign-mfa' ),
+			esc_html__( 'Passkeys need JavaScript. Choose another way to sign in.', 'maxtdesign-mfa' )
+		);
+	}
+
+	/**
+	 * Label field for a new passkey.
+	 *
+	 * @param string $css_class Input class.
+	 * @param string $row_class Wrapper paragraph class.
+	 */
+	public static function passkey_name_field( string $css_class = 'input', string $row_class = '' ): string {
+		return sprintf(
+			'<p%1$s><label for="mdmfa_passkey_name">%2$s</label><input type="text" name="mdmfa_passkey_name" id="mdmfa_passkey_name" class="%3$s" maxlength="64" placeholder="%4$s"></p>',
+			'' !== $row_class ? ' class="' . esc_attr( $row_class ) . '"' : '',
+			esc_html__( 'Name for this passkey (optional)', 'maxtdesign-mfa' ),
+			esc_attr( $css_class ),
+			esc_attr__( 'For example: My phone', 'maxtdesign-mfa' )
 		);
 	}
 

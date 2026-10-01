@@ -49,15 +49,17 @@ final class FlowState {
 	/**
 	 * Constructor.
 	 *
-	 * @param string             $screen     One of the screen constants.
-	 * @param PendingRecord|null $record     Pending record (null when expired).
-	 * @param \WP_User|null      $user       User (null when expired).
-	 * @param \WP_Error          $errors     Messages, already escaped.
-	 * @param string             $method     totp or recovery (verify screen).
-	 * @param string|null        $secret     Raw TOTP secret (enroll screen).
-	 * @param string[]           $codes      Recovery codes to show once (recovery screen).
-	 * @param string             $message    Plain-text reason (expired screen).
-	 * @param int                $grace_days Days of grace left (grace screen).
+	 * @param string               $screen     One of the screen constants.
+	 * @param PendingRecord|null   $record     Pending record (null when expired).
+	 * @param \WP_User|null        $user       User (null when expired).
+	 * @param \WP_Error            $errors     Messages, already escaped.
+	 * @param string               $method     totp or recovery (verify screen).
+	 * @param string|null          $secret     Raw TOTP secret (enroll screen).
+	 * @param string[]             $codes      Recovery codes to show once (recovery screen).
+	 * @param string               $message    Plain-text reason (expired screen).
+	 * @param int                  $grace_days Days of grace left (grace screen).
+	 * @param array<string, mixed> $passkey  WebAuthn options for this screen (verify: request, enroll: creation), or empty.
+	 * @param string[]             $methods    Verification methods the user can switch between.
 	 */
 	public function __construct(
 		public readonly string $screen,
@@ -68,7 +70,9 @@ final class FlowState {
 		public readonly ?string $secret = null,
 		public readonly array $codes = array(),
 		public readonly string $message = '',
-		public readonly int $grace_days = 0
+		public readonly int $grace_days = 0,
+		public readonly array $passkey = array(),
+		public readonly array $methods = array()
 	) {
 	}
 
@@ -93,6 +97,15 @@ final class FlowState {
 	 */
 	public function token(): string {
 		return null === $this->record ? '' : FormToken::make( $this->record->token_hash, $this->purpose() );
+	}
+
+	/**
+	 * Form token for another form on this screen (the passkey setup form: enroll-passkey).
+	 *
+	 * @param string $purpose Form purpose.
+	 */
+	public function token_for( string $purpose ): string {
+		return null === $this->record ? '' : FormToken::make( $this->record->token_hash, $purpose );
 	}
 
 	/**

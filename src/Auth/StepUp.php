@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Log\Logger;
@@ -64,17 +65,23 @@ final class StepUp {
 	 * Verifies a factor for step-up, with the same lockout as the login challenge.
 	 *
 	 * @param int    $user_id User ID.
-	 * @param string $method  totp or recovery.
-	 * @param string $code    Submitted code.
+	 * @param string $method  totp, recovery or passkey.
+	 * @param string $code    Submitted code, or the credential JSON for a passkey.
 	 * @return string 'ok', 'wait' or 'invalid'.
 	 */
 	public static function verify( int $user_id, string $method, string $code ): string {
 		if ( Lockout::blocked_until( $user_id ) > 0 ) {
 			return 'wait';
 		}
-		$ok = 'recovery' === $method
-			? null !== RecoveryCodes::consume( $user_id, $code )
-			: TotpStore::verify( $user_id, $code );
+		if ( 'passkey' === $method ) {
+			$user      = get_userdata( $user_id );
+			$challenge = Passkeys::take_session_challenge( $user_id, 'stepup' );
+			$ok        = $user instanceof \WP_User && null !== $challenge && Passkeys::verify_for_user( $user, $code, $challenge, false );
+		} elseif ( 'recovery' === $method ) {
+			$ok = null !== RecoveryCodes::consume( $user_id, $code );
+		} else {
+			$ok = TotpStore::verify( $user_id, $code );
+		}
 
 		if ( ! $ok ) {
 			Lockout::record_failure( $user_id );

@@ -15,6 +15,7 @@ namespace MaxtDesign\Mfa\Tests\E2eWc;
 use MaxtDesign\Mfa\Tests\E2e\Browser;
 use MaxtDesign\Mfa\Tests\E2e\E2eTestCase;
 use MaxtDesign\Mfa\Tests\E2e\Response;
+use MaxtDesign\Mfa\Tests\Support\VirtualAuthenticator;
 
 // phpcs:ignoreFile
 
@@ -354,7 +355,8 @@ final class CustomerPathTest extends E2eTestCase {
 		$page = $browser->get( $tab );
 		self::assertSame( 200, $page->status );
 		self::assertStringContainsString( 'Set up authenticator app', $page->body );
-		self::assertNoPluginAssets( $page );
+		self::assertPasskeyModule( $page, true, 'customers may add a passkey here, so the tab loads the module (and nothing else)' );
+		self::assertSame( 0, preg_match( '/<(link|style)\b[^>]*(mdmfa|maxtdesign-mfa)/i', $page->body ), 'no plugin CSS' );
 
 		$begin = $browser->post( $tab, array( 'mdmfa_op' => 'totp_begin', '_wpnonce' => $page->input( '_wpnonce' ) ) );
 		self::assertSame( 302, $begin->status );
@@ -371,6 +373,41 @@ final class CustomerPathTest extends E2eTestCase {
 		$remove = $browser->post( $tab, array( 'mdmfa_op' => 'totp_remove', '_wpnonce' => $confirm->input( '_wpnonce' ) ) );
 		self::assertSame( 302, $remove->status );
 		self::assertSame( 'false', self::eval( sprintf( 'echo MaxtDesign\\Mfa\\Factors\\TotpStore::has( %d ) ? "true" : "false";', $id ) ), 'fresh step-up from setup allows removal' );
+		self::assertNeverWpLogin( $browser );
+	}
+
+	public function test_customer_adds_a_passkey_on_the_security_tab_and_uses_it_on_my_account(): void {
+		list( $id, $login, $pass ) = self::user( 'customer' );
+		$browser                   = $this->browser();
+		$this->account_login( $browser, $login, $pass );
+		$tab = self::eval( 'echo wc_get_account_endpoint_url( "mdmfa-security" );' );
+
+		$page  = $browser->get( $tab );
+		$forms = $page->passkey_forms();
+		self::assertCount( 1, $forms );
+		$authenticator         = new VirtualAuthenticator();
+		$authenticator->counts = true;
+		$added                 = $this->submit_passkey( $browser, $forms[0], $authenticator->create( $forms[0]['config']['options'], self::origin() ), array( 'mdmfa_passkey_name' => 'Phone' ) );
+		self::assertSame( 200, $added->status );
+		self::assertStringContainsString( 'Passkey added.', $added->body );
+		self::assertSame( 10, preg_match_all( '/<li><code>[A-Z2-7]{4}(-[A-Z2-7]{4}){3}<\/code><\/li>/', $added->body ), 'first recovery codes shown once' );
+		self::assertSame( 1, self::passkey_count( $id ) );
+
+		$next     = $this->browser();
+		$response = $this->account_login( $next, $login, $pass );
+		self::assertSame( 302, $response->status );
+		self::assertNoAuthCookie( $response );
+		$challenge = $next->get( $response->location() );
+		self::assertPasskeyModule( $challenge, true );
+		$forms = $challenge->passkey_forms();
+		self::assertCount( 1, $forms, 'the My Account challenge leads with the passkey' );
+		self::assertSame( '1', $forms[0]['fields']['mdmfa_wc'] ?? null );
+
+		$ok = $this->submit_passkey( $next, $forms[0], $authenticator->get( $forms[0]['config']['options'], self::origin() ) );
+		self::assertSame( 302, $ok->status, substr( strip_tags( $ok->body ), 0, 400 ) );
+		self::assertTrue( $ok->sets_cookie_prefix( 'wordpress_logged_in_' ) );
+		self::assertContains( 'passkey', array_column( array_filter( self::stamps( $id ) ), 'factor' ) );
+		self::assertNeverWpLogin( $next );
 		self::assertNeverWpLogin( $browser );
 	}
 }

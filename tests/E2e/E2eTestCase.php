@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Tests\E2e;
 
 use MaxtDesign\Mfa\Factors\Totp;
+use MaxtDesign\Mfa\Tests\Support\VirtualAuthenticator;
 use PHPUnit\Framework\TestCase;
 
 // phpcs:ignoreFile
@@ -53,7 +54,7 @@ abstract class E2eTestCase extends TestCase {
 	 */
 	protected static function wp( string ...$args ): string {
 		$process = proc_open(
-			array_merge( array( 'wp', '--path=' . self::$path, '--skip-themes' ), $args ),
+			array_merge( self::wp_command(), array( '--path=' . self::$path, '--skip-themes' ), $args ),
 			array(
 				1 => array( 'pipe', 'w' ),
 				2 => array( 'pipe', 'w' ),
@@ -70,6 +71,17 @@ abstract class E2eTestCase extends TestCase {
 			throw new \RuntimeException( "wp " . implode( ' ', $args ) . " exited {$code}:\n{$err}\n{$out}" );
 		}
 		return trim( $out );
+	}
+
+	/**
+	 * The WP-CLI command: `wp`, or a JSON array in MDMFA_E2E_WP_CMD for local runs
+	 * (for example ["php", "wp-cli.phar"] where no `wp` is on the PATH).
+	 *
+	 * @return string[]
+	 */
+	private static function wp_command(): array {
+		$custom = json_decode( (string) getenv( 'MDMFA_E2E_WP_CMD' ), true );
+		return is_array( $custom ) && array() !== $custom ? array_map( 'strval', $custom ) : array( 'wp' );
 	}
 
 	protected static function eval( string $php ): string {
@@ -158,6 +170,64 @@ abstract class E2eTestCase extends TestCase {
 				'mdmfa_code' => $code,
 			)
 		);
+	}
+
+	/**
+	 * The site's WebAuthn origin (scheme://host[:port]).
+	 */
+	protected static function origin(): string {
+		$parts = (array) parse_url( self::$url );
+		return ( $parts['scheme'] ?? 'http' ) . '://' . ( $parts['host'] ?? '' ) . ( isset( $parts['port'] ) ? ':' . $parts['port'] : '' );
+	}
+
+	/**
+	 * Stores a passkey for the user straight into the database and marks them enrolled.
+	 * The authenticator learns the user's WebAuthn handle.
+	 */
+	protected static function seed_passkey( int $user_id, VirtualAuthenticator $authenticator, int $sign_count = 0 ): int {
+		$json = self::eval(
+			sprintf(
+				'$c = new MaxtDesign\Mfa\WebAuthn\RegisteredCredential( base64_decode( %1$s ), base64_decode( %2$s ), %3$d, %4$d, str_repeat( "\0", 16 ), true, true, true );'
+				. ' MaxtDesign\Mfa\Factors\PasskeyStore::add( %5$d, $c, MaxtDesign\Mfa\WebAuthn\RelyingParty::id(), array( "internal" ), "E2E key" );'
+				. ' update_user_meta( %5$d, "mdmfa_enrolled", "1" );'
+				. ' $row = MaxtDesign\Mfa\Factors\PasskeyStore::find( base64_decode( %1$s ) );'
+				. ' echo wp_json_encode( array( "id" => $row ? $row["id"] : 0, "handle" => base64_encode( MaxtDesign\Mfa\Factors\PasskeyStore::user_handle( %5$d ) ) ) );',
+				var_export( base64_encode( $authenticator->credential_id ), true ),
+				var_export( base64_encode( $authenticator->cose() ), true ),
+				$authenticator->alg,
+				$sign_count,
+				$user_id
+			)
+		);
+		$data = (array) json_decode( $json, true );
+		$authenticator->user_handle = (string) base64_decode( (string) ( $data['handle'] ?? '' ) );
+		self::assertGreaterThan( 0, (int) ( $data['id'] ?? 0 ), 'passkey seeded: ' . $json );
+		return (int) $data['id'];
+	}
+
+	protected static function passkey_count( int $user_id ): int {
+		return (int) self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\PasskeyStore::count( %d );', $user_id ) );
+	}
+
+	/**
+	 * Posts a passkey form with the authenticator's response in the control's field.
+	 *
+	 * @param array{action: string, fields: array<string, string>, config: array<string, mixed>} $form
+	 * @param array<string, string>                                                             $extra
+	 */
+	protected function submit_passkey( Browser $browser, array $form, string $json, array $extra = array() ): Response {
+		$fields                                        = $form['fields'];
+		$fields[ (string) $form['config']['field'] ] = $json;
+		return $browser->post( $form['action'], array_merge( $fields, $extra ) );
+	}
+
+	protected static function assertPasskeyModule( Response $response, bool $expected, string $message = '' ): void {
+		$found = 1 === preg_match( '/<script\b[^>]*src="[^"]*assets\/front\/mdmfa-passkey\.js[^"]*"[^>]*>/', $response->body, $m );
+		self::assertSame( $expected, $found, $message );
+		if ( $found ) {
+			self::assertStringContainsString( 'defer', $m[0], 'the module is deferred' );
+			self::assertSame( 1, preg_match_all( '/assets\/front\/mdmfa-passkey\.js/', $response->body ), 'the module is enqueued once' );
+		}
 	}
 
 	protected static function assertNoAuthCookie( Response $response, string $message = '' ): void {

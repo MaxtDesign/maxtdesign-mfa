@@ -15,6 +15,7 @@ declare(strict_types=1);
 define( 'ABSPATH', sys_get_temp_dir() . '/mdmfa-tests/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MDMFA_VERSION', '0.1.0' );
 define( 'MDMFA_FILE', dirname( __DIR__ ) . '/maxtdesign-mfa.php' );
 define( 'MDMFA_DIR', dirname( __DIR__ ) );
@@ -119,6 +120,24 @@ class wpdb {
 			) ?? $query;
 		}
 		return $query;
+	}
+
+	public function get_var( string $query ): ?string {
+		$this->queries[] = $query;
+		return null;
+	}
+
+	public function get_row( string $query, string $output = 'OBJECT' ): mixed {
+		$this->queries[] = $query;
+		return null;
+	}
+
+	/**
+	 * @return array<int, mixed>
+	 */
+	public function get_results( string $query, string $output = 'OBJECT' ): array {
+		$this->queries[] = $query;
+		return array();
 	}
 
 	public function esc_like( string $text ): string {

@@ -115,13 +115,7 @@ final class SecurityEndpoint {
 		if ( ! in_array( $op, SecurityActions::OPS, true ) ) {
 			return;
 		}
-		$result  = SecurityActions::run(
-			$op,
-			wp_get_current_user(),
-			isset( $_POST['mdmfa_code'] ) && is_string( $_POST['mdmfa_code'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_code'] ) ) : '',
-			isset( $_POST['mdmfa_method'] ) ? sanitize_key( wp_unslash( $_POST['mdmfa_method'] ) ) : 'totp',
-			'wc'
-		);
+		$result  = SecurityActions::run( $op, wp_get_current_user(), SecurityActions::input(), 'wc' );
 		$notices = SecurityActions::notices();
 		if ( isset( $notices[ $result['notice'] ] ) ) {
 			wc_add_notice( esc_html( $notices[ $result['notice'] ][1] ), $notices[ $result['notice'] ][0] );

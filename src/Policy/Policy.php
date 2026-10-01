@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Policy;
 
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Plugin;
 use MaxtDesign\Mfa\Settings\Settings;
@@ -100,13 +101,13 @@ final class Policy {
 	}
 
 	/**
-	 * Whether the user holds a second factor. Recovery codes alone do not count.
-	 * P5 adds passkeys and P6 the email code.
+	 * Whether the user holds a second factor: an authenticator app or a passkey usable on
+	 * this site. Recovery codes alone do not count. P6 adds the email code.
 	 *
 	 * @param int $user_id User ID.
 	 */
 	public static function is_enrolled( int $user_id ): bool {
-		return TotpStore::has( $user_id );
+		return TotpStore::has( $user_id ) || Passkeys::has( $user_id );
 	}
 
 	/**

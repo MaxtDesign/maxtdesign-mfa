@@ -14,7 +14,7 @@ Multi-factor login for staff and customers on your own site: TOTP, passkeys, rec
 
 == Description ==
 
-**Development build.** Version 0.1.0 works with authenticator apps (TOTP) and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. Passkeys, emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
+**Development build.** Version 0.1.0 works with authenticator apps (TOTP), passkeys and recovery codes on the WordPress login screen and on WooCommerce My Account and checkout, and moves the login to a random address. Emailed codes and the settings screens are still being built. It has not had its security review yet, so please do not rely on it to protect a live site until a release says it is ready.
 
 MaxtDesign MFA adds a second factor to WordPress and WooCommerce logins, and runs entirely on your own site. Nobody is ever sent to WordPress.com or any other outside service to sign in.
 
@@ -99,4 +99,9 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: lost-address recovery through `wp mdmfa slug get|set|reset`, the `MDMFA_LOGIN_SLUG` and `MDMFA_DISABLE_LOGIN_LOCATION` constants, and an email to every administrator when the address changes.
 * New: the login address is kept out of page caches (no-store, DONOTCACHEPAGE, LiteSpeed and WP Rocket exclusions, MaxtDesign Cache purge on change).
 * New: `wp mdmfa status`, `wp mdmfa disable-check`, `wp mdmfa unlock` and `wp mdmfa user status|reset`.
+* New: passkeys. Add one on My security or the My Account Security tab, or during setup at sign-in, and use it as your second step. Works with phone, computer and security-key passkeys (ES256, RS256 and Ed25519). Verification happens on your server; nothing is sent anywhere.
+* New: optional passkey-only sign-in for roles you choose (off by default). It needs a passkey that checks your fingerprint, face or screen lock.
+* New: a passkey that reports an unexpected counter (a sign it may have been copied) is flagged on the security screen and logged. Sites can choose to block it.
+* New: adding a second method to an account that already has one needs a verification in the last 10 minutes, the same as removing one.
+* New: the passkey script (under 1 KB compressed) loads only on screens that offer a passkey. Every other page stays free of plugin CSS and JavaScript.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.

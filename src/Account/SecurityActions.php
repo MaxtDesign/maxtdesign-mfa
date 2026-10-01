@@ -12,6 +12,8 @@ namespace MaxtDesign\Mfa\Account;
 
 use MaxtDesign\Mfa\Auth\StepUp;
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
+use MaxtDesign\Mfa\Factors\PasskeyStore;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\RecoveryCodes;
 use MaxtDesign\Mfa\Factors\Totp;
 use MaxtDesign\Mfa\Factors\TotpStore;
@@ -25,6 +27,7 @@ defined( 'ABSPATH' ) || exit;
  * Operations. Each returns a notice code, recovery codes to show once, and a view.
  *
  * @phpstan-type Result array{notice: string, codes: string[], view: string}
+ * @phpstan-type Input array{code: string, method: string, credential: string, name: string, id: int}
  */
 final class SecurityActions {
 
@@ -33,23 +36,29 @@ final class SecurityActions {
 	/**
 	 * Operation names a form may post.
 	 */
-	public const OPS = array( 'totp_begin', 'totp_confirm', 'totp_remove', 'recovery_generate', 'stepup' );
+	public const OPS = array( 'totp_begin', 'totp_confirm', 'totp_remove', 'recovery_generate', 'stepup', 'passkey_add', 'passkey_remove' );
 
 	/**
 	 * Runs an operation for the user.
 	 *
-	 * @param string   $op     Operation.
-	 * @param \WP_User $user   Current user (never another user).
-	 * @param string   $code   Submitted code, if any.
-	 * @param string   $method totp or recovery (step-up).
-	 * @param string   $source account or wc, for the log.
+	 * @param string               $op     Operation.
+	 * @param \WP_User             $user   Current user (never another user).
+	 * @param array<string, mixed> $input  Posted values (see input()).
+	 * @param string               $source account or wc, for the log.
+	 * @phpstan-param Input $input
 	 * @return Result
 	 */
-	public static function run( string $op, \WP_User $user, string $code, string $method, string $source ): array {
+	public static function run( string $op, \WP_User $user, array $input, string $source ): array {
+		$code   = $input['code'];
+		$method = $input['method'];
 		switch ( $op ) {
 			case 'totp_begin':
 				if ( TotpStore::has( $user->ID ) || ! Policy::allows( $user, 'totp' ) ) {
 					return self::result( 'not_allowed' );
+				}
+				// Adding a second method to an enrolled account is as sensitive as removing one.
+				if ( Policy::is_enrolled( $user->ID ) && ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
 				}
 				try {
 					TotpStore::begin_pending( $user->ID );
@@ -107,11 +116,62 @@ final class SecurityActions {
 				return self::result( 'codes_new', RecoveryCodes::generate( $user->ID ) );
 
 			case 'stepup':
-				$outcome = StepUp::verify( $user->ID, 'recovery' === $method ? 'recovery' : 'totp', $code );
+				$chosen  = in_array( $method, array( 'recovery', 'passkey' ), true ) ? $method : 'totp';
+				$outcome = StepUp::verify( $user->ID, $chosen, 'passkey' === $chosen ? $input['credential'] : $code );
 				return self::result( 'ok' === $outcome ? 'stepup_ok' : ( 'wait' === $outcome ? 'stepup_wait' : 'code_invalid' ) );
+
+			case 'passkey_add':
+				if ( Policy::is_enrolled( $user->ID ) && ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
+				}
+				$challenge = Passkeys::take_session_challenge( $user->ID, 'add' );
+				if ( null === $challenge ) {
+					return self::result( 'setup_expired' );
+				}
+				$added = Passkeys::register( $user, $input['credential'], $challenge, $input['name'] );
+				if ( $added instanceof \WP_Error ) {
+					return self::result( 'passkey_invalid' );
+				}
+				StepUp::mark( $user->ID, 'passkey' );
+				if ( 0 === RecoveryCodes::remaining( $user->ID ) ) {
+					return self::result( 'passkey_on', RecoveryCodes::generate( $user->ID ) );
+				}
+				return self::result( 'passkey_on' );
+
+			case 'passkey_remove':
+				if ( ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
+				}
+				if ( ! PasskeyStore::delete( $user->ID, $input['id'] ) ) {
+					return self::result( 'not_allowed' );
+				}
+				if ( ! Policy::is_enrolled( $user->ID ) ) {
+					delete_user_meta( $user->ID, 'mdmfa_enrolled' );
+					RecoveryCodes::remove( $user->ID );
+				}
+				Logger::log( 'factor_removed', $user->ID, 'passkey', $source, $user->ID );
+				do_action( 'mdmfa_factor_removed', $user, 'passkey', $user->ID );
+				return self::result( 'passkey_off' );
 		}
 
 		return self::result( '' );
+	}
+
+	/**
+	 * Posted values for an operation, read once and sanitized. Callers verify the nonce first.
+	 *
+	 * @return Input
+	 */
+	public static function input(): array {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- the caller verified the nonce.
+		return array(
+			'code'       => isset( $_POST['mdmfa_code'] ) && is_string( $_POST['mdmfa_code'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_code'] ) ) : '',
+			'method'     => isset( $_POST['mdmfa_method'] ) ? sanitize_key( wp_unslash( $_POST['mdmfa_method'] ) ) : 'totp',
+			'credential' => isset( $_POST['mdmfa_credential'] ) && is_string( $_POST['mdmfa_credential'] ) ? wp_unslash( $_POST['mdmfa_credential'] ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON; CredentialJson validates it strictly.
+			'name'       => isset( $_POST['mdmfa_passkey_name'] ) && is_string( $_POST['mdmfa_passkey_name'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_passkey_name'] ) ) : '',
+			'id'         => isset( $_POST['mdmfa_passkey_id'] ) ? absint( wp_unslash( $_POST['mdmfa_passkey_id'] ) ) : 0,
+		);
+		// phpcs:enable
 	}
 
 	/**
@@ -121,16 +181,19 @@ final class SecurityActions {
 	 */
 	public static function notices(): array {
 		return array(
-			'totp_on'       => array( 'success', __( 'Two-step verification is on.', 'maxtdesign-mfa' ) ),
-			'totp_off'      => array( 'success', __( 'Authenticator app removed.', 'maxtdesign-mfa' ) ),
-			'codes_new'     => array( 'success', __( 'New recovery codes created. The old ones no longer work.', 'maxtdesign-mfa' ) ),
-			'stepup_ok'     => array( 'success', __( 'Confirmed. You can make changes for the next 10 minutes.', 'maxtdesign-mfa' ) ),
-			'stepup_needed' => array( 'error', __( 'Confirm it is you with a code first.', 'maxtdesign-mfa' ) ),
-			'stepup_wait'   => array( 'error', __( 'Too many wrong codes. Wait a few minutes and try again.', 'maxtdesign-mfa' ) ),
-			'code_invalid'  => array( 'error', __( 'That code is not valid.', 'maxtdesign-mfa' ) ),
-			'setup_expired' => array( 'error', __( 'Setup expired. Start again.', 'maxtdesign-mfa' ) ),
-			'not_allowed'   => array( 'error', __( 'That option is not available for your account.', 'maxtdesign-mfa' ) ),
-			'key_invalid'   => array( 'error', __( 'The site\'s encryption key is invalid. Please contact the site administrator.', 'maxtdesign-mfa' ) ),
+			'totp_on'         => array( 'success', __( 'Two-step verification is on.', 'maxtdesign-mfa' ) ),
+			'totp_off'        => array( 'success', __( 'Authenticator app removed.', 'maxtdesign-mfa' ) ),
+			'passkey_on'      => array( 'success', __( 'Passkey added.', 'maxtdesign-mfa' ) ),
+			'passkey_off'     => array( 'success', __( 'Passkey removed.', 'maxtdesign-mfa' ) ),
+			'passkey_invalid' => array( 'error', __( 'That passkey could not be added. Please try again.', 'maxtdesign-mfa' ) ),
+			'codes_new'       => array( 'success', __( 'New recovery codes created. The old ones no longer work.', 'maxtdesign-mfa' ) ),
+			'stepup_ok'       => array( 'success', __( 'Confirmed. You can make changes for the next 10 minutes.', 'maxtdesign-mfa' ) ),
+			'stepup_needed'   => array( 'error', __( 'Confirm it is you with a code first.', 'maxtdesign-mfa' ) ),
+			'stepup_wait'     => array( 'error', __( 'Too many wrong codes. Wait a few minutes and try again.', 'maxtdesign-mfa' ) ),
+			'code_invalid'    => array( 'error', __( 'That code is not valid.', 'maxtdesign-mfa' ) ),
+			'setup_expired'   => array( 'error', __( 'Setup expired. Start again.', 'maxtdesign-mfa' ) ),
+			'not_allowed'     => array( 'error', __( 'That option is not available for your account.', 'maxtdesign-mfa' ) ),
+			'key_invalid'     => array( 'error', __( 'The site\'s encryption key is invalid. Please contact the site administrator.', 'maxtdesign-mfa' ) ),
 		);
 	}
 

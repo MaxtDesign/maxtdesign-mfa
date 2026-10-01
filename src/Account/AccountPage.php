@@ -66,13 +66,7 @@ final class AccountPage {
 		if ( ! $user->exists() || ! in_array( $op, SecurityActions::OPS, true ) ) {
 			return;
 		}
-		$result = SecurityActions::run(
-			$op,
-			$user,
-			isset( $_POST['mdmfa_code'] ) && is_string( $_POST['mdmfa_code'] ) ? sanitize_text_field( wp_unslash( $_POST['mdmfa_code'] ) ) : '',
-			isset( $_POST['mdmfa_method'] ) ? sanitize_key( wp_unslash( $_POST['mdmfa_method'] ) ) : 'totp',
-			'account'
-		);
+		$result = SecurityActions::run( $op, $user, SecurityActions::input(), 'account' );
 		if ( array() !== $result['codes'] ) {
 			self::$codes = $result['codes'];
 			return;
