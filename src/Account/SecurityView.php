@@ -155,7 +155,7 @@ final class SecurityView {
 		if ( ! $allowed && array() === $credentials ) {
 			return;
 		}
-		echo '<h3>' . esc_html__( 'Passkeys', 'maxtdesign-mfa' ) . '</h3>';
+		echo '<h3>' . esc_html__( 'Passkeys (beta)', 'maxtdesign-mfa' ) . '</h3>';
 		if ( array() === $credentials ) {
 			echo '<p>' . esc_html__( 'Sign in with your fingerprint, face or screen lock instead of typing a code. Passkeys cannot be phished.', 'maxtdesign-mfa' ) . '</p>';
 		} else {

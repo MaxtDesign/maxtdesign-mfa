@@ -620,6 +620,12 @@ squash + delete.
 3. **WebAuthn: in-house verifier** per eval (fallback: lbuchs v2.2.0 + patch set).
 4. **1.0 on wp.org waits for the external WebAuthn review.** Alternative: ship 1.0 with passkeys
    hidden behind "preview" until the review; not recommended (it confuses the differentiator).
+   **Changed by the operator on 2026-10-01:** a paid review is not affordable. 1.0 ships with
+   passkeys as an opt-in beta: off per role by default, a second step only, and passkey-only
+   sign-in behind `define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true )`. The readme says the passkey
+   code has had no independent review, and nothing claims otherwise. The
+   [review brief](webauthn-review-brief.md) stays ready for a paid or community review; the
+   beta label and the constant go when one is recorded.
 5. **Credentials table on `$wpdb->base_prefix`** (network-global) and site tables on
    `$wpdb->prefix`; update the registry wording from `{$wpdb->prefix}mdmfa_*`.
 6. **Multisite v1**: per-site policy, super admins always Required, network settings screen deferred.

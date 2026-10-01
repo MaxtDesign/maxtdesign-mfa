@@ -11,6 +11,7 @@ namespace MaxtDesign\Mfa\Policy;
 
 use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\PasskeyStore;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Plugin;
 use MaxtDesign\Mfa\Settings\Options;
@@ -75,6 +76,11 @@ final class Policy {
 			if ( is_super_admin( $user->ID ) ) {
 				$best['policy'] = Settings::POLICY_REQUIRED;
 			}
+		}
+
+		// A stored "passkey-only sign-in" has no effect unless the site opted in (beta).
+		if ( ! Passkeys::passkey_only_enabled() ) {
+			$best['passwordless'] = false;
 		}
 
 		$policy         = apply_filters( 'mdmfa_user_policy', $best['policy'] ?? Settings::POLICY_OPTIONAL, $user );

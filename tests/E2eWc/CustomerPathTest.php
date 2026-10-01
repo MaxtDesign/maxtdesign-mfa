@@ -355,8 +355,8 @@ final class CustomerPathTest extends E2eTestCase {
 		$page = $browser->get( $tab );
 		self::assertSame( 200, $page->status );
 		self::assertStringContainsString( 'Set up authenticator app', $page->body );
-		self::assertPasskeyModule( $page, true, 'customers may add a passkey here, so the tab loads the module (and nothing else)' );
-		self::assertSame( 0, preg_match( '/<(link|style)\b[^>]*(mdmfa|maxtdesign-mfa)/i', $page->body ), 'no plugin CSS' );
+		self::assertNoPluginAssets( $page );
+		self::assertStringNotContainsString( 'Passkeys', $page->body, 'passkeys are a beta, off until the owner allows them' );
 
 		$begin = $browser->post( $tab, array( 'mdmfa_op' => 'totp_begin', '_wpnonce' => $page->input( '_wpnonce' ) ) );
 		self::assertSame( 302, $begin->status );
@@ -377,6 +377,15 @@ final class CustomerPathTest extends E2eTestCase {
 	}
 
 	public function test_customer_adds_a_passkey_on_the_security_tab_and_uses_it_on_my_account(): void {
+		self::settings( array( 'roles' => array( 'customer' => array( 'factors' => array( 'passkey' => true ) ) ) ) );
+		try {
+			$this->customer_passkey_journey();
+		} finally {
+			self::reset_settings();
+		}
+	}
+
+	private function customer_passkey_journey(): void {
 		list( $id, $login, $pass ) = self::user( 'customer' );
 		$browser                   = $this->browser();
 		$this->account_login( $browser, $login, $pass );
@@ -385,6 +394,8 @@ final class CustomerPathTest extends E2eTestCase {
 		$page  = $browser->get( $tab );
 		$forms = $page->passkey_forms();
 		self::assertCount( 1, $forms );
+		self::assertPasskeyModule( $page, true, 'with passkeys allowed the tab loads the module, and still no plugin CSS' );
+		self::assertSame( 0, preg_match( '/<(link|style)\b[^>]*(mdmfa|maxtdesign-mfa)/i', $page->body ) );
 		$authenticator         = new VirtualAuthenticator();
 		$authenticator->counts = true;
 		$added                 = $this->submit_passkey( $browser, $forms[0], $authenticator->create( $forms[0]['config']['options'], self::origin() ), array( 'mdmfa_passkey_name' => 'Phone' ) );

@@ -1,7 +1,7 @@
 # MaxtDesign MFA
 
 Multi-factor authentication and a moved login address for WordPress and WooCommerce: TOTP,
-passkeys (second factor and passwordless), recovery codes, an optional email code, and per-role
+recovery codes, passkeys in beta (a second step only, until the verifier has an independent review), an optional email code, and per-role
 Off / Optional / Required policy for staff and customers. Free, on WordPress.org, with no outbound
 HTTP and no front-end weight on normal pages.
 

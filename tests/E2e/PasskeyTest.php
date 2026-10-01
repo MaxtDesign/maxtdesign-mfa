@@ -17,7 +17,28 @@ use MaxtDesign\Mfa\Tests\Support\VirtualAuthenticator;
 
 final class PasskeyTest extends E2eTestCase {
 
+	private const PASSKEYS_ON = array(
+		'roles'         => array(
+			'author' => array( 'factors' => array( 'passkey' => true ) ),
+			'editor' => array( 'factors' => array( 'passkey' => true ) ),
+		),
+		// Subscribers are an unlisted role.
+		'unlisted_role' => array( 'factors' => array( 'passkey' => true ) ),
+	);
+
+	private static bool $constant = false;
+
+	protected function setUp(): void {
+		parent::setUp();
+		// Passkeys are a beta, off until the owner allows them for a role.
+		self::settings( self::PASSKEYS_ON );
+	}
+
 	protected function tearDown(): void {
+		if ( self::$constant ) {
+			self::wp( 'config', 'delete', 'MDMFA_PASSKEY_ONLY_SIGNIN', '--type=constant' );
+			self::$constant = false;
+		}
 		if ( '' !== self::$url ) {
 			self::eval( 'delete_option( "mdmfa_settings" ); global $wpdb; $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE \'%mdmfa_ipthrottle%\'" );' );
 		}
@@ -27,8 +48,60 @@ final class PasskeyTest extends E2eTestCase {
 	/**
 	 * Lets authors sign in with a passkey alone.
 	 */
-	private static function allow_passwordless( string $role = 'author' ): void {
-		self::wp( 'option', 'update', 'mdmfa_settings', (string) json_encode( array( 'roles' => array( $role => array( 'passwordless' => true ) ) ) ), '--format=json' );
+	private static function allow_passwordless( string $role = 'author', bool $opt_in = true ): void {
+		$settings                                   = self::PASSKEYS_ON;
+		$settings['roles'][ $role ]['passwordless'] = true;
+		self::settings( $settings );
+		if ( $opt_in && ! self::$constant ) {
+			// The site owner's opt-in: passkey-only sign-in is behind a wp-config constant.
+			self::wp( 'config', 'set', 'MDMFA_PASSKEY_ONLY_SIGNIN', 'true', '--raw', '--type=constant' );
+			self::$constant = true;
+		}
+	}
+
+	public function test_passkeys_are_off_until_the_owner_allows_them_for_a_role(): void {
+		self::reset_settings();
+		list( $id, $login, $pass ) = self::user( 'subscriber' );
+		$browser                   = $this->browser();
+		$this->password( $browser, $login, $pass );
+
+		$page = $browser->get( 'wp-admin/profile.php?page=mdmfa-account' );
+		self::assertStringNotContainsString( 'Passkeys', $page->body, 'no passkey section by default' );
+		self::assertSame( array(), $page->passkey_forms() );
+		self::assertPasskeyModule( $page, false, 'and so no script' );
+
+		// A forged "add a passkey" post is refused.
+		$authenticator = new VirtualAuthenticator();
+		$forged        = $authenticator->create( array( 'rp' => array( 'id' => (string) parse_url( self::$url, PHP_URL_HOST ) ), 'user' => array( 'id' => 'AAAA' ), 'challenge' => 'AAAA' ), self::origin() );
+		$browser->post( 'wp-admin/profile.php?page=mdmfa-account', array( '_wpnonce' => $page->input( '_wpnonce' ), 'mdmfa_op' => 'passkey_add', 'mdmfa_credential' => $forged ) );
+		self::assertSame( 0, self::passkey_count( $id ) );
+
+		self::settings( self::PASSKEYS_ON );
+		self::assertStringContainsString( 'Passkeys (beta)', $browser->get( 'wp-admin/profile.php?page=mdmfa-account' )->body );
+	}
+
+	public function test_passkey_only_sign_in_stays_off_without_the_site_owners_constant(): void {
+		// The role setting is stored, but the site did not opt in.
+		self::allow_passwordless( 'author', false );
+		list( $id )            = self::user( 'author' );
+		$authenticator         = new VirtualAuthenticator();
+		$authenticator->counts = true;
+		self::seed_passkey( $id, $authenticator );
+
+		$login = $this->browser()->get( self::lp() );
+		self::assertSame( array(), $login->passkey_forms(), 'the login page offers no passkey sign-in' );
+		self::assertPasskeyModule( $login, false );
+		self::assertFalse( (bool) json_decode( self::wp( 'mdmfa', 'status', '--fresh', '--format=json' ), true )['passkey_only_signin'] );
+
+		// Even a well-formed assertion posted straight to the login address is refused.
+		$challenge = self::eval( 'echo MaxtDesign\Mfa\Support\Base64Url::encode( MaxtDesign\Mfa\Factors\Passkeys::login_challenge() );' );
+		$json      = $authenticator->get( array( 'rpId' => (string) parse_url( self::$url, PHP_URL_HOST ), 'challenge' => $challenge ), self::origin() );
+		$posted    = $this->browser()->post( self::lp(), array( 'mdmfa_passwordless' => $json ) );
+		self::assertNoAuthCookie( $posted, 'a passkey alone signs nobody in' );
+		self::assertSame( 0, self::sessions( $id ) );
+
+		// The same passkey still works as the second step after the password.
+		self::assertSame( 'true', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\Passkeys::has( %d ) ? "true" : "false";', $id ) ) );
 	}
 
 	/**
@@ -247,7 +320,7 @@ final class PasskeyTest extends E2eTestCase {
 		self::assertPasskeyModule( $browser->get( '' ), false, 'still never on the front end' );
 
 		// A TOTP-only user never meets the module on the verify screen.
-		self::wp( 'option', 'delete', 'mdmfa_settings' );
+		self::reset_settings();
 		list( $id, $login, $pass ) = self::user( 'editor' );
 		self::enroll( $id );
 		$this->password( $browser, $login, $pass );

@@ -74,10 +74,20 @@ final class Passkeys {
 	}
 
 	/**
+	 * Whether passkey-only sign-in exists on this site at all. While passkeys are in beta
+	 * a passkey can only be a second step, so a flaw in the verifier alone signs nobody
+	 * in: the password is still needed. An owner who accepts that risk opts in with
+	 * define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true ) in wp-config.php.
+	 */
+	public static function passkey_only_enabled(): bool {
+		return defined( 'MDMFA_PASSKEY_ONLY_SIGNIN' ) && (bool) constant( 'MDMFA_PASSKEY_ONLY_SIGNIN' );
+	}
+
+	/**
 	 * Whether any role allows passwordless sign-in (the login pages then offer it).
 	 */
 	public static function passwordless_offered(): bool {
-		if ( ! RelyingParty::available() ) {
+		if ( ! self::passkey_only_enabled() || ! RelyingParty::available() ) {
 			return false;
 		}
 		$settings = Settings::get();

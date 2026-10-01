@@ -12,6 +12,7 @@ namespace MaxtDesign\Mfa\Admin;
 
 use MaxtDesign\Mfa\Auth\ChallengeUrl;
 use MaxtDesign\Mfa\Auth\SideDoors;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Integrations\Jetpack;
 use MaxtDesign\Mfa\Location\LoginLocation;
 use MaxtDesign\Mfa\Settings\Options;
@@ -68,24 +69,30 @@ final class SettingsViews {
 		);
 
 		echo '<p>' . esc_html__( 'Choose who must use two-step verification and which methods each role may use. A user with several roles follows the strictest one.', 'maxtdesign-mfa' ) . '</p>';
+		$passkey_only = Passkeys::passkey_only_enabled();
+		echo Ui::notice( 'info', __( 'Passkeys are in beta. The code that checks them was written for this plugin and has not had an independent security review yet, so they are off until you turn them on for a role, and they work as a second step after the password only.', 'maxtdesign-mfa' ) );
 		if ( ! RelyingParty::available() ) {
 			echo Ui::notice( 'warning', __( 'Passkeys need https. This site is not on https, so passkey options have no effect yet.', 'maxtdesign-mfa' ) );
 		}
 		echo Ui::form_open( Actions::SAVE, array( 'tab' => 'policy' ) );
 		echo Ui::table_open( __( 'Policy by role', 'maxtdesign-mfa' ) );
 		echo '<table class="widefat striped mdmfa-matrix"><thead><tr>';
-		foreach ( array(
+		$headings = array(
 			__( 'Role', 'maxtdesign-mfa' ),
 			__( 'Users', 'maxtdesign-mfa' ),
 			__( 'Set up', 'maxtdesign-mfa' ),
 			__( 'Policy', 'maxtdesign-mfa' ),
 			__( 'Authenticator app', 'maxtdesign-mfa' ),
-			__( 'Passkey', 'maxtdesign-mfa' ),
+			__( 'Passkey (beta)', 'maxtdesign-mfa' ),
 			__( 'Email code', 'maxtdesign-mfa' ),
 			__( 'Passkey-only sign-in', 'maxtdesign-mfa' ),
 			__( 'Days to set up', 'maxtdesign-mfa' ),
 			__( 'Trusted devices', 'maxtdesign-mfa' ),
-		) as $heading ) {
+		);
+		if ( ! $passkey_only ) {
+			unset( $headings[7] );
+		}
+		foreach ( $headings as $heading ) {
 			echo '<th scope="col">' . esc_html( $heading ) . '</th>';
 		}
 		echo '</tr></thead><tbody>';
@@ -106,8 +113,10 @@ final class SettingsViews {
 			echo '<td>' . Ui::checkbox( $name . '[factors][passkey]', ! empty( $factors['passkey'] ), sprintf( __( 'Passkey for %s', 'maxtdesign-mfa' ), $label ), true ) . '</td>';
 			/* translators: %s: role name. */
 			echo '<td>' . Ui::checkbox( $name . '[factors][email]', ! empty( $factors['email'] ), sprintf( __( 'Email code for %s', 'maxtdesign-mfa' ), $label ), true ) . '</td>';
-			/* translators: %s: role name. */
-			echo '<td>' . Ui::checkbox( $name . '[passwordless]', ! empty( $config['passwordless'] ), sprintf( __( 'Passkey-only sign-in for %s', 'maxtdesign-mfa' ), $label ), true ) . '</td>';
+			if ( $passkey_only ) {
+				/* translators: %s: role name. */
+				echo '<td>' . Ui::checkbox( $name . '[passwordless]', ! empty( $config['passwordless'] ), sprintf( __( 'Passkey-only sign-in for %s', 'maxtdesign-mfa' ), $label ), true ) . '</td>';
+			}
 			printf(
 				'<td><input type="number" class="small-text" min="0" max="90" name="%1$s" value="%2$d" aria-label="%3$s"></td>',
 				esc_attr( $name . '[grace_days]' ),
@@ -123,7 +132,9 @@ final class SettingsViews {
 		echo '<ul class="mdmfa-notes">';
 		echo '<li>' . esc_html__( 'Required: after the days to set up, the user must set up a method before the sign-in finishes. A Required role always keeps an authenticator app or a passkey.', 'maxtdesign-mfa' ) . '</li>';
 		echo '<li>' . esc_html__( 'Email code: weaker than an app or a passkey, because anyone who can read the mailbox can use it. Keep it off for staff.', 'maxtdesign-mfa' ) . '</li>';
-		echo '<li>' . esc_html__( 'Passkey-only sign-in: lets the role sign in with a passkey and no password. It needs a passkey that checks a fingerprint, face or screen lock.', 'maxtdesign-mfa' ) . '</li>';
+		if ( $passkey_only ) {
+			echo '<li>' . esc_html__( 'Passkey-only sign-in: lets the role sign in with a passkey and no password. It needs a passkey that checks a fingerprint, face or screen lock. While passkeys are in beta this removes the password as a safety net.', 'maxtdesign-mfa' ) . '</li>';
+		}
 		echo '<li>' . esc_html__( 'Trusted devices: lets a user skip the second step on a device for a while. Anyone holding that device and the password gets in.', 'maxtdesign-mfa' ) . '</li>';
 		echo '</ul>';
 		echo '<p>' . Ui::submit( __( 'Save policy', 'maxtdesign-mfa' ) ) . '</p></form>';

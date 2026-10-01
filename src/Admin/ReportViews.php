@@ -14,6 +14,7 @@ use MaxtDesign\Mfa\Auth\Lockout;
 use MaxtDesign\Mfa\Auth\TrustedDevice;
 use MaxtDesign\Mfa\Factors\EmailCode;
 use MaxtDesign\Mfa\Factors\PasskeyStore;
+use MaxtDesign\Mfa\Factors\Passkeys;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Install\Schema;
 use MaxtDesign\Mfa\Integrations\Conflicts;
@@ -300,6 +301,13 @@ final class ReportViews {
 		) . '</p>';
 		$body .= Ui::form_open( Actions::REFRESH ) . '<p>' . Ui::submit( __( 'Refresh counts now', 'maxtdesign-mfa' ), 'button' ) . '</p></form>';
 		echo Ui::card( __( 'Status', 'maxtdesign-mfa' ), $body );
+
+		echo Ui::card(
+			__( 'Passkeys (beta)', 'maxtdesign-mfa' ),
+			'<p>' . ( Passkeys::passkey_only_enabled() ? Ui::badge( 'warn', __( 'Passkey-only sign-in is available', 'maxtdesign-mfa' ) ) : Ui::badge( 'good', __( 'Second step only', 'maxtdesign-mfa' ) ) ) . '</p>'
+			. '<p>' . esc_html__( 'The code that checks passkeys was written for this plugin and has not had an independent security review yet. A passkey is used after the password, never in place of it, so a mistake in that code alone cannot sign anyone in. Turn passkeys on per role on the Policy tab.', 'maxtdesign-mfa' ) . '</p>'
+			. '<p>' . esc_html__( 'To also allow signing in with a passkey and no password, add this line to wp-config.php. Only do this if you accept that risk:', 'maxtdesign-mfa' ) . '</p><p><code>define( \'MDMFA_PASSKEY_ONLY_SIGNIN\', true );</code></p>'
+		);
 
 		echo Ui::card(
 			__( 'Export settings', 'maxtdesign-mfa' ),

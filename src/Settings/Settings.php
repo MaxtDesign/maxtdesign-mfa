@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Settings;
 
+use MaxtDesign\Mfa\Factors\Passkeys;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -85,7 +87,9 @@ final class Settings {
 			'policy'              => $policy,
 			'factors'             => array(
 				'totp'     => true,
-				'passkey'  => true,
+				// Beta: the passkey verifier has had no independent review yet (operator
+				// decision 2026-10-01), so the owner turns passkeys on per role.
+				'passkey'  => false,
 				'recovery' => true,
 				'email'    => ! $staff,
 			),
@@ -164,7 +168,7 @@ final class Settings {
 				'recovery' => true,
 				'email'    => ! empty( $factors['email'] ),
 			),
-			'passwordless'        => $passkey && ! empty( $input['passwordless'] ),
+			'passwordless'        => $passkey && Passkeys::passkey_only_enabled() && ! empty( $input['passwordless'] ),
 			'grace_days'          => self::clamp( $input['grace_days'] ?? $base['grace_days'], 0, 90, 7 ),
 			'trusted_devices'     => ! empty( $input['trusted_devices'] ),
 			'email_recovery'      => ! empty( $input['email_recovery'] ),
