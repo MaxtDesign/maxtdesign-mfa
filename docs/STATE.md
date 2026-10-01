@@ -1,22 +1,22 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-01 by session (Gate P9, step 1)
+Updated: 2026-10-01 by session (handoff)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
 (hooks, options, meta), `MDMFA_` (constants), tables `{$wpdb->prefix}mdmfa_*` except
 `{$wpdb->base_prefix}mdmfa_credentials`; namespace `MaxtDesign\Mfa`. Registry row
 `| MaxtDesign MFA |` in `C:/maxt/ops/sops/agent-sops/naming-registry.md` (active, unshipped).
-Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: wp.org via `slaacr`, free only, no licensing
-code. Version 0.1.0 (unreleased; P2-P7 folded into it, nothing on wp.org).
+Repo `MaxtDesign/maxtdesign-mfa` (public). Channel: **undecided** (built to the free wp.org shape:
+no licensing code; not approved for WordPress.org and may never be listed). Version 0.1.0
+(unreleased; nothing published anywhere).
 
 ## Status
-Review done, release preparation started. `main` = P1-P8 (P8 `f1a09d2` PR #7, 2026-10-01).
-On `feat/passkeys-beta` (PR open): **passkeys ship as an opt-in beta** (operator decision
-2026-10-01, replacing plan decision 4: a paid external review is not affordable). Passkeys are
-off for every role until the owner allows them, they are a second step only, and passkey-only
-sign-in exists only with `define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true )`. The readme, the Policy
-tab, the Tools tab and the user's security screen say the passkey code has had no independent
-review. What P8 produced:
+Feature complete and reviewed. `main` = P1-P8 plus passkeys-beta (`f179387` PR #8, 2026-10-01).
+**Distribution is undecided (operator, 2026-10-01): the plugin is not approved for
+WordPress.org and may never go there; no SVN work, no wp.org submission and no 1.0 release
+steps until the operator says where it ships.** Passkeys are an opt-in beta: off per role,
+second step only, passkey-only sign-in behind `define( 'MDMFA_PASSKEY_ONLY_SIGNIN', true )`.
+Next session starts from [handoff-next-session.md](handoff-next-session.md). What P8 produced:
 - Reports: [security audit](security-audit-p8.md), [lanes review](review-p8.md),
   [footprint audit](footprint-audit-p8.md), [compatibility matrix](compat-matrix-p8.md).
 - Result at `main`: 0 Critical, **1 High, 7 Medium** (security) and **4 Blocks** (review).
@@ -79,6 +79,10 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   exemption is per user. Email codes are 8 digits (plan 10.1). The login is not moved on plain
   permalinks at install. The Jetpack SSO flag is mirrored into the autoloaded login option.
   The privacy eraser anonymises log rows instead of deleting them.
+- 2026-10-01 (operator): distribution channel is TBD. Not approved for WordPress.org and may
+  never be listed there, depending on other work in progress. P9's SVN and submission steps
+  are on hold. If the channel changes (private, Pro via `lic`, or bundled), the plugin shape in
+  the wp-plugin skill changes with it: re-read the skill's shape table and hard rule 10 first.
 - 2026-10-01 (operator): the conflict detector warns and keeps enforcing this plugin's policy
   when another two-step plugin is active. It never stands down.
 - 2026-10-01 (operator): no paid external review. Passkeys ship as an opt-in beta, second step
@@ -87,19 +91,26 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   independent review is recorded.
 
 ## Next actions
-1. [operator] Review the passkeys-beta PR and approve the squash merge (`--delete-branch`).
+1. [operator] Decide the distribution channel (WordPress.org, private, Pro, or bundled). Until
+   then nothing is released.
 2. [operator] Manual pass on `plugin-test`: activate (the login moves and administrators are
-   emailed the address), turn passkeys on for your role under Users, Login security (MFA),
-   Policy, add a passkey on Users, My security with each device you have, and sign in with it
-   as the second step. Also walk the settings tabs with the keyboard only. Junction-mounted:
-   deactivate, never delete.
-3. [operator] Say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
-   paid membership plugins, subdomain networks, block checkout new-account).
+   emailed the address; `wp mdmfa slug get` prints it), allow passkeys for your role under
+   Users, Login security (MFA), Policy, add a passkey per device on Users, My security, sign in
+   with it as the second step, and walk the settings tabs with the keyboard only.
+   Junction-mounted: deactivate, never delete.
+3. [operator] Say which UNVERIFIED matrix cells matter (connected Jetpack, Pressable, paid
+   membership plugins, subdomain networks, block checkout new-account).
 4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
-5. [session] P9 after the manual pass: wp.org screenshots (needs a visible browser), remove the
-   "Development build" paragraph, version triple and changelog for 1.0.0, `release-gate.php` on
-   the exact tree (zip preflight, SBOM from the zip), then SVN by the operator.
-6. [anyone] If an independent review ever happens, send [webauthn-review-brief.md](webauthn-review-brief.md).
+5. [session] Fix the two findings of Codex's independent review (HIGH: multisite policy
+   downgrade in `Policy::effective()`; MEDIUM: WooCommerce's handler intercepts wp-admin
+   security forms). Full instructions in [handoff-next-session.md](handoff-next-session.md);
+   the review lives outside the repo at
+   `C:/maxt/pilots/aimasters-maxtoffroad-operations/mfa-independent-review-20261001/`.
+6. [session, optional] Mark the known compatibility failures as expected so the informational
+   `compat` checks stop showing red (Wordfence, Ultimate Member, Limit Login Attempts Reloaded).
+7. [session, only once a channel is chosen] Release preparation for that channel: screenshots
+   if wp.org, remove the "Development build" readme paragraph, version triple, changelog,
+   `release-gate.php` on the exact zip.
 
 ## External relationships
 - Vendored libs: none. Runtime Composer deps: none. Path repositories: none.
@@ -109,7 +120,8 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   per URL on slug change, calls `md_cache_regenerate_config` if it ever exists (requested hook).
 - Local test site: `plugin-test` (https://plugin-test.local, WP 7.1.2, PHP 8.3.29 since
   2026-09-30, WC 10.9.4). Plugin junction-mounted there on 2026-09-30, inactive.
-- External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
+- External services: none in use. wp.org SVN (account `slaacr`) only if that channel is chosen.
+  The plugin makes no outbound HTTP.
 
 ## Verification state
 - 2026-10-01, P8, CI run 36896784143 on `chore/p8-review` (`4fd4d74`, with the Codex and Fable
@@ -151,6 +163,12 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-01 (OPEN, HIGH, from Codex's independent review of `242d761`): on multisite the
+  network floor raises only the policy mode; recovery, grace and application-password settings
+  still come from the weaker current site. Not fixed. `main` carries this.
+- 2026-10-01 (OPEN, MEDIUM, same review): with WooCommerce active, `SecurityEndpoint::handle_post()`
+  runs for wp-admin security forms before `AccountPage`, so first-time recovery codes are not
+  shown in wp-admin. Not fixed. Blocks staging.
 - 2026-10-01: turning passkeys off by default changes what a fresh install offers. A Required
   role now sets up an authenticator app during sign-in; the passkey choice appears there only
   for roles the owner allowed. Existing passkeys keep counting as enrolled if a role is later
