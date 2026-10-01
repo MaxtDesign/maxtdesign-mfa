@@ -34,7 +34,13 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SecurityActions {
 
-	public const NONCE = 'mdmfa_account';
+	/**
+	 * Nonce actions, one per presenter. A form is bound to the screen that rendered it:
+	 * each handler accepts only its own presenter's nonce, so a post is run by exactly one
+	 * of them (WooCommerce's handler fires on wp_loaded, before any wp-admin page loads).
+	 */
+	public const NONCE_ADMIN = 'mdmfa_account';
+	public const NONCE_WC    = 'mdmfa_account_wc';
 
 	/**
 	 * Operation names a form may post.

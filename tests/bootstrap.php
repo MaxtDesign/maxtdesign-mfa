@@ -58,6 +58,7 @@ function mdmfa_test_reset(): void {
 		'transients'   => array(),
 	);
 	MaxtDesign\Mfa\Support\Clock::freeze( null );
+	MaxtDesign\Mfa\Policy\Policy::forget();
 	$GLOBALS['wpdb'] = new wpdb();
 	$_COOKIE         = array();
 	unset( $_SERVER['PHP_AUTH_USER'] );
@@ -150,6 +151,17 @@ class wpdb {
 	 */
 	public function get_results( string $query, string $output = 'OBJECT' ): array {
 		$this->queries[] = $query;
+		// Another site's settings and roles rows (Policy::other_sites()).
+		if ( 1 === preg_match( "/FROM `wp_(?:(\d+)_)?options` WHERE option_name IN \( 'mdmfa_settings', '(\w+)' \)/", $query, $m ) ) {
+			$site  = '' === $m[1] ? 1 : (int) $m[1];
+			$store = $GLOBALS['mdmfa_test']['blog_options'][ $site ] ?? array();
+			$roles = $store['user_roles'] ?? array_fill_keys( array( 'administrator', 'editor', 'author', 'contributor', 'subscriber', 'customer', 'shop_manager' ), array() );
+			$rows  = array( array( 'option_name' => $m[2], 'option_value' => serialize( $roles ) ) );
+			if ( isset( $store['mdmfa_settings'] ) ) {
+				$rows[] = array( 'option_name' => 'mdmfa_settings', 'option_value' => serialize( $store['mdmfa_settings'] ) );
+			}
+			return $rows;
+		}
 		return array();
 	}
 

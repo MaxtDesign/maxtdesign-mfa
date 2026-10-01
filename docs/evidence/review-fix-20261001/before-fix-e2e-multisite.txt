@@ -1,0 +1,25 @@
+# Multisite tests against UNFIXED main
+# plugin under test: main f179387
+# WordPress 7.1.2 subdirectory network, 2 sites; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-01T20:15Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 00:20.119, Memory: 10.00 MB
+Multisite (MaxtDesign\Mfa\Tests\E2e\Multisite)
+ ✔ Each site has its own login address and hides wp login php
+ ✔ A required role on one site cannot be dodged by signing in on another
+ ✔ An enrolled account is challenged on a site whose policy is off
+ ✔ A super admin is required everywhere
+ ✘ A lenient site cannot weaken recovery grace or application passwords for another sites staff
+   │ on a request to the shop
+   │ Failed asserting that two arrays are identical.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\MultisiteTest.php:205
+ ✘ A lenient site gives no setup period to another sites staff
+   │ shop: setup cannot be skipped
+   │ Failed asserting that '<!DOCTYPE html>\n
+   │ document.body.className = document.body.className.replace('no-js','js');\n
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\MultisiteTest.php:280
+ ✘ Two sites that both require keep each others restrictions
+   │ Failed asserting that two arrays are identical.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\MultisiteTest.php:307
+ ✔ Removing a user from one site keeps their passkeys
+Tests: 8, Assertions: 26, Failures: 3.

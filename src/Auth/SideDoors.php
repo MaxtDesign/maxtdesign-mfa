@@ -94,14 +94,16 @@ final class SideDoors {
 
 	/**
 	 * Per-role switch: roles whose policy is Required have no application passwords unless
-	 * the owner allows them for that role.
+	 * the owner allows them for that role. On a network an application password works on
+	 * every site, so every site the user belongs to must allow it, whatever this site's
+	 * mode is (Policy::effective() folds each site's mode in).
 	 *
 	 * @param mixed $available Core's value.
 	 * @param mixed $user      User.
 	 * @return mixed
 	 */
 	public static function app_passwords_for_user( mixed $available, mixed $user = null ): mixed {
-		if ( ! $available || ! $user instanceof \WP_User || self::APP_PER_ROLE !== self::app_password_mode() ) {
+		if ( ! $available || ! $user instanceof \WP_User || ( ! is_multisite() && self::APP_PER_ROLE !== self::app_password_mode() ) ) {
 			return $available;
 		}
 

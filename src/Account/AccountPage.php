@@ -60,7 +60,8 @@ final class AccountPage {
 		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
 			return;
 		}
-		check_admin_referer( SecurityActions::NONCE );
+		// Only a form this page rendered: My Account's forms carry another nonce action.
+		check_admin_referer( SecurityActions::NONCE_ADMIN );
 		$user = wp_get_current_user();
 		$op   = isset( $_POST['mdmfa_op'] ) ? sanitize_key( wp_unslash( $_POST['mdmfa_op'] ) ) : '';
 		if ( ! $user->exists() || ! in_array( $op, SecurityActions::OPS, true ) ) {
@@ -110,7 +111,8 @@ final class AccountPage {
 				'danger'  => 'button button-link-delete',
 				'input'   => 'regular-text',
 				'row'     => '',
-			)
+			),
+			SecurityActions::NONCE_ADMIN
 		);
 		echo '</div>';
 	}

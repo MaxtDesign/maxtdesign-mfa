@@ -102,7 +102,8 @@ final class Interceptor {
 		}
 
 		if ( ! Context::is_interactive( $context ) ) {
-			if ( Context::XMLRPC === $context && SideDoors::XMLRPC_ALLOW === SideDoors::xmlrpc_mode() ) {
+			// On a network: only when every site the user belongs to allows it.
+			if ( Context::XMLRPC === $context && ! empty( Policy::effective( $user )['xmlrpc_password'] ) ) {
 				Logger::log( 'xmlrpc_password', $user->ID, '', $context );
 				return $user;
 			}

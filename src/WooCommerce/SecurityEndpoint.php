@@ -104,12 +104,18 @@ final class SecurityEndpoint {
 	/**
 	 * Handles tab form posts: own account only, nonce checked, then post/redirect/get
 	 * unless recovery codes must be shown in this response.
+	 *
+	 * This runs on wp_loaded, which also fires on wp-admin requests, before the admin
+	 * page's own handler (Account\AccountPage, on load-{page}). Those posts are not this
+	 * presenter's: it stays out of every admin request, and accepts only the nonce its own
+	 * forms carry. WooCommerce not defining wc_add_notice() in wp-admin is no guard: it is
+	 * defined there as soon as an extension calls wc_load_cart().
 	 */
 	public static function handle_post(): void {
-		if ( ! isset( $_POST['mdmfa_op'], $_POST['_wpnonce'] ) || ! is_user_logged_in() || ! function_exists( 'wc_add_notice' ) ) {
+		if ( is_admin() || ! isset( $_POST['mdmfa_op'], $_POST['_wpnonce'] ) || ! is_user_logged_in() || ! function_exists( 'wc_add_notice' ) ) {
 			return;
 		}
-		if ( false === wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), SecurityActions::NONCE ) ) {
+		if ( false === wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), SecurityActions::NONCE_WC ) ) {
 			wc_add_notice( esc_html__( 'This form expired. Please try again.', 'maxtdesign-mfa' ), 'error' );
 			return;
 		}
@@ -152,7 +158,8 @@ final class SecurityEndpoint {
 				'danger'  => $button,
 				'input'   => 'woocommerce-Input woocommerce-Input--text input-text',
 				'row'     => 'woocommerce-form-row woocommerce-form-row--wide form-row form-row-wide',
-			)
+			),
+			SecurityActions::NONCE_WC
 		);
 	}
 

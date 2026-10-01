@@ -64,6 +64,29 @@ if ( isset( $_GET['e2e_probe'] ) ) {
 	);
 }
 
+// WooCommerce loads its notice functions on front-end requests only, so wc_add_notice() does
+// not exist on a plain wp-admin page. It does as soon as any extension calls wc_load_cart()
+// there (public API, "in all contexts"). With the option set, this fixture is that extension;
+// every wp-admin response reports whether the function exists (SecurityPresentersTest).
+if ( get_option( 'e2e_wc_cart_in_admin' ) ) {
+	add_action(
+		'woocommerce_init',
+		static function (): void {
+			if ( is_admin() && ! wp_doing_ajax() && function_exists( 'wc_load_cart' ) ) {
+				wc_load_cart();
+			}
+		}
+	);
+}
+add_action(
+	'admin_init',
+	static function (): void {
+		if ( ! headers_sent() ) {
+			header( 'X-E2E-Wc-Notices: ' . ( function_exists( 'wc_add_notice' ) ? '1' : '0' ) );
+		}
+	}
+);
+
 // Records the suite purge signal maxtdesign-cache would act on.
 add_action(
 	'md_suite_content_changed',

@@ -82,7 +82,7 @@ Authenticator apps, recovery codes and emailed codes do not depend on that code.
 
 = Does it work on multisite? =
 
-Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin applies the strictest policy among the sites a user belongs to, and an account that has two-step verification is asked for it on every site. Only super admins can reset or unlock other users.
+Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin applies the strictest settings among the sites a user belongs to, and an account that has two-step verification is asked for it on every site. That covers more than Required or Optional: email recovery, application passwords, trusted devices and each sign-in method are available to a user only if every one of their sites allows them, the longest recovery wait and the shortest setup period apply, and it makes no difference which site they sign in on. Only super admins can reset or unlock other users.
 
 = Where are the settings? =
 
@@ -142,7 +142,7 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: a public login page of your choice, so login links shown to visitors do not have to reveal the login address.
 * New: privacy tools. Suggested privacy policy text, a personal data export (methods, passkey names and dates, log entries, never secrets) and erasure of log entries.
 * New: `wp mdmfa status` reports policy and counts per role, lockouts and side doors, with no secrets, user names or login address in it.
-* New: on a multisite network the strictest policy among a user's sites applies everywhere, and the plugin is network-activated only.
+* New: on a multisite network the strictest settings among a user's sites apply everywhere (policy, setup period, email recovery and its wait, application passwords, trusted devices, sign-in methods), and the plugin is network-activated only.
 * New: first activation emails the new login address to every administrator. On plain permalinks the login is not moved.
 * New: `wp mdmfa key status`, `export-define` and `rewrap`, so the encryption key can be pinned or replaced without breaking authenticator apps, and `wp mdmfa recovery-codes` for a locked-out owner.
 * New: changing an account's email address switches its email codes off until the new address is confirmed, and closes email recovery for a day.
