@@ -77,6 +77,37 @@ WebAuthn review that plan decision 4 requires before 1.0.
 - The trusted-device token is a static bearer (256 bits, HttpOnly, revoked on password change).
 - Settings stored for roles that no longer exist stay in the option, invisible in the screens.
 
+## Second and third opinions (same day, before merge)
+
+Two further reviews of this branch, by different models, after the fixes above.
+
+**OpenAI Codex CLI 0.157, model `gpt-6-astra`, medium effort** (`codex review --base main`):
+3 findings, all valid, all fixed with a test each.
+
+| Finding | Resolution |
+|---|---|
+| Email enrollments stored before the address fingerprint existed were treated as absent, dropping email-only accounts to password-only | Bound to the current address on first read |
+| A saved "block WordPress.com sign-in" had no mirrored flag, so the block lapsed until the next save | Mirror seeded from the settings on first read |
+| The privacy eraser left the erased person's ID as the actor of their own rows | Actor cleared as well |
+
+**Claude Fable** (subagent; the branch diff, and the verifier against WebAuthn Level 3 sections
+7.1 and 7.2): 0 Critical, 0 High, 1 Medium, 6 Low. Nothing exploitable in `src/WebAuthn/` or its
+callers from browser-controlled JSON.
+
+| ID | Severity | Finding | Resolution |
+|---|---|---|---|
+| F-M1 | Medium | The email-change fix switched the email factor off, which de-enrolled an email-only account: a stolen session plus the password became a password-only login | An address change no longer de-enrolls: the account stays challenged (other methods or a recovery code) until the new address is confirmed. Changing your own address on an enrolled account needs a fresh verification, on the wp-admin profile form and on WooCommerce Account details. Tested end to end. |
+| F-L1 | Low | `wp mdmfa key rewrap` cleared the "key changed" state even when secrets stayed unreadable | Cleared only when none is left unreadable |
+| F-L2 | Low | A capability row left by a deleted site forced default policy on its former users, with a database error | Deleted sites are skipped |
+| F-L3 | Low | The per-user lock degraded silently where named locks are unavailable; a queued request worked on a stale copy of the pending record | Logged once a day (`lock_unavailable`); the record is re-read under the lock |
+| F-L4 | Low | A non-growing counter was allowed by default even for a device-bound passkey | Refused when the passkey is not backup eligible |
+| F-L5 | Low | Passkey-only sign-in challenge is not bound to the browser (login CSRF, same as core's password form) | Open; put to the external reviewer ([brief](webauthn-review-brief.md) section 7) |
+| F-L6 | Low | `PasskeyStore::user_handle()` regenerates a malformed handle | Open; put to the external reviewer |
+
+Not reachable by a hook: WordPress's own "confirm new address" link (`profile.php?newuseremail=`)
+calls `wp_update_user()` directly. It cannot be started from a stale session any more (the
+request that would send the link is refused), and if it completes the account stays challenged.
+
 ## Remaining uncertainty
 
 - The verifier still needs the external review. No flaw found here is not a certification.

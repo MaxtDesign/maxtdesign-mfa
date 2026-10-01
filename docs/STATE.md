@@ -24,6 +24,11 @@ and every fix that came out of it:
   permalinks; email codes are 8 digits and bound to the confirmed address; every new method is
   announced by email; `wp mdmfa key status|export-define|rewrap` and `wp mdmfa recovery-codes`;
   My Account endpoint slug is `login-security`.
+- Two more reviews before merge, by other models: Codex (`gpt-6-astra`, medium) found 3 issues,
+  Claude Fable found 1 Medium and 6 Low; all fixed except two Lows put to the external reviewer.
+  Neither found an exploitable flaw in the verifier. Recorded in the security audit.
+- [External review brief](webauthn-review-brief.md) written: scope, design decisions, threat
+  model, what was already done, where to look hardest, how to run everything.
 Still required before 1.0: the external WebAuthn review (decision 4), the manual passkey pass
 on real devices, and the UNVERIFIED cells of the compatibility matrix the operator wants run.
 
@@ -73,9 +78,9 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
 
 ## Next actions
 1. [operator] Review the P8 PR and approve the squash merge (`--delete-branch`).
-2. [operator] Commission the external WebAuthn review (decision 4). A brief for the reviewer can
-   be prepared on request (scope `src/WebAuthn/` and its callers, threat model, how to run the
-   tests and the fuzzer).
+2. [operator] Commission the external WebAuthn review (decision 4) and send the reviewer
+   [webauthn-review-brief.md](webauthn-review-brief.md). Fee, timing and publication are yours
+   to agree with them.
 3. [operator] Decide the conflict detector's behaviour (Flags). Built: warn and keep enforcing.
 4. [operator] Manual pass on `plugin-test`: passkeys on real devices, the settings screens,
    keyboard only. Activation moves that site's login and now emails its administrators.
@@ -97,12 +102,12 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
 - External services: wp.org SVN (account `slaacr`) at P9. The plugin makes no outbound HTTP.
 
 ## Verification state
-- 2026-10-01, P8, CI run 36883628284 on `chore/p8-review` (`HEAD` before the docs commit):
-  **all 21 required jobs green**; 7 informational compatibility jobs, 4 green.
-  - Unit: **301 tests, 1,579 assertions** on PHP 8.3, 8.4, 8.5.
-  - **E2E core, PHP 8.3 + 8.5: 69 tests, 695 assertions** (5 multisite tests skipped).
+- 2026-10-01, P8, CI run 36896784143 on `chore/p8-review` (`4fd4d74`, with the Codex and Fable
+  fixes): **all 21 required jobs green**; 7 informational compatibility jobs, 4 green.
+  - Unit: **302 tests, 1,589 assertions** on PHP 8.3, 8.4, 8.5.
+  - **E2E core, PHP 8.3 + 8.5: 69 tests, 700 assertions** (5 multisite tests skipped).
     P8 adds 9 audit regression tests and the front-end query probe.
-  - **E2E multisite (new job), PHP 8.3 + 8.5: 69 tests, 713 assertions** (recovery mode skipped:
+  - **E2E multisite (new job), PHP 8.3 + 8.5: 69 tests, 718 assertions** (recovery mode skipped:
     core does not run it on multisite). The whole core suite on a subdirectory network's main
     site, plus 5 cross-site tests.
   - E2E WooCommerce: 12 tests, 368 assertions. Fuzz 4M inputs, 0 crashes. Smoke single and
@@ -149,6 +154,8 @@ on real devices, and the UNVERIFIED cells of the compatibility matrix the operat
   no word on scope. The exemption must be per user, not per request (audit High).
 - 2026-10-01 (P8, plan error): plan 5.5 assumes the login address "is in every admin's email",
   but nothing sent it at activation. It is sent now.
+- 2026-10-01 (P8): Codex needs the model named `gpt-6-astra`; plain `astra` is refused for a
+  ChatGPT-account login. Its sandbox could not run the unit suite (it found PHP 8.2 on PATH).
 - 2026-10-01 (P8): open Low items are listed at the end of the [security audit](security-audit-p8.md)
   and under Nits in the [review](review-p8.md).
 - 2026-10-01 (P7): wp.org screenshots are not captured. The browser pane was hidden during the
