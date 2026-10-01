@@ -1,7 +1,7 @@
 <?php
 /**
  * My Account > Security (plan 4.3): customers manage their own factors on the site's
- * pages. Query-var key `mdmfa-security` (prefixed); URL slug `security`, filterable with
+ * pages. Query-var key `mdmfa-security` (prefixed); URL slug `login-security`, filterable with
  * mdmfa_account_endpoint_slug. WooCommerce maps the slug back to the key
  * (WC_Query::parse_request), and the tab content fires on
  * woocommerce_account_mdmfa-security_endpoint.
@@ -27,7 +27,7 @@ final class SecurityEndpoint {
 	public const KEY = 'mdmfa-security';
 
 	/** Bump when the endpoint's rewrite rules change; rules are flushed once per value. */
-	public const REWRITE_VERSION = '1';
+	public const REWRITE_VERSION = '2';
 
 	/**
 	 * Recovery codes generated in this request, rendered once.
@@ -58,8 +58,10 @@ final class SecurityEndpoint {
 		if ( ! is_array( $vars ) ) {
 			return $vars;
 		}
-		$slug              = apply_filters( 'mdmfa_account_endpoint_slug', 'security' );
-		$vars[ self::KEY ] = is_string( $slug ) && '' !== $slug ? sanitize_title( $slug ) : 'security';
+		// Not plain "security": an endpoint claims that word under every page, which
+		// would shadow a child page such as /company/security/.
+		$slug              = apply_filters( 'mdmfa_account_endpoint_slug', 'login-security' );
+		$vars[ self::KEY ] = is_string( $slug ) && '' !== $slug ? sanitize_title( $slug ) : 'login-security';
 
 		return $vars;
 	}

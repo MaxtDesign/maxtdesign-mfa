@@ -17,6 +17,28 @@ final class SideDoorsTest extends TestCase {
 
 	protected function setUp(): void {
 		mdmfa_test_reset();
+		// A request that carries credentials: the only front-end case where the answer matters.
+		$_SERVER['PHP_AUTH_USER'] = 'someone';
+	}
+
+	public function test_a_plain_page_view_never_reads_the_settings(): void {
+		unset( $_SERVER['PHP_AUTH_USER'] );
+		self::settings( array( 'application_passwords' => 'off' ) );
+		$reads = 0;
+		add_filter(
+			'mdmfa_test_get_option',
+			static function ( string $option ) use ( &$reads ): string {
+				$reads += 'mdmfa_settings' === $option ? 1 : 0;
+				return $option;
+			}
+		);
+
+		self::assertTrue( SideDoors::app_passwords_available( true ), 'core asks on every request; a page view passes through' );
+		self::assertSame( 0, $reads, 'and costs no option read (the settings are not autoloaded)' );
+
+		$GLOBALS['mdmfa_test']['is_admin'] = true;
+		self::assertFalse( SideDoors::app_passwords_available( true ), 'wp-admin gets the real answer' );
+		self::assertSame( 1, $reads );
 	}
 
 	private static function settings( array $settings ): void {

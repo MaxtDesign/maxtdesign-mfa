@@ -26,7 +26,7 @@ final class EmailCodeTest extends TestCase {
 	 */
 	private static function mailed_code(): string {
 		$mail = end( $GLOBALS['mdmfa_test']['mail'] );
-		self::assertSame( 1, preg_match( '/\b(\d{6})\b/', (string) $mail[2], $m ) );
+		self::assertSame( 1, preg_match( '/\b(\d{8})\b/', (string) $mail[2], $m ) );
 		return $m[1];
 	}
 
@@ -57,7 +57,7 @@ final class EmailCodeTest extends TestCase {
 		self::assertFalse( EmailCode::issued( 5, 'login:bbbb' ) );
 		self::assertFalse( EmailCode::check( 5, 'login:bbbb', $code ), 'another pending login cannot use it' );
 		self::assertFalse( EmailCode::check( $other->ID, 'login:aaaa', $code ), 'another user cannot use it' );
-		self::assertTrue( EmailCode::check( 5, 'login:aaaa', ' ' . substr( $code, 0, 3 ) . ' ' . substr( $code, 3 ) ), 'spaces are ignored' );
+		self::assertTrue( EmailCode::check( 5, 'login:aaaa', ' ' . substr( $code, 0, 4 ) . ' ' . substr( $code, 4 ) ), 'spaces are ignored' );
 		self::assertFalse( EmailCode::check( 5, 'login:aaaa', $code ), 'single use' );
 	}
 
@@ -77,7 +77,7 @@ final class EmailCodeTest extends TestCase {
 		$user = new \WP_User( 5, array( 'customer' ) );
 		EmailCode::send( $user, 'setup' );
 		$code  = self::mailed_code();
-		$wrong = str_pad( (string) ( ( (int) $code + 1 ) % 1000000 ), 6, '0', STR_PAD_LEFT );
+		$wrong = str_pad( (string) ( ( (int) $code + 1 ) % 100000000 ), 8, '0', STR_PAD_LEFT );
 
 		for ( $i = 1; $i <= 4; $i++ ) {
 			self::assertFalse( EmailCode::check( 5, 'setup', $wrong ) );
@@ -137,6 +137,47 @@ final class EmailCodeTest extends TestCase {
 		add_filter( 'mdmfa_email_code_message', static fn (): string => 'broken' );
 		EmailCode::send( $user, 'setup' );
 		self::assertStringContainsString( 'Your sign-in code', end( $GLOBALS['mdmfa_test']['mail'] )[1], 'a bad filter value is ignored' );
+		self::assertSame( 0, preg_match( '/\d{8}/', end( $GLOBALS['mdmfa_test']['mail'] )[1] ), 'the code never appears in the subject' );
+	}
+
+	public function test_the_factor_is_bound_to_the_confirmed_address(): void {
+		$user = new \WP_User( 5, array( 'customer' ) );
+		EmailCode::enable( 5 );
+		self::assertTrue( EmailCode::has( 5 ) );
+
+		// The address changes without going through the plugin's hook (a direct database
+		// write, another plugin): the factor still stops, because the fingerprint differs.
+		$user->user_email = 'attacker@evil.example';
+		self::assertFalse( EmailCode::has( 5 ), 'codes are never sent to an address the user did not confirm' );
+		self::assertFalse( Policy::is_enrolled( 5 ) );
+	}
+
+	public function test_an_address_change_switches_the_factor_off_and_closes_email_recovery_for_a_day(): void {
+		$GLOBALS['mdmfa_test']['options']['mdmfa_settings'] = array( 'roles' => array( 'customer' => array( 'trusted_devices' => true ) ) );
+		$old             = new \WP_User( 5, array( 'customer' ) );
+		$old             = clone $old;
+		$user            = new \WP_User( 5, array( 'customer' ) );
+		EmailCode::enable( 5 );
+		\MaxtDesign\Mfa\Auth\TrustedDevice::issue( $user );
+		update_user_meta( 5, \MaxtDesign\Mfa\Flow\EmailRecovery::META, self::T0 + 3600 );
+		self::assertTrue( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $user ) );
+		$user->user_email = 'new@example.com';
+
+		EmailCode::address_changed( 5, $old );
+
+		self::assertFalse( EmailCode::has( 5 ) );
+		self::assertSame( 0, \MaxtDesign\Mfa\Auth\TrustedDevice::count( 5 ) );
+		self::assertSame( '', get_user_meta( 5, \MaxtDesign\Mfa\Flow\EmailRecovery::META, true ), 'a waiting recovery is dropped' );
+		self::assertFalse( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $user ), 'a mailbox that just changed proves nothing' );
+		Clock::freeze( self::T0 + DAY_IN_SECONDS + 1 );
+		self::assertTrue( \MaxtDesign\Mfa\Flow\EmailRecovery::allowed( $user ) );
+
+		// Same address in another case is not a change.
+		EmailCode::enable( 5 );
+		$same             = clone $user;
+		$same->user_email = 'NEW@example.com';
+		EmailCode::address_changed( 5, $same );
+		self::assertTrue( EmailCode::has( 5 ) );
 	}
 
 	public function test_masked_address(): void {

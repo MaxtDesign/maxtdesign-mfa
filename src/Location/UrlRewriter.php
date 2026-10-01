@@ -28,9 +28,9 @@ final class UrlRewriter {
 	 * to the neutral handler.
 	 */
 	public static function register(): void {
-		add_filter( 'site_url', array( self::class, 'site_url' ), 20, 3 );
+		add_filter( 'site_url', array( self::class, 'site_url' ), 20, 4 );
 		add_filter( 'network_site_url', array( self::class, 'network_site_url' ), 20, 3 );
-		add_filter( 'login_url', array( self::class, 'login_url' ), 20, 1 );
+		add_filter( 'login_url', array( self::class, 'login_url' ), 20, 2 );
 		add_filter( 'user_request_action_email_content', array( self::class, 'privacy_email' ), 20, 2 );
 		add_filter( 'recovery_mode_begin_url', array( self::class, 'recovery_url' ), 20, 1 );
 		add_filter( 'update_welcome_email', array( self::class, 'welcome_email' ), 20, 2 );
@@ -42,16 +42,27 @@ final class UrlRewriter {
 	 *
 	 * @param mixed $url    URL.
 	 * @param mixed $path   Requested path.
-	 * @param mixed $scheme Scheme context.
+	 * @param mixed $scheme  Scheme context.
+	 * @param mixed $blog_id Site the URL is for (multisite), or null for the current one.
 	 * @return mixed
 	 */
-	public static function site_url( mixed $url, mixed $path = '', mixed $scheme = null ): mixed {
+	public static function site_url( mixed $url, mixed $path = '', mixed $scheme = null, mixed $blog_id = null ): mixed {
 		unset( $scheme );
-		if ( ! is_string( $url ) || ! LoginLocation::enabled() ) {
+		if ( ! is_string( $url ) ) {
 			return $url;
 		}
+		// get_site_url( $other_site ) applies this filter after switching back, so the
+		// login address must be read from the site the URL belongs to.
+		$switch = is_multisite() && is_numeric( $blog_id ) && (int) $blog_id > 0 && get_current_blog_id() !== (int) $blog_id;
+		if ( $switch ) {
+			switch_to_blog( (int) $blog_id );
+		}
+		$login = LoginLocation::enabled() ? LoginLocation::url() : '';
+		if ( $switch ) {
+			restore_current_blog();
+		}
 
-		return self::rewrite( $url, (string) $path, LoginLocation::url() );
+		return '' === $login ? $url : self::rewrite( $url, (string) $path, $login );
 	}
 
 	/**
@@ -81,19 +92,25 @@ final class UrlRewriter {
 	 * (already produced by the site_url filter).
 	 *
 	 * @param mixed $login_url Login URL.
+	 * @param mixed $redirect  Where the login should return to.
 	 * @return mixed
 	 */
-	public static function login_url( mixed $login_url ): mixed {
+	public static function login_url( mixed $login_url, mixed $redirect = '' ): mixed {
 		if ( ! is_string( $login_url ) || ! LoginLocation::enabled() ) {
 			return $login_url;
 		}
-		$internal = is_admin() || is_user_logged_in() || Router::is_routed() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI );
+		// is_admin() is not a sign of an insider: admin-post.php and admin-ajax.php answer
+		// logged-out visitors too.
+		$internal = is_user_logged_in() || Router::is_routed() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI );
 		if ( $internal ) {
 			return $login_url;
 		}
 		$public = LoginLocation::public_url();
+		if ( LoginLocation::url() === $public ) {
+			return $login_url;
+		}
 
-		return LoginLocation::url() === $public ? $login_url : $public;
+		return is_string( $redirect ) && '' !== $redirect ? add_query_arg( 'redirect_to', rawurlencode( $redirect ), $public ) : $public;
 	}
 
 	/**

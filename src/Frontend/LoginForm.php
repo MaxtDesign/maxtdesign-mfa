@@ -15,6 +15,7 @@ namespace MaxtDesign\Mfa\Frontend;
 
 use MaxtDesign\Mfa\Auth\ChallengeUrl;
 use MaxtDesign\Mfa\Auth\Context;
+use MaxtDesign\Mfa\Location\LoginLocation;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -64,7 +65,9 @@ final class LoginForm {
 
 		if ( is_wp_error( $user ) ) {
 			$account = ChallengeUrl::account();
-			$retry   = '' !== $account ? add_query_arg( 'mdmfa_login', 'failed', $account ) : wp_login_url( $target );
+			// The public login page, never the address itself unless that is the public page.
+			$public = LoginLocation::enabled() ? add_query_arg( 'redirect_to', rawurlencode( $target ), LoginLocation::public_url() ) : wp_login_url( $target );
+			$retry  = '' !== $account ? add_query_arg( 'mdmfa_login', 'failed', $account ) : $public;
 			wp_safe_redirect( $retry );
 			exit;
 		}

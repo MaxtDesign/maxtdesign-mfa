@@ -39,6 +39,8 @@ final class SideDoors {
 		add_action( 'application_password_did_authenticate', array( self::class, 'log_app_password' ), 10, 2 );
 		add_filter( 'rest_request_before_callbacks', array( self::class, 'guard_app_password_rest' ), 10, 3 );
 		add_action( 'wp_authorize_application_password_request_errors', array( self::class, 'guard_app_password_authorize' ), 10, 3 );
+		add_action( 'load-authorize-application.php', array( self::class, 'guard_app_password_authorize_post' ), 0 );
+		add_action( 'wp_create_application_password', array( self::class, 'log_app_password_created' ), 10, 1 );
 		add_filter( 'xmlrpc_enabled', array( self::class, 'xmlrpc_enabled' ), 20 );
 		add_filter( 'xmlrpc_login_error', array( self::class, 'xmlrpc_login_error' ), 20, 2 );
 	}
@@ -68,7 +70,26 @@ final class SideDoors {
 	 * @return mixed
 	 */
 	public static function app_passwords_available( mixed $available ): mixed {
+		// Core asks this on every request while it works out the current user
+		// (wp_validate_application_password). Settings are not autoloaded, so they are
+		// read only where the answer matters: a request that carries credentials, or an
+		// admin, REST, XML-RPC or WP-CLI request. A plain page view costs no query.
+		if ( ! $available || ! self::answer_matters() ) {
+			return $available;
+		}
+
 		return self::APP_OFF === self::app_password_mode() ? false : $available;
+	}
+
+	/**
+	 * Whether this request can use or manage application passwords.
+	 */
+	private static function answer_matters(): bool {
+		return isset( $_SERVER['PHP_AUTH_USER'] )
+			|| is_admin()
+			|| ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+			|| ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST )
+			|| ( defined( 'WP_CLI' ) && WP_CLI );
 	}
 
 	/**
@@ -116,9 +137,12 @@ final class SideDoors {
 	 * @return mixed
 	 */
 	public static function guard_app_password_rest( mixed $response, mixed $handler = null, mixed $request = null ): mixed {
-		unset( $handler );
-		if ( is_wp_error( $response ) || ! $request instanceof \WP_REST_Request || 'POST' !== $request->get_method()
-			|| 1 !== preg_match( '#^/wp/v2/users/(?:\d+|me)/application-passwords$#', $request->get_route() ) ) {
+		// The handler decides, not the URL: core matches routes case-insensitively, and
+		// another route could reuse the controller.
+		$callback = is_array( $handler ) && isset( $handler['callback'] ) ? $handler['callback'] : null;
+		$creates  = is_array( $callback ) && isset( $callback[0], $callback[1] )
+			&& $callback[0] instanceof \WP_REST_Application_Passwords_Controller && 'create_item' === $callback[1];
+		if ( is_wp_error( $response ) || ! $request instanceof \WP_REST_Request || ! $creates ) {
 			return $response;
 		}
 		$message = self::app_password_stepup_error();
@@ -138,6 +162,29 @@ final class SideDoors {
 		$message = self::app_password_stepup_error();
 		if ( $error instanceof \WP_Error && null !== $message ) {
 			$error->add( 'mdmfa_stepup_required', $message );
+		}
+	}
+
+	/**
+	 * The authorize screen creates the password on POST without re-running the check
+	 * above, so the POST is refused here when the verification is not recent.
+	 */
+	public static function guard_app_password_authorize_post(): void {
+		$method  = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+		$message = 'POST' === $method ? self::app_password_stepup_error() : null;
+		if ( null !== $message ) {
+			wp_die( esc_html( $message ), '', array( 'response' => 403 ) );
+		}
+	}
+
+	/**
+	 * Logs every new application password: it is a credential that skips the second step.
+	 *
+	 * @param mixed $user_id Owner of the new password.
+	 */
+	public static function log_app_password_created( mixed $user_id ): void {
+		if ( is_numeric( $user_id ) ) {
+			Logger::log( 'app_password_created', (int) $user_id, '', Context::APPPASS, get_current_user_id() > 0 ? get_current_user_id() : null );
 		}
 	}
 

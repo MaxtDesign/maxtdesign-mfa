@@ -156,7 +156,9 @@ final class UserCommand {
 
 		Logger::log( 'admin_reset', $user->ID, $factor, 'cli' );
 		do_action( 'mdmfa_factor_removed', $user, $factor, 0 );
-		Mailer::factors_reset( $user );
+		if ( ! in_array( $factor, array( 'recovery', 'trusted' ), true ) ) {
+			Mailer::factors_reset( $user );
+		}
 
 		\WP_CLI::success( sprintf( 'Removed %s for %s.', 'all' === $factor ? 'every factor' : $factor, $user->user_login ) );
 	}

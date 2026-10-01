@@ -52,7 +52,7 @@ final class SlugChanger {
 		$notices['slug_changed'] = Clock::now();
 		update_option( Options::NOTICES, $notices, false );
 
-		self::notify_admins( $new );
+		self::announce( $new, false );
 		Logger::log( 'slug_changed', null, '', null === $actor ? 'cli' : 'admin', $actor );
 		do_action( 'mdmfa_login_slug_changed' );
 
@@ -60,11 +60,12 @@ final class SlugChanger {
 	}
 
 	/**
-	 * Emails every administrator the new login address.
+	 * Emails every administrator the login address.
 	 *
-	 * @param string $url New login URL.
+	 * @param string $url   Login URL.
+	 * @param bool   $first Whether the plugin just moved the login for the first time.
 	 */
-	private static function notify_admins( string $url ): void {
+	public static function announce( string $url, bool $first ): void {
 		$site    = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
 		$subject = sprintf(
 			/* translators: %s: site name. */
@@ -72,8 +73,11 @@ final class SlugChanger {
 			$site
 		);
 		$body = sprintf(
-			/* translators: %s: new login URL. */
-			__( "The login address for this site changed. Log in here from now on:\n\n%s\n\nThe old address no longer works. Keep this email somewhere safe: if you lose the address, a server administrator can print it with `wp mdmfa slug get`.", 'maxtdesign-mfa' ),
+			$first
+				/* translators: %s: new login URL. */
+				? __( "MaxtDesign MFA was turned on and moved this site's login. Log in here from now on:\n\n%s\n\nwp-login.php no longer works. Keep this email somewhere safe: if you lose the address, a server administrator can print it with `wp mdmfa slug get`, or put the login back by adding define( 'MDMFA_DISABLE_LOGIN_LOCATION', true ); to wp-config.php.", 'maxtdesign-mfa' )
+				/* translators: %s: new login URL. */
+				: __( "The login address for this site changed. Log in here from now on:\n\n%s\n\nThe old address no longer works. Keep this email somewhere safe: if you lose the address, a server administrator can print it with `wp mdmfa slug get`.", 'maxtdesign-mfa' ),
 			$url
 		);
 		$admins = get_users(

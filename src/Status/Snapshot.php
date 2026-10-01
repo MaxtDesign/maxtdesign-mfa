@@ -75,10 +75,16 @@ final class Snapshot {
 		$stored     = get_option( Options::KEY_CHECK, array() );
 		$source     = 'invalid';
 		$key_ok     = false;
+		$migrating  = false;
 		try {
 			$keys   = KeyProvider::from_environment();
 			$source = $keys->source();
-			$key_ok = is_array( $stored ) && isset( $stored['kid'] ) && is_string( $stored['kid'] ) && hash_equals( $stored['kid'], $keys->kid() );
+			$first  = is_array( $stored ) && isset( $stored['kid'] ) && is_string( $stored['kid'] ) ? $stored['kid'] : '';
+			$key_ok = hash_equals( $first, $keys->kid() );
+			// The key the site started with is still derivable: secrets convert as they are read.
+			foreach ( KeyProvider::older() as $old ) {
+				$migrating = $migrating || ( ! $key_ok && hash_equals( $first, $old->kid() ) );
+			}
 		} catch ( InvalidKeyException $e ) {
 			$key_ok = false;
 		}
@@ -93,12 +99,14 @@ final class Snapshot {
 			'login_location'      => LoginLocation::enabled(),
 			'key_source'          => $source,
 			'key_ok'              => $key_ok,
+			'key_migrating'       => $migrating,
 			'app_passwords'       => SideDoors::app_password_mode(),
 			'xmlrpc'              => SideDoors::xmlrpc_mode(),
 			'jetpack'             => Jetpack::detected(),
 			'wpcom_sso'           => Jetpack::sso_blocked() ? 'blocked' : ( Jetpack::sso_active() ? 'challenged' : 'inactive' ),
 			'conflicts'           => Conflicts::detect(),
 			'roles'               => $roles,
+			'total_users'         => (int) count_users()['total_users'],
 			'enrolled_users'      => count( self::enrolled_ids() ),
 			'active_lockouts'     => self::active_lockouts(),
 			'failures_24h'        => self::events_24h( 'challenge_fail' ),
@@ -144,7 +152,10 @@ final class Snapshot {
 		}
 
 		$passkey_users = self::passkey_user_ids();
-		foreach ( self::enrolled_ids() as $user_id ) {
+		$enrolled      = self::enrolled_ids();
+		// One query for the users and one for their meta, instead of two per user.
+		cache_users( $enrolled );
+		foreach ( $enrolled as $user_id ) {
 			$user = get_userdata( $user_id );
 			if ( ! $user instanceof \WP_User || ! Policy::is_enrolled( $user_id ) ) {
 				continue;
@@ -160,7 +171,9 @@ final class Snapshot {
 			}
 		}
 
-		foreach ( self::user_ids_with_meta( Policy::GRACE_META ) as $user_id ) {
+		$in_setup = self::user_ids_with_meta( Policy::GRACE_META );
+		cache_users( $in_setup );
+		foreach ( $in_setup as $user_id ) {
 			$user = get_userdata( $user_id );
 			if ( ! $user instanceof \WP_User || Policy::is_enrolled( $user_id ) || Settings::POLICY_REQUIRED !== Policy::policy( $user ) ) {
 				continue;
@@ -221,7 +234,9 @@ final class Snapshot {
 	 */
 	private static function active_lockouts(): int {
 		$locked = 0;
-		foreach ( self::user_ids_with_meta( Lockout::META ) as $user_id ) {
+		$ids    = self::user_ids_with_meta( Lockout::META );
+		cache_users( $ids );
+		foreach ( $ids as $user_id ) {
 			$locked += Lockout::state( $user_id )['locked_until'] > Clock::now() ? 1 : 0;
 		}
 
@@ -268,6 +283,7 @@ final class Snapshot {
 			)
 		);
 		$count = 0;
+		cache_users( array_map( 'intval', array_slice( $ids, 0, self::SESSION_SCAN_LIMIT ) ) );
 		foreach ( array_slice( $ids, 0, self::SESSION_SCAN_LIMIT ) as $user_id ) {
 			foreach ( \WP_Session_Tokens::get_instance( (int) $user_id )->get_all() as $session ) {
 				if ( ! isset( $session['mdmfa'] ) ) {

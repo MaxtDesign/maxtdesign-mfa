@@ -36,6 +36,13 @@ final class Context {
 	private static array $flags = array();
 
 	/**
+	 * User an application password authenticated in this request (0 = none).
+	 *
+	 * @var int
+	 */
+	private static int $apppass_user = 0;
+
+	/**
 	 * Raises a context flag (wc, frontend, apppass).
 	 *
 	 * @param string $context Context constant.
@@ -57,27 +64,35 @@ final class Context {
 	}
 
 	/**
-	 * Action callback for application_password_did_authenticate.
+	 * Action callback for application_password_did_authenticate. The exemption belongs to
+	 * that user only: another account's password in the same request is a password login.
+	 *
+	 * @param mixed $user User the application password authenticated.
 	 */
-	public static function mark_apppass(): void {
-		self::mark( self::APPPASS );
+	public static function mark_apppass( mixed $user = null ): void {
+		if ( $user instanceof \WP_User ) {
+			self::$apppass_user = $user->ID;
+		}
 	}
 
 	/**
 	 * Clears flags (tests).
 	 */
 	public static function reset(): void {
-		self::$flags = array();
+		self::$flags        = array();
+		self::$apppass_user = 0;
 	}
 
 	/**
 	 * The current context.
+	 *
+	 * @param int $user_id User whose login is being decided.
 	 */
-	public static function detect(): string {
+	public static function detect( int $user_id = 0 ): string {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			return self::CLI;
 		}
-		if ( ! empty( self::$flags[ self::APPPASS ] ) ) {
+		if ( $user_id > 0 && self::$apppass_user === $user_id ) {
 			return self::APPPASS;
 		}
 		if ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) {

@@ -12,6 +12,7 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       maxtdesign-mfa
  * Domain Path:       /languages
+ * Network:           true
  * WC requires at least: 11.0
  * WC tested up to:   11.1
  *

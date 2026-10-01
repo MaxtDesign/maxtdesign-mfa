@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Cli;
 
 use MaxtDesign\Mfa\Auth\Lockout;
+use MaxtDesign\Mfa\Factors\RecoveryCodes;
+use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Plugin;
+use MaxtDesign\Mfa\Policy\Policy;
 use MaxtDesign\Mfa\Status\Snapshot;
 
 defined( 'ABSPATH' ) || exit;
@@ -82,6 +85,53 @@ final class Command {
 			return;
 		}
 		\WP_CLI::success( 'MDMFA_DISABLE is not set: multi-factor authentication is active.' );
+	}
+
+	/**
+	 * Creates a new set of recovery codes for a user and prints them once.
+	 *
+	 * The old codes stop working. For an owner who is locked out and has server access.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <user>
+	 * : User ID, login or email.
+	 *
+	 * [--yes]
+	 * : Skip the confirmation prompt.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp mdmfa recovery-codes admin --yes
+	 *
+	 * @subcommand recovery-codes
+	 *
+	 * @param string[]              $args       Positional arguments.
+	 * @param array<string, string> $assoc_args Named arguments.
+	 */
+	public function recovery_codes( array $args, array $assoc_args ): void {
+		$identifier = $args[0] ?? '';
+		$user       = is_numeric( $identifier ) ? get_user_by( 'id', (int) $identifier ) : get_user_by( 'login', $identifier );
+		if ( ! $user instanceof \WP_User && is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+		}
+		if ( ! $user instanceof \WP_User ) {
+			\WP_CLI::warning( 'User not found.' );
+			return;
+		}
+		if ( ! Policy::is_enrolled( $user->ID ) ) {
+			\WP_CLI::warning( 'That user has no second step set up, so recovery codes would not be asked for.' );
+			return;
+		}
+		if ( ! isset( $assoc_args['yes'] ) ) {
+			\WP_CLI::confirm( sprintf( 'Replace the recovery codes of %s?', $user->user_login ) );
+		}
+		$codes = RecoveryCodes::generate( $user->ID );
+		Logger::log( 'recovery_regenerated', $user->ID, 'recovery', 'cli' );
+		foreach ( $codes as $code ) {
+			\WP_CLI::line( $code );
+		}
+		\WP_CLI::success( 'These codes are shown once. Each works one time.' );
 	}
 
 	/**

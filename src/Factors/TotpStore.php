@@ -71,10 +71,52 @@ final class TotpStore {
 			return null;
 		}
 		try {
-			return self::box()->decrypt( $box, SecretBox::totp_aad( $user_id ) );
+			$secret = self::box()->decrypt( $box, SecretBox::totp_aad( $user_id ) );
+			if ( null !== $secret ) {
+				return $secret;
+			}
+			// Written under the salts before MDMFA_ENCRYPTION_KEY was defined: read it with
+			// that key and re-encrypt, keeping the replay counter.
+			foreach ( KeyProvider::older() as $old ) {
+				$secret = ( new SecretBox( $old ) )->decrypt( $box, SecretBox::totp_aad( $user_id ) );
+				if ( null !== $secret ) {
+					$fresh            = self::box()->encrypt( $secret, SecretBox::totp_aad( $user_id ) );
+					$fresh['created'] = $box['created'] ?? Clock::now();
+					update_user_meta( $user_id, self::META, $fresh );
+
+					return $secret;
+				}
+			}
+
+			return null;
 		} catch ( InvalidKeyException $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * Which key a stored secret is under: 'current', 'older key' (readable, converts on
+	 * use) or 'unreadable'. Does not decrypt.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	public static function key_state( int $user_id ): string {
+		$box = get_user_meta( $user_id, self::META, true );
+		$kid = is_array( $box ) && isset( $box['kid'] ) && is_string( $box['kid'] ) ? $box['kid'] : '';
+		try {
+			if ( hash_equals( KeyProvider::from_environment()->kid(), $kid ) ) {
+				return 'current';
+			}
+			foreach ( KeyProvider::older() as $old ) {
+				if ( hash_equals( $old->kid(), $kid ) ) {
+					return 'older key';
+				}
+			}
+		} catch ( InvalidKeyException $e ) {
+			return 'unreadable';
+		}
+
+		return 'unreadable';
 	}
 
 	/**

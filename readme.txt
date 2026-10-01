@@ -64,11 +64,15 @@ Any of these works:
 
 = Does the moved login need special server setup? =
 
-No rewrite rules and no permalink change. The server has to send unknown paths to WordPress's `index.php`, which is the standard setup for Apache (the WordPress `.htaccess` rules), nginx (`try_files`) and managed hosts. Password-protected posts, privacy request confirmations and recovery-mode links keep using `wp-login.php`, because they are sent to people who should not learn the login address.
+It adds no rewrite rules. The server has to send unknown paths to WordPress's `index.php`, which is the standard setup for Apache (the WordPress `.htaccess` rules), nginx (`try_files`) and managed hosts. A site on plain permalinks may not have that, so the plugin leaves the login at `wp-login.php` there and says so; choose another permalink setting, then turn the moved login on under Login location. Every administrator is emailed the new address when the login moves. Password-protected posts, privacy request confirmations and recovery-mode links keep using `wp-login.php`, because they are sent to people who should not learn the login address.
 
 = Is the moved login address a security feature? =
 
 It removes noise from bots that hammer `wp-login.php`. The address becomes known the moment you link to it or share it, so treat the second factor as the protection, not the address.
+
+= Does it work on multisite? =
+
+Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin applies the strictest policy among the sites a user belongs to, and an account that has two-step verification is asked for it on every site. Only super admins can reset or unlock other users.
 
 = Where are the settings? =
 
@@ -127,4 +131,11 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: a public login page of your choice, so login links shown to visitors do not have to reveal the login address.
 * New: privacy tools. Suggested privacy policy text, a personal data export (methods, passkey names and dates, log entries, never secrets) and erasure of log entries.
 * New: `wp mdmfa status` reports policy and counts per role, lockouts and side doors, with no secrets, user names or login address in it.
+* New: on a multisite network the strictest policy among a user's sites applies everywhere, and the plugin is network-activated only.
+* New: first activation emails the new login address to every administrator. On plain permalinks the login is not moved.
+* New: `wp mdmfa key status`, `export-define` and `rewrap`, so the encryption key can be pinned or replaced without breaking authenticator apps, and `wp mdmfa recovery-codes` for a locked-out owner.
+* New: changing an account's email address switches its email codes off until the new address is confirmed, and closes email recovery for a day.
+* New: every method added to an account is announced to the account's owner by email.
+* Changed: emailed codes are 8 digits and no longer appear in the email subject.
+* Security: an application password no longer exempts another account's password in the same request; the old login path can no longer be reached by mixing actions; a failed front-end login no longer redirects to the login address; application password creation is guarded on every route; second-step attempts for one account are processed one at a time.
 * New: published security contact and vulnerability disclosure policy (security@maxtdesign.com), and a note that the WordPress.org account `slaacr` is MaxtDesign.

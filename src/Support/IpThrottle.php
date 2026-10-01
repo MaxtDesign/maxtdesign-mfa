@@ -27,9 +27,13 @@ final class IpThrottle {
 	 * @param string $bucket What is being throttled.
 	 */
 	public static function allow( string $bucket ): bool {
-		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$key = 'mdmfa_ipthrottle_' . substr( hash( 'sha256', $bucket . '|' . $ip . '|' . wp_salt( 'nonce' ) ), 0, 32 );
-		$hit = (int) get_transient( $key );
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		// Behind a proxy or CDN every visitor shares REMOTE_ADDR. Forwarded headers are
+		// client-controlled, so only the owner can say which one to trust.
+		$filtered = apply_filters( 'mdmfa_client_ip', $ip );
+		$ip       = is_string( $filtered ) ? $filtered : $ip;
+		$key      = 'mdmfa_ipthrottle_' . substr( hash( 'sha256', $bucket . '|' . $ip . '|' . wp_salt( 'nonce' ) ), 0, 32 );
+		$hit      = (int) get_transient( $key );
 		if ( $hit >= self::LIMIT ) {
 			return false;
 		}

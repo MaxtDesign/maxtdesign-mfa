@@ -178,6 +178,9 @@ final class SettingsViews {
 				esc_html( $off ? __( 'MDMFA_DISABLE_LOGIN_LOCATION is set in wp-config.php, so the login is at wp-login.php.', 'maxtdesign-mfa' ) : __( 'The login is at wp-login.php.', 'maxtdesign-mfa' ) )
 			);
 		echo Ui::card( __( 'Login address', 'maxtdesign-mfa' ), $body );
+		if ( '' === (string) get_option( 'permalink_structure' ) ) {
+			echo Ui::notice( 'warning', __( 'This site uses plain permalinks. On some servers the moved login address does not load with that setting. Before you turn it on or sign out, open the address in a private window and check that the login form appears.', 'maxtdesign-mfa' ) );
+		}
 
 		echo Ui::form_open( Actions::SAVE, array( 'tab' => 'location' ) );
 		echo '<table class="form-table" role="presentation"><tbody>';

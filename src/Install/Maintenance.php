@@ -27,8 +27,13 @@ final class Maintenance {
 	 */
 	public static function register(): void {
 		add_action( Options::CRON_PURGE, array( self::class, 'purge' ) );
-		add_action( 'deleted_user', array( self::class, 'user_deleted' ) );
-		add_action( 'wpmu_delete_user', array( self::class, 'user_deleted' ) );
+		// On a network wp_delete_user() only removes the user from one site and still
+		// fires deleted_user; their passkeys go when the account itself is deleted.
+		if ( is_multisite() ) {
+			add_action( 'wpmu_delete_user', array( self::class, 'user_deleted' ) );
+		} else {
+			add_action( 'deleted_user', array( self::class, 'user_deleted' ) );
+		}
 	}
 
 	/**

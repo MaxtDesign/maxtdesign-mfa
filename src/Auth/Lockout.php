@@ -33,6 +33,34 @@ final class Lockout {
 	public const MAX_BACKOFF = 900;
 
 	/**
+	 * Runs a factor check while holding a per-user database lock, so parallel requests
+	 * cannot each read the counter before any of them writes it. Returns null when the
+	 * lock is busy (another attempt for this user is in flight): the caller refuses.
+	 * A database without named locks runs the check unlocked.
+	 *
+	 * @template T
+	 * @param int          $user_id User ID.
+	 * @param callable():T $check   The check, including its failure accounting.
+	 * @return T|null
+	 */
+	public static function with_lock( int $user_id, callable $check ): mixed {
+		global $wpdb;
+
+		$name = 'mdmfa_u' . $user_id . '_' . substr( md5( ( defined( 'DB_NAME' ) ? (string) constant( 'DB_NAME' ) : '' ) . $wpdb->base_prefix ), 0, 12 );
+		$got  = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a named lock, not data.
+		if ( null !== $got && '1' !== (string) $got ) {
+			return null;
+		}
+		try {
+			return $check();
+		} finally {
+			if ( null !== $got ) {
+				$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a named lock, not data.
+			}
+		}
+	}
+
+	/**
 	 * Current state, with defaults.
 	 *
 	 * @param int $user_id User ID.

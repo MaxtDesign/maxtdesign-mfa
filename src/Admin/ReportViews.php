@@ -47,8 +47,7 @@ final class ReportViews {
 		foreach ( $roles as $role ) {
 			$late += is_array( $role ) ? (int) $role['overdue'] : 0;
 		}
-		$total = count_users();
-		$users = (int) $total['total_users'];
+		$users = (int) ( $status['total_users'] ?? 0 );
 		printf(
 			'<p class="mdmfa-summary">%1$s %2$s %3$s %4$s</p>',
 			/* translators: %d: number of users. */
@@ -263,14 +262,16 @@ final class ReportViews {
 		$source = (string) ( $status['key_source'] ?? 'invalid' );
 		$labels = array(
 			'constant' => array( 'good', __( 'Own key in wp-config.php', 'maxtdesign-mfa' ), __( 'Authenticator secrets are encrypted with MDMFA_ENCRYPTION_KEY. Changing the WordPress salts does not affect them.', 'maxtdesign-mfa' ) ),
-			'salts'    => array( 'good', __( 'WordPress salts in wp-config.php', 'maxtdesign-mfa' ), __( 'Authenticator secrets are encrypted with a key derived from AUTH_KEY and SECURE_AUTH_KEY. Before changing those salts, define MDMFA_ENCRYPTION_KEY, or every authenticator app must be set up again.', 'maxtdesign-mfa' ) ),
-			'db'       => array( 'warn', __( 'Salts stored in the database', 'maxtdesign-mfa' ), __( 'The salts are not defined in wp-config.php, so the key sits next to the data it protects. A copy of the database would expose authenticator secrets. Define the salts or MDMFA_ENCRYPTION_KEY in wp-config.php.', 'maxtdesign-mfa' ) ),
+			'salts'    => array( 'good', __( 'WordPress salts in wp-config.php', 'maxtdesign-mfa' ), __( 'Authenticator secrets are encrypted with a key derived from AUTH_KEY and SECURE_AUTH_KEY. Before changing those salts, run "wp mdmfa key export-define" on the server and add the line it prints to wp-config.php. That pins the current key, so authenticator apps keep working after the salts change.', 'maxtdesign-mfa' ) ),
+			'db'       => array( 'warn', __( 'Salts stored in the database', 'maxtdesign-mfa' ), __( 'The salts are not defined in wp-config.php, so the key sits next to the data it protects. A copy of the database would expose authenticator secrets. Run "wp mdmfa key export-define" on the server and add the line it prints to wp-config.php.', 'maxtdesign-mfa' ) ),
 			'invalid'  => array( 'bad', __( 'Invalid key', 'maxtdesign-mfa' ), __( 'MDMFA_ENCRYPTION_KEY is set but is not a valid key. Authenticator apps cannot be set up or checked until it is fixed.', 'maxtdesign-mfa' ) ),
 		);
 		$key    = $labels[ $source ] ?? $labels['invalid'];
 		$body   = '<p>' . Ui::badge( $key[0], $key[1] ) . '</p><p>' . esc_html( $key[2] ) . '</p>';
 		if ( 'invalid' !== $source && empty( $status['key_ok'] ) ) {
-			$body .= '<p>' . Ui::badge( 'bad', __( 'Key changed', 'maxtdesign-mfa' ) ) . ' ' . esc_html__( 'The key is not the one this site started with. Authenticator apps set up before the change cannot be read; those users need a reset on the Coverage tab.', 'maxtdesign-mfa' ) . '</p>';
+			$body .= ! empty( $status['key_migrating'] )
+				? '<p>' . Ui::badge( 'warn', __( 'Converting', 'maxtdesign-mfa' ) ) . ' ' . esc_html__( 'A new key was defined. Authenticator secrets written under the old key still work and are re-encrypted as users sign in. Run "wp mdmfa key rewrap" on the server to convert them all now.', 'maxtdesign-mfa' ) . '</p>'
+				: '<p>' . Ui::badge( 'bad', __( 'Key changed', 'maxtdesign-mfa' ) ) . ' ' . esc_html__( 'The key is not the one this site started with, and the old one is gone (the salts changed). Authenticator apps set up before the change cannot be read; those users need a reset on the Coverage tab. "wp mdmfa key status" on the server lists how many.', 'maxtdesign-mfa' ) . '</p>';
 		}
 		echo Ui::card( __( 'Encryption key', 'maxtdesign-mfa' ), $body );
 

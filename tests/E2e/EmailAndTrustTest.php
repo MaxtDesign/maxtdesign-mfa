@@ -89,7 +89,7 @@ final class EmailAndTrustTest extends E2eTestCase {
 		self::assertCount( 1, self::mail_to( $address ) );
 		self::assertStringNotContainsString( self::$login, self::mail_to( $address )[0]['message'], 'the mail never carries the login address' );
 
-		$wrong = $this->account_op( $browser, 'email_confirm', array( 'mdmfa_code' => '000000' === self::mailed_code( $address ) ? '111111' : '000000' ) );
+		$wrong = $this->account_op( $browser, 'email_confirm', array( 'mdmfa_code' => self::other_code( self::mailed_code( $address ) ) ) );
 		self::assertSame( 'false', self::eval( sprintf( 'echo MaxtDesign\Mfa\Factors\EmailCode::has( %d ) ? "true" : "false";', $id ) ) );
 
 		$confirmed = $this->account_op( $browser, 'email_confirm', array( 'mdmfa_code' => self::mailed_code( $address ) ) );
@@ -104,14 +104,16 @@ final class EmailAndTrustTest extends E2eTestCase {
 		self::assertNoAuthCookie( $first );
 		$screen = $next->get( $first->location() );
 		self::assertStringContainsString( 'Email me a code', $screen->body );
-		self::assertCount( 1, self::mail_to( $address ), 'loading the screen sends nothing' );
+		$subjects = array_column( self::mail_to( $address ), 'subject' );
+		self::assertCount( 2, $subjects, 'the setup code, then a notice that a method was added; loading the screen sends nothing' );
+		self::assertStringContainsString( 'A sign-in method was added', $subjects[1] );
 
 		$sent = $this->verify_post( $next, 'email', array( 'mdmfa_send' => '1' ) );
 		self::assertStringContainsString( 'We sent a code to ' . substr( $login, 0, 1 ) . '***@example.com', $sent->body );
-		self::assertCount( 2, self::mail_to( $address ) );
+		self::assertCount( 3, self::mail_to( $address ) );
 		$code = self::mailed_code( $address );
 
-		$bad = $this->verify_post( $next, 'email', array( 'mdmfa_code' => '000000' === $code ? '111111' : '000000' ) );
+		$bad = $this->verify_post( $next, 'email', array( 'mdmfa_code' => self::other_code( $code ) ) );
 		self::assertStringContainsString( 'That code is not valid', $bad->body );
 		self::assertNoAuthCookie( $bad );
 

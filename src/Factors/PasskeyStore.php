@@ -78,7 +78,7 @@ final class PasskeyStore {
 				'be'         => (int) $credential->be,
 				'bs'         => (int) $credential->bs,
 				'rp_id'      => $rp_id,
-				'name'       => substr( $name, 0, 64 ),
+				'name'       => mb_substr( $name, 0, 64 ),
 				'created_at' => gmdate( 'Y-m-d H:i:s' ),
 			),
 			array( '%d', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%s' )

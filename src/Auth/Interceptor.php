@@ -38,6 +38,13 @@ final class Interceptor {
 	private static bool $remember = false;
 
 	/**
+	 * Whether wp_signon() ran in this request (a plugin may call wp_authenticate() alone).
+	 *
+	 * @var bool
+	 */
+	private static bool $captured = false;
+
+	/**
 	 * Registers hooks.
 	 */
 	public static function register(): void {
@@ -56,6 +63,7 @@ final class Interceptor {
 	 * @return mixed
 	 */
 	public static function capture_signon( mixed $secure, mixed $credentials = array() ): mixed {
+		self::$captured = true;
 		self::$secure   = (bool) $secure;
 		self::$remember = is_array( $credentials ) && ! empty( $credentials['remember'] );
 
@@ -73,14 +81,15 @@ final class Interceptor {
 			return $user;
 		}
 
-		$context = Context::detect();
+		$context = Context::detect( $user->ID );
 		// App passwords are a revocable scoped credential, exempt by design (plan 4.3).
 		// WP-CLI and cron never create browser sessions.
 		if ( Context::APPPASS === $context || Context::CLI === $context ) {
 			return $user;
 		}
 		// A logged-in user re-checking their own password is not a new login (plan risk 3).
-		if ( is_user_logged_in() && get_current_user_id() === $user->ID ) {
+		// On a login form it is one: the form issues a fresh session, which must be earned.
+		if ( ! Context::is_interactive( $context ) && is_user_logged_in() && get_current_user_id() === $user->ID ) {
 			return $user;
 		}
 
@@ -151,6 +160,9 @@ final class Interceptor {
 			// WC_Form_Handler::process_login() order: posted redirect, then referer.
 			if ( isset( $_POST['redirect'] ) && is_string( $_POST['redirect'] ) && '' !== $_POST['redirect'] ) {
 				$redirect = wp_sanitize_redirect( wp_unslash( $_POST['redirect'] ) );
+			} elseif ( isset( $_GET['redirect_to'] ) && is_string( $_GET['redirect_to'] ) && '' !== $_GET['redirect_to'] ) {
+				// Login links rewritten to My Account carry the page to return to.
+				$redirect = wp_sanitize_redirect( wp_unslash( $_GET['redirect_to'] ) );
 			} elseif ( function_exists( 'wc_get_raw_referer' ) ) {
 				$redirect = (string) wc_get_raw_referer();
 			}
@@ -165,7 +177,8 @@ final class Interceptor {
 			'decision'     => $decision,
 			'redirect_to'  => substr( wp_sanitize_redirect( $redirect ), 0, 2048 ),
 			'remember'     => self::$remember,
-			'secure'       => self::$secure,
+			// Without wp_signon() nobody resolved the flag: never issue a non-Secure cookie on https.
+			'secure'       => self::$captured ? self::$secure : is_ssl(),
 			'interim'      => $interim,
 			'first_factor' => 'password',
 		);

@@ -46,6 +46,9 @@ function maybe_serialize( mixed $data ): mixed {
 }
 
 function get_user_meta( int $user_id, string $key = '', bool $single = false ): mixed {
+	if ( '' === $key ) {
+		return array_map( static fn ( mixed $v ): array => array( $v ), $GLOBALS['mdmfa_test']['usermeta'][ $user_id ] ?? array() );
+	}
 	$value = $GLOBALS['mdmfa_test']['usermeta'][ $user_id ][ $key ] ?? null;
 	if ( $single ) {
 		return $value ?? '';
@@ -149,6 +152,45 @@ class WP_Error {
 	public function get_error_messages(): array {
 		return array_merge( array(), ...array_values( $this->errors ) );
 	}
+}
+
+function get_current_blog_id(): int {
+	return (int) ( $GLOBALS['mdmfa_test']['blog_id'] ?? 1 );
+}
+
+/**
+ * @return array<int, object>
+ */
+function get_blogs_of_user( int $user_id ): array {
+	$out = array();
+	foreach ( $GLOBALS['mdmfa_test']['user_blogs'][ $user_id ] ?? array() as $blog_id ) {
+		$out[ $blog_id ] = (object) array( 'userblog_id' => $blog_id );
+	}
+	return $out;
+}
+
+function get_blog_option( int $blog_id, string $option, mixed $default_value = false ): mixed {
+	return $GLOBALS['mdmfa_test']['blog_options'][ $blog_id ][ $option ] ?? $default_value;
+}
+
+function did_action( string $hook ): int {
+	return count( array_filter( $GLOBALS['mdmfa_test']['actions'], static fn ( array $a ): bool => $a[0] === $hook ) );
+}
+
+function wp_doing_ajax(): bool {
+	return false;
+}
+
+function get_current_user_id(): int {
+	return (int) ( $GLOBALS['mdmfa_test']['current_user'] ?? 0 );
+}
+
+function maybe_unserialize( mixed $data ): mixed {
+	return is_string( $data ) && 1 === preg_match( '/^[aOs]:\d+:/', $data ) ? unserialize( $data ) : $data;
+}
+
+function is_admin(): bool {
+	return ! empty( $GLOBALS['mdmfa_test']['is_admin'] );
 }
 
 function wp_fast_hash( string $message ): string {

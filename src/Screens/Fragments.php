@@ -74,7 +74,7 @@ final class Fragments {
 	public static function code_field( string $id, string $label, bool $recovery = false, string $css_class = 'input', string $row_class = '' ): string {
 		$attributes = $recovery
 			? 'autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"'
-			: 'autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8"';
+			: 'autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 \-]*" maxlength="12"';
 
 		return sprintf(
 			'<p%5$s><label for="%1$s">%2$s</label><input type="text" name="%1$s" id="%1$s" class="%3$s" value="" size="20" required autofocus %4$s></p>',

@@ -33,6 +33,10 @@ final class AdminTest extends E2eTestCase {
 	private function admin( bool $enrolled = false ): array {
 		list( $id, $login, $pass ) = self::user( 'administrator' );
 		$browser                   = $this->browser();
+		if ( self::is_network() ) {
+			// On a network only super admins may edit other users or see network screens.
+			self::wp( 'super-admin', 'add', $login );
+		}
 		$secret                    = $enrolled ? self::enroll( $id ) : '';
 		$first                     = $this->password( $browser, $login, $pass );
 		if ( $enrolled ) {
@@ -44,6 +48,12 @@ final class AdminTest extends E2eTestCase {
 			self::assertTrue( $skip->sets_cookie_prefix( 'wordpress_logged_in_' ) );
 		}
 		return array( $browser, $id, $login, $secret );
+	}
+
+	private static function is_network(): bool {
+		static $network = null;
+		$network ??= '1' === self::eval( 'echo is_multisite() ? "1" : "0";' );
+		return $network;
 	}
 
 	/**
@@ -117,7 +127,7 @@ final class AdminTest extends E2eTestCase {
 			self::assertStringNotContainsString( 'mdmfa-admin', $browser->get( $other )->body, "no admin assets on {$other}" );
 		}
 
-		$plugins = $browser->get( 'wp-admin/plugins.php' );
+		$plugins = $browser->get( self::is_network() ? 'wp-admin/network/plugins.php' : 'wp-admin/plugins.php' );
 		self::assertSame( 1, preg_match( '#<a href="[^"]*users\.php\?page=md-mfa">Settings</a>#', $plugins->body ), 'Settings link on the Plugins screen' );
 	}
 

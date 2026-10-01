@@ -11,6 +11,8 @@ namespace MaxtDesign\Mfa\Install;
 
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
+use MaxtDesign\Mfa\Location\LoginLocation;
+use MaxtDesign\Mfa\Location\SlugChanger;
 use MaxtDesign\Mfa\Settings\Options;
 use MaxtDesign\Mfa\Settings\Settings;
 use MaxtDesign\Mfa\Support\Clock;
@@ -51,9 +53,23 @@ final class Installer {
 		dbDelta( Schema::credentials_sql( $wpdb ) );
 		dbDelta( Schema::site_sql( $wpdb ) );
 
-		if ( add_option( Options::LOGIN, Settings::login_defaults(), '', true ) ) {
-			// New login address: show it to administrators for a day (Plugin::render_slug_notice()).
-			add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
+		$login = Settings::login_defaults();
+		// With plain permalinks an Apache site has no rewrite rules, so /{address} would be a
+		// server 404 while wp-login.php is hidden: a lockout. Leave the login where it is.
+		$plain = '' === (string) get_option( 'permalink_structure' );
+		if ( $plain ) {
+			$login['enabled'] = false;
+		}
+		if ( add_option( Options::LOGIN, $login, '', true ) ) {
+			if ( $plain ) {
+				add_option( Options::NOTICES, array( 'location_off' => Clock::now() ), '', false );
+			} else {
+				// New login address: show it to administrators for a day
+				// (Plugin::render_slug_notice()) and email it, so nobody depends on having
+				// seen the notice (lost-address recovery, plan 5.5).
+				add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
+				SlugChanger::announce( LoginLocation::url(), true );
+			}
 		}
 		add_option( Options::SETTINGS, Settings::defaults(), '', false );
 		add_option( Options::ACTIVATED_AT, time(), '', false );

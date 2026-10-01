@@ -169,6 +169,50 @@ final class ChallengeFlow {
 			$errors->add( 'mdmfa_form', esc_html__( 'This form expired. Please try again.', 'maxtdesign-mfa' ) );
 			return $state();
 		}
+		// Asking for a recovery link is not a guess: it works during a lock, and is
+		// capped by the send limits.
+		if ( $input['recover'] ) {
+			$errors->add(
+				'mdmfa_recover',
+				esc_html(
+					EmailRecovery::request( $user, $record->context() )
+						? __( 'We emailed you a link to reset two-step verification. It works for one hour.', 'maxtdesign-mfa' )
+						: __( 'A recovery email cannot be sent right now. Try again later.', 'maxtdesign-mfa' )
+				),
+				'message'
+			);
+			return $state();
+		}
+
+		// One attempt at a time per user: the lock and backoff counters stay exact under
+		// parallel requests.
+		$result = Lockout::with_lock(
+			$user->ID,
+			static function () use ( &$record, $user, $input, $method, $purpose, $errors, $state ): FlowState {
+				return self::attempt( $record, $user, $input, $method, $purpose, $errors, $state );
+			}
+		);
+		if ( null === $result ) {
+			$errors->add( 'mdmfa_busy', esc_html__( 'Another sign-in attempt for this account is in progress. Try again in a moment.', 'maxtdesign-mfa' ) );
+			return $state();
+		}
+
+		return $result;
+	}
+
+	/**
+	 * One verification attempt, run under the per-user lock.
+	 *
+	 * @param PendingRecord        $record  Pending record (replaced when its payload changes).
+	 * @param \WP_User             $user    User.
+	 * @param array<string, mixed> $input   Request input.
+	 * @param string               $method  Chosen method.
+	 * @param string               $purpose Email-code purpose of this pending login.
+	 * @param \WP_Error            $errors  Messages for the screen.
+	 * @param callable():FlowState $state   Builds the verify screen.
+	 * @phpstan-param Input $input
+	 */
+	private static function attempt( PendingRecord &$record, \WP_User $user, array $input, string $method, string $purpose, \WP_Error $errors, callable $state ): FlowState {
 		$until = Lockout::blocked_until( $user->ID );
 		if ( $until > 0 ) {
 			$errors->add(
@@ -183,19 +227,7 @@ final class ChallengeFlow {
 			);
 			return $state();
 		}
-		// Mail actions take no attempt and are capped by the send limits instead.
-		if ( $input['recover'] ) {
-			$errors->add(
-				'mdmfa_recover',
-				esc_html(
-					EmailRecovery::request( $user, $record->context() )
-						? __( 'We emailed you a link to reset two-step verification. It works for one hour.', 'maxtdesign-mfa' )
-						: __( 'A recovery email cannot be sent right now. Try again later.', 'maxtdesign-mfa' )
-				),
-				'message'
-			);
-			return $state();
-		}
+		// Sending a code takes no attempt and is capped by the send limits instead.
 		if ( 'email' === $method && ( $input['send'] || '' === $input['code'] ) ) {
 			$sent = EmailCode::send( $user, $purpose );
 			if ( EmailCode::SENT === $sent ) {

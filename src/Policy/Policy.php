@@ -10,9 +10,10 @@ declare(strict_types=1);
 namespace MaxtDesign\Mfa\Policy;
 
 use MaxtDesign\Mfa\Factors\EmailCode;
-use MaxtDesign\Mfa\Factors\Passkeys;
+use MaxtDesign\Mfa\Factors\PasskeyStore;
 use MaxtDesign\Mfa\Factors\TotpStore;
 use MaxtDesign\Mfa\Plugin;
+use MaxtDesign\Mfa\Settings\Options;
 use MaxtDesign\Mfa\Settings\Settings;
 use MaxtDesign\Mfa\Support\Clock;
 
@@ -65,8 +66,15 @@ final class Policy {
 		}
 		$best = $best ?? $unlisted;
 
-		if ( is_multisite() && is_super_admin( $user->ID ) ) {
-			$best['policy'] = Settings::POLICY_REQUIRED;
+		if ( is_multisite() ) {
+			// Sessions are network-wide, so the strictest policy across the user's sites applies.
+			$floor = self::network_floor( $user );
+			if ( self::rank( $floor ) > self::rank( $best['policy'] ?? '' ) ) {
+				$best['policy'] = $floor;
+			}
+			if ( is_super_admin( $user->ID ) ) {
+				$best['policy'] = Settings::POLICY_REQUIRED;
+			}
 		}
 
 		$policy         = apply_filters( 'mdmfa_user_policy', $best['policy'] ?? Settings::POLICY_OPTIONAL, $user );
@@ -102,14 +110,64 @@ final class Policy {
 	}
 
 	/**
-	 * Whether the user holds a second factor: an authenticator app or a passkey usable on
-	 * this site, or the emailed code where the role allows it. Recovery codes alone do not
-	 * count.
+	 * Whether the user holds a second factor: an authenticator app, a passkey, or the
+	 * emailed code where the role allows it. Recovery codes alone do not count.
+	 *
+	 * A passkey counts even when it cannot be used here (registered for another site of
+	 * the network, or the site address changed): the account must stay challenged, with
+	 * its other methods or a recovery code, rather than fall back to the password alone.
 	 *
 	 * @param int $user_id User ID.
 	 */
 	public static function is_enrolled( int $user_id ): bool {
-		return TotpStore::has( $user_id ) || Passkeys::has( $user_id ) || EmailCode::has( $user_id );
+		return TotpStore::has( $user_id ) || PasskeyStore::count( $user_id ) > 0 || EmailCode::has( $user_id );
+	}
+
+	/**
+	 * The strictest policy any other site of the network gives this user (multisite).
+	 * Cached per request; reads one option row per site the user belongs to.
+	 *
+	 * @param \WP_User $user User.
+	 */
+	private static function network_floor( \WP_User $user ): string {
+		global $wpdb;
+		static $cache = array();
+
+		$key = $user->ID . ':' . get_current_blog_id();
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+		$floor = Settings::POLICY_OFF;
+		// The user's sites, from their per-site capability meta keys. Core's helpers
+		// (get_blogs_of_user(), get_blog_option()) switch blogs, and switching re-enters the
+		// current-user lookup: this runs inside it when an application password is checked.
+		$base  = preg_quote( $wpdb->base_prefix, '/' );
+		$sites = array();
+		foreach ( array_keys( (array) get_user_meta( $user->ID ) ) as $meta_key ) {
+			if ( 1 === preg_match( '/^' . $base . '(?:(\d+)_)?capabilities$/', (string) $meta_key, $m ) ) {
+				$sites[] = isset( $m[1] ) && '' !== $m[1] ? (int) $m[1] : 1;
+			}
+		}
+		foreach ( array_slice( array_unique( $sites ), 0, 50 ) as $blog_id ) {
+			if ( get_current_blog_id() === $blog_id ) {
+				continue;
+			}
+			$caps     = get_user_meta( $user->ID, $wpdb->get_blog_prefix( $blog_id ) . 'capabilities', true );
+			$raw      = $wpdb->get_var( $wpdb->prepare( 'SELECT option_value FROM %i WHERE option_name = %s', $wpdb->get_blog_prefix( $blog_id ) . 'options', Options::SETTINGS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one row per site the user belongs to, at sign-in only; cached for the request.
+			$stored   = is_string( $raw ) ? maybe_unserialize( $raw ) : array();
+			$settings = Settings::resolve( is_array( $stored ) ? $stored : array() );
+			$roles    = is_array( $settings['roles'] ) ? $settings['roles'] : array();
+			$unlisted = is_array( $settings['unlisted_role'] ) ? $settings['unlisted_role'] : array();
+			foreach ( array_keys( array_filter( is_array( $caps ) ? $caps : array() ) ) as $role ) {
+				$config = isset( $roles[ $role ] ) && is_array( $roles[ $role ] ) ? $roles[ $role ] : $unlisted;
+				if ( self::rank( $config['policy'] ?? '' ) > self::rank( $floor ) ) {
+					$floor = (string) $config['policy'];
+				}
+			}
+		}
+		$cache[ $key ] = $floor;
+
+		return $floor;
 	}
 
 	/**
@@ -150,11 +208,14 @@ final class Policy {
 		if ( Plugin::is_disabled() ) {
 			return self::NONE;
 		}
-		$policy = self::policy( $user );
-		if ( Settings::POLICY_OFF === $policy ) {
+		$policy   = self::policy( $user );
+		$enrolled = self::is_enrolled( $user->ID );
+		// On a network an enrolled account is challenged on every site: one site's "Off"
+		// would otherwise hand out a session that works on all of them.
+		if ( Settings::POLICY_OFF === $policy && ! ( $enrolled && is_multisite() ) ) {
 			return self::NONE;
 		}
-		if ( self::is_enrolled( $user->ID ) ) {
+		if ( $enrolled ) {
 			return self::CHALLENGE;
 		}
 		if ( Settings::POLICY_OPTIONAL === $policy ) {
@@ -174,11 +235,12 @@ final class Policy {
 		if ( Plugin::is_disabled() ) {
 			return false;
 		}
-		$policy = self::policy( $user );
-		if ( Settings::POLICY_OFF === $policy ) {
+		$policy   = self::policy( $user );
+		$enrolled = self::is_enrolled( $user->ID );
+		if ( Settings::POLICY_OFF === $policy && ! ( $enrolled && is_multisite() ) ) {
 			return false;
 		}
-		if ( self::is_enrolled( $user->ID ) ) {
+		if ( $enrolled ) {
 			return true;
 		}
 

@@ -35,6 +35,9 @@ final class EmailRecovery {
 	public const ACTION = 'mdmfa_recover';
 	public const TTL    = HOUR_IN_SECONDS;
 
+	/** Email recovery stays closed this long after the account's address changes. */
+	public const ADDRESS_COOLDOWN = DAY_IN_SECONDS;
+
 	/** User meta: unix time a confirmed reset takes effect. */
 	public const META = 'mdmfa_recovery_pending';
 
@@ -53,6 +56,12 @@ final class EmailRecovery {
 	 * @param \WP_User $user User.
 	 */
 	public static function allowed( \WP_User $user ): bool {
+		// A mailbox that changed in the last day proves nothing about the account's owner.
+		$changed = (int) get_user_meta( $user->ID, EmailCode::CHANGED, true );
+		if ( $changed > Clock::now() - self::ADDRESS_COOLDOWN ) {
+			return false;
+		}
+
 		return ! empty( Policy::effective( $user )['email_recovery'] ) && false !== is_email( $user->user_email );
 	}
 

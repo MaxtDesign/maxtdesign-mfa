@@ -51,6 +51,38 @@ final class PolicyTest extends TestCase {
 		self::assertSame( Settings::POLICY_REQUIRED, Policy::policy( new \WP_User( 6, array( 'subscriber' ) ) ) );
 	}
 
+	public function test_on_a_network_the_strictest_site_decides(): void {
+		$GLOBALS['mdmfa_test']['multisite']  = true;
+		$GLOBALS['mdmfa_test']['blog_id']    = 2;
+		$GLOBALS['mdmfa_test']['user_blogs'] = array( 7 => array( 1, 2 ), 8 => array( 2 ) );
+		// Site 2 (current): subscribers are Off. Site 1: the same person is an editor (Required).
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ]                    = array( 'roles' => array( 'subscriber' => array( 'policy' => 'off' ) ) );
+		$GLOBALS['mdmfa_test']['usermeta'][7]['wp_capabilities']                  = array( 'editor' => true );
+		$GLOBALS['mdmfa_test']['usermeta'][7]['wp_2_capabilities']                = array( 'subscriber' => true );
+		$GLOBALS['mdmfa_test']['usermeta'][7][ Policy::GRACE_META ]               = (string) ( self::T0 - 30 * DAY_IN_SECONDS );
+		$user = new \WP_User( 7, array( 'subscriber' ) );
+
+		self::assertSame( Settings::POLICY_REQUIRED, Policy::policy( $user ), 'Required on site 1 follows the user to site 2' );
+		self::assertSame( Policy::ENROLL, Policy::decide( $user ), 'a password alone gets no network-wide session here' );
+		self::assertTrue( Policy::is_subject( $user ) );
+
+		// Someone who only belongs to site 2 follows site 2.
+		self::assertSame( Settings::POLICY_OFF, Policy::policy( new \WP_User( 8, array( 'subscriber' ) ) ) );
+	}
+
+	public function test_on_a_network_an_enrolled_account_is_challenged_even_where_the_policy_is_off(): void {
+		$GLOBALS['mdmfa_test']['options'][ Options::SETTINGS ] = array( 'roles' => array( 'subscriber' => array( 'policy' => 'off' ) ) );
+		$user = new \WP_User( 9, array( 'subscriber' ) );
+		$this->enroll( 9 );
+
+		self::assertSame( Policy::NONE, Policy::decide( $user ), 'single site: Off means off' );
+		self::assertFalse( Policy::is_subject( $user ) );
+
+		$GLOBALS['mdmfa_test']['multisite'] = true;
+		self::assertSame( Policy::CHALLENGE, Policy::decide( $user ), 'network: one site cannot switch another site\'s protection off' );
+		self::assertTrue( Policy::is_subject( $user ) );
+	}
+
 	public function test_policy_filter_is_validated(): void {
 		add_filter( 'mdmfa_user_policy', static fn (): string => 'off' );
 		self::assertSame( Settings::POLICY_OFF, Policy::policy( new \WP_User( 2, array( 'administrator' ) ) ) );

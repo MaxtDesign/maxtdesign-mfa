@@ -118,7 +118,8 @@ jobs:
       matrix:
         php: ['8.3', '8.5']
         # e2e: core login screen, no WooCommerce. e2e-wc: the customer path on WooCommerce.
-        suite: ['e2e', 'e2e-wc']
+        # multisite: the core suite on a subdirectory network with the plugin network-active.
+        suite: ['e2e', 'e2e-wc', 'multisite']
     services:
       mysql:
         image: mysql:8.0
@@ -157,7 +158,13 @@ jobs:
           cp tests/e2e-fixtures/mdmfa-e2e-fixtures.php "$WP_PATH/wp-content/mu-plugins/"
           # Pretty permalinks, as on production sites (the router below plays nginx's try_files).
           wp rewrite structure '/%postname%/' --path="$WP_PATH" --quiet
-          wp plugin activate maxtdesign-mfa --path="$WP_PATH"
+          if [ "${{ matrix.suite }}" = multisite ]; then
+            wp core multisite-convert --path="$WP_PATH" --title=Network --quiet
+            wp plugin activate maxtdesign-mfa --network --path="$WP_PATH"
+            wp site create --slug=shop --title=Shop --path="$WP_PATH" --quiet
+          else
+            wp plugin activate maxtdesign-mfa --path="$WP_PATH"
+          fi
           wp core version --path="$WP_PATH"
       - name: Set up WooCommerce (classic checkout, cash on delivery, one virtual product)
         if: matrix.suite == 'e2e-wc'
@@ -187,10 +194,68 @@ jobs:
           PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" tests/e2e-fixtures/router.php > /tmp/php-server.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS -o /dev/null "$MDMFA_E2E_URL" && exit 0; sleep 1; done
           cat /tmp/php-server.log; exit 1
-      - run: vendor/bin/phpunit --testsuite ${{ matrix.suite }} --testdox
+      - run: vendor/bin/phpunit --testsuite ${{ matrix.suite == 'multisite' && 'e2e' || matrix.suite }} --testdox
       - name: Server log on failure
         if: failure()
         run: tail -n 200 /tmp/php-server.log
+
+  # Plan section 13: the core suite again with another plugin active. Informational: a
+  # red cell is read and recorded in docs/compat-matrix-p8.md, it does not block a merge.
+  compat:
+    name: Compat with ${{ matrix.plugin }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ['two-factor', 'limit-login-attempts-reloaded', 'wordfence', 'jetpack', 'ultimate-member', 'paid-memberships-pro', 'wp-super-cache', 'w3-total-cache']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      WP_PATH: /tmp/wordpress
+      MDMFA_E2E_URL: http://127.0.0.1:8080/
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, sodium, curl
+          tools: wp-cli
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - name: Install WordPress, ${{ matrix.plugin }} and the plugin
+        run: |
+          set -euo pipefail
+          wp core download --path="$WP_PATH" --version=latest --quiet
+          wp config create --path="$WP_PATH" --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check --quiet
+          wp config set --path="$WP_PATH" MDMFA_E2E_FIXTURES true --raw --type=constant --quiet
+          wp config set --path="$WP_PATH" WP_ENVIRONMENT_TYPE local --type=constant --quiet
+          wp core install --path="$WP_PATH" --url="${MDMFA_E2E_URL%/}" --title=MFA --admin_user=admin --admin_password="$(openssl rand -hex 16)" --admin_email=admin@example.com --skip-email --quiet
+          mkdir -p "$WP_PATH/wp-content/plugins/maxtdesign-mfa" "$WP_PATH/wp-content/mu-plugins"
+          rsync -a --exclude-from=.distignore ./ "$WP_PATH/wp-content/plugins/maxtdesign-mfa/"
+          cp tests/e2e-fixtures/mdmfa-e2e-fixtures.php "$WP_PATH/wp-content/mu-plugins/"
+          wp rewrite structure '/%postname%/' --path="$WP_PATH" --quiet
+          wp plugin install "${{ matrix.plugin }}" --activate --path="$WP_PATH" --quiet
+          wp plugin activate maxtdesign-mfa --path="$WP_PATH"
+          wp plugin list --path="$WP_PATH" --fields=name,status,version
+      - name: Start PHP's server with 4 workers
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 nohup php -d opcache.enable=0 -d opcache.enable_cli=0 -S 127.0.0.1:8080 -t "$WP_PATH" tests/e2e-fixtures/router.php > /tmp/php-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS -o /dev/null "$MDMFA_E2E_URL" && exit 0; sleep 1; done
+          cat /tmp/php-server.log; exit 1
+      - run: vendor/bin/phpunit --testsuite e2e --testdox
+      - name: Server log on failure
+        if: failure()
+        run: tail -n 120 /tmp/php-server.log
 
   guards:
     name: Outbound HTTP + byte budgets

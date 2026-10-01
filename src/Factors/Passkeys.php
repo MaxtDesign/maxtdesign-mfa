@@ -225,6 +225,12 @@ final class Passkeys {
 		if ( ! $vetted instanceof \WP_User || ( is_multisite() && is_user_spammy( $user ) ) ) {
 			return $generic;
 		}
+		// The password path consults `authenticate`; this one has no password to offer it,
+		// so plugins that veto logins (blocked users, IP rules) get their own filter.
+		$allowed = apply_filters( 'mdmfa_passwordless_user', $user );
+		if ( ! $allowed instanceof \WP_User || $allowed->ID !== $user->ID ) {
+			return $generic;
+		}
 
 		return $user;
 	}
@@ -256,7 +262,8 @@ final class Passkeys {
 		}
 		$issued = Cbor::uint( 'N', substr( $body, 20, 4 ) );
 		$age    = Clock::now() - $issued;
-		if ( $age < 0 || $age > self::CHALLENGE_TTL ) {
+		// Strictly younger than the marker row's own expiry, so a purge cannot reopen it.
+		if ( $age < 0 || $age >= self::CHALLENGE_TTL ) {
 			return false;
 		}
 		$inserted = $wpdb->query(

@@ -169,7 +169,7 @@ final class Privacy {
 	}
 
 	/**
-	 * Erases the person's log rows. Their methods are kept: removing them would switch
+	 * Anonymises the person's log rows. Their methods are kept: removing them would switch
 	 * off the protection of a live account. They go when the account is deleted.
 	 *
 	 * @param mixed $email Email address.
@@ -190,7 +190,9 @@ final class Privacy {
 		if ( ! $user instanceof \WP_User ) {
 			return $result;
 		}
-		$deleted = $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE user_id = %d LIMIT %d', Schema::site_tables( $wpdb )['log'], $user->ID, self::PAGE_SIZE ) );
+		// The rows stay as a security record (who reset whom, what was blocked) but no
+		// longer point at the person: the account link and the network address go.
+		$deleted = $wpdb->query( $wpdb->prepare( 'UPDATE %i SET user_id = NULL, ip = NULL WHERE user_id = %d LIMIT %d', Schema::site_tables( $wpdb )['log'], $user->ID, self::PAGE_SIZE ) );
 		$deleted = is_int( $deleted ) ? $deleted : 0;
 
 		$result['items_removed'] = $deleted > 0;

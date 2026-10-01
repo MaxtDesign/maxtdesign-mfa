@@ -45,6 +45,22 @@ final class Router {
 		add_action( 'plugins_loaded', array( self::class, 'route' ), 1 );
 		add_action( 'init', array( self::class, 'remove_shortcut_redirects' ) );
 		add_action( 'wp_loaded', array( self::class, 'dispatch' ), PHP_INT_MAX );
+		add_action( 'login_init', array( self::class, 'guard_resolved_action' ), 0 );
+	}
+
+	/**
+	 * Second check, inside wp-login.php: by now core has resolved the action it will run
+	 * (it rewrites it for ?key= and ?checkemail=, and falls back to `login`). On the old
+	 * path only the allow-listed actions may proceed.
+	 */
+	public static function guard_resolved_action(): void {
+		if ( ! LoginLocation::enabled() || self::$routed || 'wp-login.php' !== self::$script ) {
+			return;
+		}
+		$action = isset( $GLOBALS['action'] ) && is_string( $GLOBALS['action'] ) ? $GLOBALS['action'] : '';
+		if ( ! in_array( $action, self::CORE_ACTIONS, true ) ) {
+			self::theme_404();
+		}
 	}
 
 	/**
@@ -93,8 +109,17 @@ final class Router {
 		if ( self::$routed ) {
 			self::serve_login();
 		}
-		if ( 'wp-login.php' === self::$script && ! self::core_action_allowed() ) {
-			self::theme_404();
+		if ( 'wp-login.php' === self::$script ) {
+			// After a valid recovery link core lands on wp-login.php; the login form for it
+			// lives at the slug.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only; recovery mode itself was verified by core.
+			if ( isset( $_GET['action'] ) && 'entered_recovery_mode' === $_GET['action'] && wp_is_recovery_mode() ) {
+				wp_safe_redirect( LoginLocation::url( 'action=entered_recovery_mode' ) );
+				exit;
+			}
+			if ( ! self::core_action_allowed() ) {
+				self::theme_404();
+			}
 		}
 		if ( is_admin() && ! wp_doing_ajax() && ! is_user_logged_in() && ! self::admin_exempt() ) {
 			self::admin_404();
@@ -121,8 +146,14 @@ final class Router {
 	 */
 	private static function core_action_allowed(): bool {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- routing decision only; core validates each action.
-		$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+		// The query string only: core's recovery handler reads $_GET, and a POSTed action
+		// would let the request through while wp-login.php runs something else.
+		$action = isset( $_GET['action'] ) && is_string( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : '';
 		if ( ! in_array( $action, self::CORE_ACTIONS, true ) ) {
+			return false;
+		}
+		// wp-login.php switches to resetpass or checkemail when these are present.
+		if ( isset( $_GET['key'] ) || isset( $_GET['checkemail'] ) ) {
 			return false;
 		}
 		if ( 'postpass' === $action ) {

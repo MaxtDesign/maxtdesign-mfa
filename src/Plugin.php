@@ -23,6 +23,9 @@ use MaxtDesign\Mfa\Integrations\Jetpack;
 use MaxtDesign\Mfa\Integrations\Suite;
 use MaxtDesign\Mfa\Privacy\Privacy;
 use MaxtDesign\Mfa\Cli\Command;
+use MaxtDesign\Mfa\Cli\KeyCommand;
+use MaxtDesign\Mfa\Factors\EmailCode;
+use MaxtDesign\Mfa\Notify\Mailer;
 use MaxtDesign\Mfa\Cli\UserCommand;
 use MaxtDesign\Mfa\Install\Installer;
 use MaxtDesign\Mfa\Install\Maintenance;
@@ -91,6 +94,8 @@ final class Plugin {
 		LoginForm::register();
 		PasskeyLogin::register();
 		TrustedDevice::register();
+		EmailCode::register();
+		add_action( 'mdmfa_enrolled', array( Mailer::class, 'factor_added' ), 10, 2 );
 		SideDoors::register();
 		EmailRecovery::register();
 		Jetpack::register();
@@ -122,11 +127,11 @@ final class Plugin {
 	/**
 	 * Maps the mdmfa_manage meta capability to a primitive capability.
 	 *
-	 * @param string[] $caps Primitive capabilities required so far.
-	 * @param string   $cap  Capability being checked.
-	 * @return string[]
+	 * @param mixed $caps Primitive capabilities required so far.
+	 * @param mixed $cap  Capability being checked.
+	 * @return mixed
 	 */
-	public static function map_meta_cap( array $caps, string $cap ): array {
+	public static function map_meta_cap( mixed $caps, mixed $cap = '' ): mixed {
 		if ( self::MANAGE_CAP !== $cap ) {
 			return $caps;
 		}
@@ -144,6 +149,7 @@ final class Plugin {
 			\WP_CLI::add_command( 'mdmfa', Command::class );
 			\WP_CLI::add_command( 'mdmfa user', UserCommand::class );
 			\WP_CLI::add_command( 'mdmfa slug', SlugCommand::class );
+			\WP_CLI::add_command( 'mdmfa key', KeyCommand::class );
 		}
 	}
 
@@ -162,10 +168,20 @@ final class Plugin {
 	 * For a day after a slug change, reminds administrators of the new login address.
 	 */
 	public static function render_slug_notice(): void {
-		if ( ! current_user_can( self::MANAGE_CAP ) || ! LoginLocation::enabled() ) {
+		if ( ! current_user_can( self::MANAGE_CAP ) ) {
 			return;
 		}
 		$notices = get_option( Options::NOTICES, array() );
+		$held    = is_array( $notices ) && isset( $notices['location_off'] ) ? (int) $notices['location_off'] : 0;
+		if ( $held >= Clock::now() - WEEK_IN_SECONDS && ! LoginLocation::enabled() ) {
+			printf(
+				'<div class="notice notice-info"><p>%s</p></div>',
+				esc_html__( 'MaxtDesign MFA did not move the login address, because this site uses plain permalinks and the new address might not load. Two-step verification is on. To move the login, choose another permalink setting, then turn it on under Users, Login security (MFA), Login location.', 'maxtdesign-mfa' )
+			);
+		}
+		if ( ! LoginLocation::enabled() ) {
+			return;
+		}
 		$changed = is_array( $notices ) && isset( $notices['slug_changed'] ) ? (int) $notices['slug_changed'] : 0;
 		if ( $changed < Clock::now() - DAY_IN_SECONDS ) {
 			return;
