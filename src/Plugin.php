@@ -81,6 +81,7 @@ final class Plugin {
 		}
 
 		add_action( 'plugins_loaded', array( Installer::class, 'maybe_upgrade' ) );
+		add_action( 'init', array( Installer::class, 'maybe_announce' ), 20 );
 		add_action( 'wp_initialize_site', array( Installer::class, 'initialize_site' ), 20 );
 		add_action( 'before_woocommerce_init', array( self::class, 'declare_wc_compatibility' ) );
 

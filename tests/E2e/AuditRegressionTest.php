@@ -199,13 +199,15 @@ final class AuditRegressionTest extends E2eTestCase {
 	public function test_install_emails_the_address_and_never_moves_the_login_on_plain_permalinks(): void {
 		$probe = 'delete_option( "e2e_mail" ); $saved = array( get_option( "mdmfa_login" ), get_option( "mdmfa_notices" ), get_option( "permalink_structure" ) );'
 			. ' delete_option( "mdmfa_login" ); delete_option( "mdmfa_notices" ); %s'
-			. ' MaxtDesign\Mfa\Install\Installer::install(); $made = get_option( "mdmfa_login" ); $mail = get_option( "e2e_mail", array() ); $notices = get_option( "mdmfa_notices" );'
+			. ' MaxtDesign\Mfa\Install\Installer::install(); $made = get_option( "mdmfa_login" ); MaxtDesign\Mfa\Install\Installer::maybe_announce();'
+			. ' $pending = ! empty( get_option( "mdmfa_login" )["announce"] ); $mail = get_option( "e2e_mail", array() ); $notices = get_option( "mdmfa_notices" );'
 			. ' update_option( "mdmfa_login", $saved[0], true ); update_option( "mdmfa_notices", $saved[1], false ); update_option( "permalink_structure", $saved[2] );'
-			. ' echo wp_json_encode( array( "enabled" => $made["enabled"], "slug" => $made["slug"], "mail" => $mail, "notices" => array_keys( (array) $notices ) ) );';
+			. ' echo wp_json_encode( array( "pending" => $pending, "enabled" => $made["enabled"], "slug" => $made["slug"], "mail" => $mail, "notices" => array_keys( (array) $notices ) ) );';
 
 		$pretty = (array) json_decode( self::eval( sprintf( $probe, '' ) ), true );
 		self::assertTrue( $pretty['enabled'] );
 		self::assertNotSame( array(), $pretty['mail'], 'administrators are emailed on first activation' );
+		self::assertFalse( $pretty['pending'], 'once' );
 		self::assertStringContainsString( $pretty['slug'], $pretty['mail'][0]['message'] );
 		self::assertStringContainsString( 'MDMFA_DISABLE_LOGIN_LOCATION', $pretty['mail'][0]['message'], 'with the way back' );
 

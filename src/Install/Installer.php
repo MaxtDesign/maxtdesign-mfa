@@ -59,6 +59,9 @@ final class Installer {
 		$plain = '' === (string) get_option( 'permalink_structure' );
 		if ( $plain ) {
 			$login['enabled'] = false;
+		} else {
+			// Carried in the autoloaded option, so checking it costs no query.
+			$login['announce'] = true;
 		}
 		if ( add_option( Options::LOGIN, $login, '', true ) ) {
 			if ( $plain ) {
@@ -66,9 +69,9 @@ final class Installer {
 			} else {
 				// New login address: show it to administrators for a day
 				// (Plugin::render_slug_notice()) and email it, so nobody depends on having
-				// seen the notice (lost-address recovery, plan 5.5).
+				// seen the notice (lost-address recovery, plan 5.5). The mail waits for
+				// `init` (maybe_announce()): this can run on plugins_loaded, before roles exist.
 				add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
-				SlugChanger::announce( LoginLocation::url(), true );
 			}
 		}
 		add_option( Options::SETTINGS, Settings::defaults(), '', false );
@@ -78,6 +81,22 @@ final class Installer {
 		update_option( Options::DB_VERSION, Schema::VERSION, true );
 
 		Maintenance::schedule();
+	}
+
+	/**
+	 * Emails administrators the login address once after the login was first moved.
+	 * Runs on `init`, when roles and users can be queried.
+	 */
+	public static function maybe_announce(): void {
+		$login = get_option( Options::LOGIN );
+		if ( ! is_array( $login ) || empty( $login['announce'] ) ) {
+			return;
+		}
+		unset( $login['announce'] );
+		update_option( Options::LOGIN, $login, true );
+		if ( LoginLocation::enabled() ) {
+			SlugChanger::announce( LoginLocation::url(), true );
+		}
 	}
 
 	/**

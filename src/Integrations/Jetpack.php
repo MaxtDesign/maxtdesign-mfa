@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Integrations;
 
-use MaxtDesign\Mfa\Settings\Settings;
+use MaxtDesign\Mfa\Settings\Options;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -44,7 +44,12 @@ final class Jetpack {
 	 * Whether the owner chose to block WordPress.com sign-in.
 	 */
 	public static function sso_blocked(): bool {
-		return ! empty( Settings::get()['block_wpcom_sso'] );
+		// Jetpack asks for its module list on every request, front end included. The
+		// flag is mirrored into the autoloaded login option (Settings::save()), so the
+		// answer costs no query; the settings themselves are not autoloaded.
+		$login = get_option( Options::LOGIN );
+
+		return is_array( $login ) && ! empty( $login['block_sso'] );
 	}
 
 	/**

@@ -114,8 +114,14 @@ final class SideDoorsTest extends TestCase {
 		self::assertSame( $modules, Jetpack::filter_modules( $modules ), 'default: the bypass guard challenges SSO instead' );
 		self::assertFalse( Jetpack::sso_blocked() );
 
-		self::settings( array( 'block_wpcom_sso' => true ) );
+		// Saved through Settings::save(), which mirrors the flag into the autoloaded option.
+		$GLOBALS['mdmfa_test']['options']['mdmfa_login'] = array( 'enabled' => true, 'slug' => 'abc123def456' );
+		\MaxtDesign\Mfa\Settings\Settings::save( array( 'block_wpcom_sso' => true ) );
+		self::assertTrue( Jetpack::sso_blocked() );
 		self::assertSame( array( 'stats' => '1.1' ), Jetpack::filter_modules( $modules ) );
+
+		\MaxtDesign\Mfa\Settings\Settings::save( array( 'block_wpcom_sso' => false ) );
+		self::assertSame( $modules, Jetpack::filter_modules( $modules ), 'and unmirrors it' );
 		self::assertSame( 'not-an-array', Jetpack::filter_modules( 'not-an-array' ) );
 	}
 

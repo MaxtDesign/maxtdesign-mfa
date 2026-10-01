@@ -51,6 +51,9 @@ final class Lockout {
 		if ( null !== $got && '1' !== (string) $got ) {
 			return null;
 		}
+		// This request read the user's meta before it held the lock. Drop that copy, so
+		// the counter, the TOTP step and the email-code state are read fresh inside it.
+		wp_cache_delete( $user_id, 'user_meta' );
 		try {
 			return $check();
 		} finally {

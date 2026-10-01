@@ -208,7 +208,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin: ['two-factor', 'limit-login-attempts-reloaded', 'wordfence', 'jetpack', 'ultimate-member', 'paid-memberships-pro', 'wp-super-cache', 'w3-total-cache']
+        plugin: ['two-factor', 'limit-login-attempts-reloaded', 'wordfence', 'jetpack', 'ultimate-member', 'wp-super-cache', 'w3-total-cache']
     services:
       mysql:
         image: mysql:8.0

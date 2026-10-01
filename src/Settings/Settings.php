@@ -206,8 +206,17 @@ final class Settings {
 	 * @param array<string, mixed> $settings Complete, validated settings.
 	 */
 	public static function save( array $settings ): void {
-		update_option( Options::SETTINGS, self::resolve( $settings ), false );
+		$resolved = self::resolve( $settings );
+		update_option( Options::SETTINGS, $resolved, false );
 		delete_transient( 'mdmfa_status_cache' );
+
+		// The one setting a hot path needs (Integrations\Jetpack) lives in the autoloaded
+		// login option too.
+		$login = get_option( Options::LOGIN );
+		if ( is_array( $login ) && ! empty( $login['block_sso'] ) !== ! empty( $resolved['block_wpcom_sso'] ) ) {
+			$login['block_sso'] = ! empty( $resolved['block_wpcom_sso'] );
+			update_option( Options::LOGIN, $login, true );
+		}
 	}
 
 	/**
