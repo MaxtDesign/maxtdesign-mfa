@@ -70,7 +70,13 @@ final class BypassGuard {
 			return;
 		}
 		$user = get_userdata( (int) $user_id );
-		if ( ! $user instanceof \WP_User || ! Policy::is_subject( $user ) ) {
+		if ( ! $user instanceof \WP_User ) {
+			return;
+		}
+		// A user who only ever arrives through a direct cookie issuer (SSO, a reset
+		// auto-login) still gets a setup period that ends.
+		Policy::maybe_start_grace( $user );
+		if ( ! Policy::is_subject( $user ) ) {
 			return;
 		}
 		$manager = \WP_Session_Tokens::get_instance( $user->ID );

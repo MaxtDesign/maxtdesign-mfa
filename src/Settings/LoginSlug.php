@@ -126,6 +126,19 @@ final class LoginSlug {
 	 * @param string $slug Well-formed slug.
 	 */
 	public static function collision( string $slug ): string {
+		// On a subdirectory network /slug/ may be another site.
+		if ( is_multisite() && ! is_subdomain_install() ) {
+			$network = get_network();
+			$path    = ( $network instanceof \WP_Network ? rtrim( $network->path, '/' ) : '' ) . '/' . $slug . '/';
+			if ( get_sites(
+				array(
+					'path'  => $path,
+					'count' => true,
+				)
+			) > 0 ) {
+				return __( 'another site of this network', 'maxtdesign-mfa' );
+			}
+		}
 		$public_types = get_post_types( array( 'public' => true ) );
 		if ( null !== get_page_by_path( $slug, OBJECT, array_values( $public_types ) ) ) {
 			return __( 'a page or post', 'maxtdesign-mfa' );

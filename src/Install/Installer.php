@@ -11,6 +11,8 @@ namespace MaxtDesign\Mfa\Install;
 
 use MaxtDesign\Mfa\Crypto\InvalidKeyException;
 use MaxtDesign\Mfa\Crypto\KeyProvider;
+use MaxtDesign\Mfa\Location\LoginLocation;
+use MaxtDesign\Mfa\Location\SlugChanger;
 use MaxtDesign\Mfa\Settings\Options;
 use MaxtDesign\Mfa\Settings\Settings;
 use MaxtDesign\Mfa\Support\Clock;
@@ -51,9 +53,26 @@ final class Installer {
 		dbDelta( Schema::credentials_sql( $wpdb ) );
 		dbDelta( Schema::site_sql( $wpdb ) );
 
-		if ( add_option( Options::LOGIN, Settings::login_defaults(), '', true ) ) {
-			// New login address: show it to administrators for a day (Plugin::render_slug_notice()).
-			add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
+		$login = Settings::login_defaults();
+		// With plain permalinks an Apache site has no rewrite rules, so /{address} would be a
+		// server 404 while wp-login.php is hidden: a lockout. Leave the login where it is.
+		$plain = '' === (string) get_option( 'permalink_structure' );
+		if ( $plain ) {
+			$login['enabled'] = false;
+		} else {
+			// Carried in the autoloaded option, so checking it costs no query.
+			$login['announce'] = true;
+		}
+		if ( add_option( Options::LOGIN, $login, '', true ) ) {
+			if ( $plain ) {
+				add_option( Options::NOTICES, array( 'location_off' => Clock::now() ), '', false );
+			} else {
+				// New login address: show it to administrators for a day
+				// (Plugin::render_slug_notice()) and email it, so nobody depends on having
+				// seen the notice (lost-address recovery, plan 5.5). The mail waits for
+				// `init` (maybe_announce()): this can run on plugins_loaded, before roles exist.
+				add_option( Options::NOTICES, array( 'slug_changed' => Clock::now() ), '', false );
+			}
 		}
 		add_option( Options::SETTINGS, Settings::defaults(), '', false );
 		add_option( Options::ACTIVATED_AT, time(), '', false );
@@ -62,6 +81,22 @@ final class Installer {
 		update_option( Options::DB_VERSION, Schema::VERSION, true );
 
 		Maintenance::schedule();
+	}
+
+	/**
+	 * Emails administrators the login address once after the login was first moved.
+	 * Runs on `init`, when roles and users can be queried.
+	 */
+	public static function maybe_announce(): void {
+		$login = get_option( Options::LOGIN );
+		if ( ! is_array( $login ) || empty( $login['announce'] ) ) {
+			return;
+		}
+		unset( $login['announce'] );
+		update_option( Options::LOGIN, $login, true );
+		if ( LoginLocation::enabled() ) {
+			SlugChanger::announce( LoginLocation::url(), true );
+		}
 	}
 
 	/**

@@ -169,7 +169,7 @@ final class Privacy {
 	}
 
 	/**
-	 * Erases the person's log rows. Their methods are kept: removing them would switch
+	 * Anonymises the person's log rows. Their methods are kept: removing them would switch
 	 * off the protection of a live account. They go when the account is deleted.
 	 *
 	 * @param mixed $email Email address.
@@ -190,11 +190,19 @@ final class Privacy {
 		if ( ! $user instanceof \WP_User ) {
 			return $result;
 		}
-		$deleted = $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE user_id = %d LIMIT %d', Schema::site_tables( $wpdb )['log'], $user->ID, self::PAGE_SIZE ) );
+		// The rows stay as a security record (who reset whom, what was blocked) but no
+		// longer point at the person: the account link and the network address go.
+		$deleted = $wpdb->query( $wpdb->prepare( 'UPDATE %i SET user_id = NULL, ip = NULL WHERE user_id = %d LIMIT %d', Schema::site_tables( $wpdb )['log'], $user->ID, self::PAGE_SIZE ) );
 		$deleted = is_int( $deleted ) ? $deleted : 0;
+		// Self-service rows name the person as the actor too, and rows about other users
+		// name them where they acted as an administrator. Both references go; other
+		// administrators' attribution stays.
+		$actor    = $wpdb->query( $wpdb->prepare( 'UPDATE %i SET actor_id = NULL WHERE actor_id = %d LIMIT %d', Schema::site_tables( $wpdb )['log'], $user->ID, self::PAGE_SIZE ) );
+		$actor    = is_int( $actor ) ? $actor : 0;
+		$deleted += $actor;
 
 		$result['items_removed'] = $deleted > 0;
-		$result['done']          = $deleted < self::PAGE_SIZE;
+		$result['done']          = $deleted - $actor < self::PAGE_SIZE && $actor < self::PAGE_SIZE;
 		if ( TotpStore::has( $user->ID ) || PasskeyStore::count( $user->ID ) > 0 || EmailCode::has( $user->ID ) ) {
 			$result['items_retained'] = true;
 			$result['messages'][]     = __( 'Two-step verification methods were kept because the account still exists. They are removed when the account is deleted.', 'maxtdesign-mfa' );

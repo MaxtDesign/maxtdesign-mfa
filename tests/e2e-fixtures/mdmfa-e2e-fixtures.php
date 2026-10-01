@@ -32,6 +32,38 @@ add_filter(
 	2
 );
 
+// Footprint probe: with ?e2e_probe=1, records how often this request read the plugin's
+// non-autoloaded settings and how many queries named a plugin table or option.
+if ( isset( $_GET['e2e_probe'] ) ) {
+	if ( ! defined( 'SAVEQUERIES' ) ) {
+		define( 'SAVEQUERIES', true );
+	}
+	$GLOBALS['mdmfa_e2e_reads'] = 0;
+	foreach ( array( 'pre_option_mdmfa_settings', 'default_option_mdmfa_settings', 'option_mdmfa_settings' ) as $mdmfa_e2e_hook ) {
+		add_filter(
+			$mdmfa_e2e_hook,
+			static function ( $value ) {
+				++$GLOBALS['mdmfa_e2e_reads'];
+				return $value;
+			}
+		);
+	}
+	add_action(
+		'shutdown',
+		static function (): void {
+			global $wpdb;
+			$sql = array();
+			foreach ( (array) $wpdb->queries as $query ) {
+				if ( false !== stripos( $query[0], 'mdmfa' ) ) {
+					$sql[] = substr( (string) preg_replace( '/\s+/', ' ', $query[0] ), 0, 160 );
+				}
+			}
+			update_option( 'e2e_probe', array( 'reads' => $GLOBALS['mdmfa_e2e_reads'], 'sql' => $sql ), false );
+		},
+		PHP_INT_MAX
+	);
+}
+
 // Records the suite purge signal maxtdesign-cache would act on.
 add_action(
 	'md_suite_content_changed',

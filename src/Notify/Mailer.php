@@ -69,12 +69,13 @@ final class Mailer {
 	 * login address.
 	 *
 	 * @param \WP_User $user User.
-	 * @param string   $code Six digits.
+	 * @param string   $code The digits.
 	 */
 	public static function email_code( \WP_User $user, string $code ): bool {
 		$message  = array(
-			/* translators: 1: site name, 2: the code. */
-			'subject' => sprintf( __( '[%1$s] Your sign-in code: %2$s', 'maxtdesign-mfa' ), self::site(), $code ),
+			// The code stays out of the subject: subjects show on lock screens.
+			/* translators: %s: site name. */
+			'subject' => sprintf( __( '[%s] Your sign-in code', 'maxtdesign-mfa' ), self::site() ),
 			'body'    => sprintf(
 				/* translators: 1: the code, 2: minutes it stays valid. */
 				__( "Your sign-in code is %1\$s. It works for %2\$d minutes and only once.\n\nIf you did not try to sign in, someone knows your password. Change it now.", 'maxtdesign-mfa' ),
@@ -141,6 +142,35 @@ final class Mailer {
 		foreach ( array_unique( array_filter( $to, static fn ( string $email ): bool => false !== is_email( $email ) ) ) as $address ) {
 			wp_mail( $address, $subject, $body );
 		}
+	}
+
+	/**
+	 * Tells a user that a sign-in method was added to their account, wherever it was added.
+	 * Hooked to mdmfa_enrolled.
+	 *
+	 * @param mixed $user   User.
+	 * @param mixed $factor Method added.
+	 */
+	public static function factor_added( mixed $user, mixed $factor = '' ): void {
+		if ( ! $user instanceof \WP_User || false === is_email( $user->user_email ) ) {
+			return;
+		}
+		$names = array(
+			'totp'    => __( 'an authenticator app', 'maxtdesign-mfa' ),
+			'passkey' => __( 'a passkey', 'maxtdesign-mfa' ),
+			'email'   => __( 'email codes', 'maxtdesign-mfa' ),
+		);
+		wp_mail(
+			$user->user_email,
+			/* translators: %s: site name. */
+			sprintf( __( '[%s] A sign-in method was added to your account', 'maxtdesign-mfa' ), self::site() ),
+			sprintf(
+				/* translators: 1: method, 2: username. */
+				__( "Two-step verification now uses %1\$s for the account %2\$s.\n\nIf you did not set this up, someone else has your password. Change it now and contact the site administrator.", 'maxtdesign-mfa' ),
+				is_string( $factor ) && isset( $names[ $factor ] ) ? $names[ $factor ] : __( 'a new method', 'maxtdesign-mfa' ),
+				$user->user_login
+			)
+		);
 	}
 
 	/**

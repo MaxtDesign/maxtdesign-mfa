@@ -60,6 +60,7 @@ function mdmfa_test_reset(): void {
 	MaxtDesign\Mfa\Support\Clock::freeze( null );
 	$GLOBALS['wpdb'] = new wpdb();
 	$_COOKIE         = array();
+	unset( $_SERVER['PHP_AUTH_USER'] );
 }
 
 /**
@@ -127,6 +128,15 @@ class wpdb {
 
 	public function get_var( string $query ): ?string {
 		$this->queries[] = $query;
+		// Another site's settings row (Policy::network_floor()).
+		if ( 1 === preg_match( "/FROM `wp_(\d+)_options` WHERE option_name = 'mdmfa_settings'/", $query, $m ) ) {
+			$value = $GLOBALS['mdmfa_test']['blog_options'][ (int) $m[1] ]['mdmfa_settings'] ?? null;
+			return null === $value ? null : serialize( $value );
+		}
+		if ( str_contains( $query, 'FROM `wp_options` WHERE option_name' ) ) {
+			$value = $GLOBALS['mdmfa_test']['blog_options'][1]['mdmfa_settings'] ?? null;
+			return null === $value ? null : serialize( $value );
+		}
 		return null;
 	}
 
@@ -143,12 +153,17 @@ class wpdb {
 		return array();
 	}
 
+	public function get_blog_prefix( int $blog_id = 0 ): string {
+		return $blog_id <= 1 ? 'wp_' : 'wp_' . $blog_id . '_';
+	}
+
 	public function esc_like( string $text ): string {
 		return addcslashes( $text, '_%\\' );
 	}
 }
 
 function get_option( string $option, mixed $default_value = false ): mixed {
+	apply_filters( 'mdmfa_test_get_option', $option );
 	return $GLOBALS['mdmfa_test']['options'][ $option ] ?? $default_value;
 }
 

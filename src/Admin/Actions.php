@@ -38,6 +38,13 @@ final class Actions {
 
 	public const NONCE = 'mdmfa_admin';
 
+	/**
+	 * Whether this save switched application passwords off for a role that became Required.
+	 *
+	 * @var bool
+	 */
+	private static bool $doors_closed = false;
+
 	public const SAVE    = 'mdmfa_save';
 	public const SLUG    = 'mdmfa_slug';
 	public const USERS   = 'mdmfa_users';
@@ -64,6 +71,7 @@ final class Actions {
 		return array(
 			'saved'       => array( 'success', __( 'Settings saved.', 'maxtdesign-mfa' ) ),
 			'saved_fixed' => array( 'warning', __( 'Settings saved. A Required role must keep an authenticator app or a passkey, so the authenticator app was left on for it.', 'maxtdesign-mfa' ) ),
+			'saved_doors' => array( 'warning', __( 'Settings saved. Application passwords were turned off for the roles you set to Required, because they skip the second step. You can allow them again on the Side doors tab.', 'maxtdesign-mfa' ) ),
 			'stepup'      => array( 'error', __( 'Nothing was changed. Confirm it is you on your My security page first, then make the change within 10 minutes.', 'maxtdesign-mfa' ) ),
 			'slug_ok'     => array( 'success', __( 'The login address changed. Every administrator was emailed the new one.', 'maxtdesign-mfa' ) ),
 			'slug_bad'    => array( 'error', __( 'That address cannot be used. Use 4 to 64 letters, numbers or dashes, and avoid names WordPress or your pages already use.', 'maxtdesign-mfa' ) ),
@@ -119,7 +127,7 @@ final class Actions {
 
 		Settings::save( $settings );
 		Logger::log( 'policy_changed', null, '', 'admin', get_current_user_id(), $tab );
-		self::back( $tab, $fixed ? 'saved_fixed' : 'saved' );
+		self::back( $tab, $fixed ? 'saved_fixed' : ( self::$doors_closed ? 'saved_doors' : 'saved' ) );
 	}
 
 	/**
@@ -265,6 +273,12 @@ final class Actions {
 				$input[ $key ] = $given[ $key ] ?? ( 'factors' === $key ? array() : false );
 			}
 			$clean = Settings::sanitize_role( $input, $row['config'] );
+			// A role that becomes Required loses application passwords (they skip the
+			// second step); the owner can allow them again on the Side doors tab.
+			if ( in_array( 'policy', $keys, true ) && Settings::POLICY_REQUIRED === $clean['policy'] && Settings::POLICY_REQUIRED !== ( $row['config']['policy'] ?? '' ) && $clean['app_passwords'] ) {
+				$clean['app_passwords'] = false;
+				self::$doors_closed     = true;
+			}
 			$fixed = $fixed || ( in_array( 'factors', $keys, true ) && Settings::POLICY_REQUIRED === $clean['policy'] && empty( $given['factors']['totp'] ) && empty( $given['factors']['passkey'] ) );
 			if ( SettingsViews::UNLISTED === $slug ) {
 				$settings['unlisted_role'] = $clean;

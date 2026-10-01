@@ -82,6 +82,32 @@ final class KeyProvider {
 	}
 
 	/**
+	 * Keys this site could have encrypted with before the current one: the salts-derived
+	 * keys, when MDMFA_ENCRYPTION_KEY has since been defined. Lets a secret written under
+	 * the salts be read once and re-encrypted under the constant.
+	 *
+	 * @return self[]
+	 */
+	public static function older(): array {
+		if ( ! defined( 'MDMFA_ENCRYPTION_KEY' ) ) {
+			return array();
+		}
+		$keys   = array();
+		$auth   = defined( 'AUTH_KEY' ) ? (string) constant( 'AUTH_KEY' ) : '';
+		$secure = defined( 'SECURE_AUTH_KEY' ) ? (string) constant( 'SECURE_AUTH_KEY' ) : '';
+		try {
+			if ( self::usable_salt( $auth ) && self::usable_salt( $secure ) ) {
+				$keys[] = self::derive( $auth . $secure, self::SOURCE_SALTS );
+			}
+			$keys[] = self::derive( wp_salt( 'auth' ) . wp_salt( 'secure_auth' ), self::SOURCE_DB );
+		} catch ( InvalidKeyException $e ) {
+			return $keys;
+		}
+
+		return $keys;
+	}
+
+	/**
 	 * Key from a base64 string, the MDMFA_ENCRYPTION_KEY format.
 	 *
 	 * @param string $encoded Base64 of 32 random bytes.

@@ -75,6 +75,10 @@ final class SecurityActions {
 				if ( null === $secret || TotpStore::has( $user->ID ) ) {
 					return self::result( 'setup_expired' );
 				}
+				// Another session of the same user must not finish a setup this one began.
+				if ( Policy::is_enrolled( $user->ID ) && ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
+				}
 				$step = Totp::match( $secret, Totp::normalize( $code ), Clock::now() );
 				if ( null === $step ) {
 					return self::result( 'code_invalid', array(), 'totp' );
@@ -171,6 +175,9 @@ final class SecurityActions {
 				}
 				if ( ! EmailCode::issued( $user->ID, 'setup' ) ) {
 					return self::result( 'setup_expired' );
+				}
+				if ( Policy::is_enrolled( $user->ID ) && ! StepUp::is_fresh( $user->ID ) ) {
+					return self::result( 'stepup_needed' );
 				}
 				if ( ! EmailCode::check( $user->ID, 'setup', $code ) ) {
 					return self::result( 'code_invalid', array(), 'email' );

@@ -55,6 +55,35 @@ final class Browser {
 	}
 
 	/**
+	 * Sends one POST from each of several browsers at the same time (each with its own
+	 * cookies). Responses are not applied back to the browsers.
+	 *
+	 * @param array<int, array{Browser, string, array<string, string|int>}> $requests
+	 * @return Response[]
+	 */
+	public static function race( array $requests ): array {
+		$multi   = curl_multi_init();
+		$handles = array();
+		foreach ( $requests as $i => list( $browser, $path, $form ) ) {
+			$handles[ $i ] = $browser->handle( 'POST', $path, $form );
+			curl_multi_add_handle( $multi, $handles[ $i ] );
+		}
+		do {
+			$status = curl_multi_exec( $multi, $running );
+			if ( $running ) {
+				curl_multi_select( $multi, 1.0 );
+			}
+		} while ( $running && CURLM_OK === $status );
+		$responses = array();
+		foreach ( $handles as $i => $handle ) {
+			$responses[ $i ] = $requests[ $i ][0]->parse( (string) curl_multi_getcontent( $handle ), (int) curl_getinfo( $handle, CURLINFO_RESPONSE_CODE ), (int) curl_getinfo( $handle, CURLINFO_HEADER_SIZE ) );
+			curl_multi_remove_handle( $multi, $handle );
+		}
+		curl_multi_close( $multi );
+		return $responses;
+	}
+
+	/**
 	 * Sends several POSTs at the same time with the current cookies.
 	 *
 	 * @param array<int, array{string, array<string, string|int>}> $requests
@@ -96,7 +125,7 @@ final class Browser {
 	/**
 	 * @param array<string, string|int> $form
 	 */
-	private function handle( string $method, string $path, array $form ): \CurlHandle {
+	public function handle( string $method, string $path, array $form ): \CurlHandle {
 		$url             = str_starts_with( $path, 'http' ) ? $path : rtrim( $this->base, '/' ) . '/' . ltrim( $path, '/' );
 		$this->history[] = $url;
 		$handle          = curl_init( $url );
@@ -129,7 +158,7 @@ final class Browser {
 		return $this->parse( $raw, (int) curl_getinfo( $handle, CURLINFO_RESPONSE_CODE ), (int) curl_getinfo( $handle, CURLINFO_HEADER_SIZE ) );
 	}
 
-	private function parse( string $raw, int $status, int $header_size ): Response {
+	public function parse( string $raw, int $status, int $header_size ): Response {
 		$head    = substr( $raw, 0, $header_size );
 		$body    = substr( $raw, $header_size );
 		$headers = array();

@@ -327,4 +327,24 @@ final class LoginFlowTest extends E2eTestCase {
 			self::assertStringNotContainsString( 'mdmfa', $cookie );
 		}
 	}
+
+	public function test_front_end_requests_run_no_plugin_queries(): void {
+		// Stored settings exist and are not autoloaded: the worst case for a stray read.
+		self::wp( 'option', 'update', 'mdmfa_settings', '{"application_passwords":"off","xmlrpc":"off"}', '--format=json', '--autoload=no' );
+		try {
+			$post = self::wp( 'post', 'create', '--post_status=publish', '--post_title=Footprint probe', '--porcelain' );
+			foreach ( array( '', '?p=' . $post, '?s=probe', 'feed/', 'no-such-page-' . bin2hex( random_bytes( 3 ) ) . '/', 'wp-json/wp/v2/posts' ) as $path ) {
+				$this->browser()->get( $path . ( str_contains( $path, '?' ) ? '&' : '?' ) . 'e2e_probe=1' );
+				$probe = (array) json_decode( self::eval( 'echo wp_json_encode( get_option( "e2e_probe" ) );' ), true );
+				// The REST index is an API request: the application-password policy applies there.
+				if ( ! str_starts_with( $path, 'wp-json' ) ) {
+					self::assertSame( 0, $probe['reads'], "settings read on /{$path}" );
+				}
+				self::assertSame( array(), array_values( array_filter( $probe['sql'], static fn ( string $q ): bool => ! str_contains( $q, 'e2e_probe' ) && ! str_contains( $q, 'mdmfa_settings' ) ) ), "plugin table or option queried on /{$path}" );
+			}
+		} finally {
+			self::wp( 'option', 'delete', 'mdmfa_settings' );
+			self::wp( 'option', 'delete', 'e2e_probe' );
+		}
+	}
 }

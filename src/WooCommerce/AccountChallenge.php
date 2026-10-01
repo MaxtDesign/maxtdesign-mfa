@@ -44,6 +44,25 @@ final class AccountChallenge {
 		add_action( 'wp_loaded', array( self::class, 'handle_post' ), 15 );
 		add_action( 'template_redirect', array( self::class, 'prepare' ), 5 );
 		add_filter( 'wc_get_template', array( self::class, 'swap_template' ), 10, 2 );
+		add_filter( 'woocommerce_login_redirect', array( self::class, 'honour_redirect' ), 5, 1 );
+	}
+
+	/**
+	 * Login links that were sent to My Account instead of the login address carry the
+	 * page to return to (UrlRewriter::login_url()). WooCommerce ignores it for a plain
+	 * password login, so it is applied here; same-site targets only.
+	 *
+	 * @param mixed $redirect WooCommerce's redirect target.
+	 * @return mixed
+	 */
+	public static function honour_redirect( mixed $redirect ): mixed {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a redirect target, validated below; WooCommerce verified the login nonce.
+		$wanted = isset( $_GET['redirect_to'] ) && is_string( $_GET['redirect_to'] ) ? wp_sanitize_redirect( wp_unslash( $_GET['redirect_to'] ) ) : '';
+		if ( '' === $wanted || ! is_string( $redirect ) ) {
+			return $redirect;
+		}
+
+		return wp_validate_redirect( $wanted, $redirect );
 	}
 
 	/**

@@ -17,6 +17,28 @@ final class SideDoorsTest extends TestCase {
 
 	protected function setUp(): void {
 		mdmfa_test_reset();
+		// A request that carries credentials: the only front-end case where the answer matters.
+		$_SERVER['PHP_AUTH_USER'] = 'someone';
+	}
+
+	public function test_a_plain_page_view_never_reads_the_settings(): void {
+		unset( $_SERVER['PHP_AUTH_USER'] );
+		self::settings( array( 'application_passwords' => 'off' ) );
+		$reads = 0;
+		add_filter(
+			'mdmfa_test_get_option',
+			static function ( string $option ) use ( &$reads ): string {
+				$reads += 'mdmfa_settings' === $option ? 1 : 0;
+				return $option;
+			}
+		);
+
+		self::assertTrue( SideDoors::app_passwords_available( true ), 'core asks on every request; a page view passes through' );
+		self::assertSame( 0, $reads, 'and costs no option read (the settings are not autoloaded)' );
+
+		$GLOBALS['mdmfa_test']['is_admin'] = true;
+		self::assertFalse( SideDoors::app_passwords_available( true ), 'wp-admin gets the real answer' );
+		self::assertSame( 1, $reads );
 	}
 
 	private static function settings( array $settings ): void {
@@ -92,8 +114,20 @@ final class SideDoorsTest extends TestCase {
 		self::assertSame( $modules, Jetpack::filter_modules( $modules ), 'default: the bypass guard challenges SSO instead' );
 		self::assertFalse( Jetpack::sso_blocked() );
 
-		self::settings( array( 'block_wpcom_sso' => true ) );
+		// Saved through Settings::save(), which mirrors the flag into the autoloaded option.
+		$GLOBALS['mdmfa_test']['options']['mdmfa_login'] = array( 'enabled' => true, 'slug' => 'abc123def456' );
+		\MaxtDesign\Mfa\Settings\Settings::save( array( 'block_wpcom_sso' => true ) );
+		self::assertTrue( Jetpack::sso_blocked() );
 		self::assertSame( array( 'stats' => '1.1' ), Jetpack::filter_modules( $modules ) );
+
+		\MaxtDesign\Mfa\Settings\Settings::save( array( 'block_wpcom_sso' => false ) );
+		self::assertSame( $modules, Jetpack::filter_modules( $modules ), 'and unmirrors it' );
+
+		// A block saved before the mirror existed must not lapse: it is seeded on first read.
+		$GLOBALS['mdmfa_test']['options']['mdmfa_login']    = array( 'enabled' => true, 'slug' => 'abc123def456' );
+		$GLOBALS['mdmfa_test']['options']['mdmfa_settings'] = array( 'block_wpcom_sso' => true );
+		self::assertTrue( Jetpack::sso_blocked() );
+		self::assertTrue( $GLOBALS['mdmfa_test']['options']['mdmfa_login']['block_sso'] );
 		self::assertSame( 'not-an-array', Jetpack::filter_modules( 'not-an-array' ) );
 	}
 

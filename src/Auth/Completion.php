@@ -11,6 +11,7 @@ namespace MaxtDesign\Mfa\Auth;
 
 use MaxtDesign\Mfa\Flow\EmailRecovery;
 use MaxtDesign\Mfa\Log\Logger;
+use MaxtDesign\Mfa\Policy\Policy;
 use MaxtDesign\Mfa\Support\Clock;
 
 defined( 'ABSPATH' ) || exit;
@@ -109,7 +110,8 @@ final class Completion {
 			Logger::log( 'challenge_ok', $user->ID, $factor, $record->context() );
 			do_action( 'mdmfa_login_completed', $user, $factor, $record->context() );
 		} else {
-			Logger::log( 'grace_skipped', $user->ID, '', $record->context() );
+			// No factor: a skip during the setup period, or a policy relaxed since the password step.
+			Logger::log( Policy::GRACE === $record->string( 'decision' ) ? 'grace_skipped' : 'password_only', $user->ID, '', $record->context() );
 		}
 
 		return true;

@@ -196,13 +196,23 @@ abstract class E2eTestCase extends TestCase {
 	}
 
 	/**
-	 * The 6-digit code in the newest mail to an address.
+	 * The 8-digit code in the newest code mail to an address.
 	 */
 	protected static function mailed_code( string $address ): string {
-		$mail = self::mail_to( $address );
-		self::assertNotSame( array(), $mail, "no mail to {$address}" );
-		self::assertSame( 1, preg_match( '/\b(\d{6})\b/', end( $mail )['message'], $m ), 'the mail carries a 6-digit code' );
-		return $m[1];
+		foreach ( array_reverse( self::mail_to( $address ) ) as $mail ) {
+			if ( 1 === preg_match( '/\b(\d{8})\b/', $mail['message'], $m ) ) {
+				self::assertSame( 0, preg_match( '/\d{8}/', $mail['subject'] ), 'the code is never in the subject' );
+				return $m[1];
+			}
+		}
+		self::fail( "no code mail to {$address}" );
+	}
+
+	/**
+	 * A well-formed email code that is not the given one.
+	 */
+	protected static function other_code( string $code ): string {
+		return '00000000' === $code ? '11111111' : '00000000';
 	}
 
 	/**

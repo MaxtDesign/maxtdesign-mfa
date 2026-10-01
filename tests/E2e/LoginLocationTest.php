@@ -132,6 +132,9 @@ final class LoginLocationTest extends E2eTestCase {
 	}
 
 	public function test_recovery_mode_link_points_at_wp_login_php_and_works(): void {
+		if ( '1' === self::eval( 'echo is_multisite() ? "1" : "0";' ) ) {
+			self::markTestSkipped( 'Core does not initialise recovery mode on multisite (wp-settings.php).' );
+		}
 		$url = self::eval( '$ls = new WP_Recovery_Mode_Link_Service( new WP_Recovery_Mode_Cookie_Service(), new WP_Recovery_Mode_Key_Service() ); echo $ls->generate_url();' );
 
 		self::assertStringContainsString( 'wp-login.php?action=enter_recovery_mode', $url, 'core handles this link before plugins load, so it must stay on wp-login.php' );

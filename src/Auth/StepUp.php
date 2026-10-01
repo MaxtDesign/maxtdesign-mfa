@@ -74,6 +74,20 @@ final class StepUp {
 	 * @return string 'ok', 'wait' or 'invalid'.
 	 */
 	public static function verify( int $user_id, string $method, string $code ): string {
+		$outcome = Lockout::with_lock( $user_id, static fn (): string => self::attempt( $user_id, $method, $code ) );
+
+		// A busy lock means another attempt for this user is in flight.
+		return $outcome ?? 'wait';
+	}
+
+	/**
+	 * One step-up attempt, run under the per-user lock.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $method  Method.
+	 * @param string $code    Submitted code or credential JSON.
+	 */
+	private static function attempt( int $user_id, string $method, string $code ): string {
 		if ( Lockout::blocked_until( $user_id ) > 0 ) {
 			return 'wait';
 		}

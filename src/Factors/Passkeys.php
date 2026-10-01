@@ -225,6 +225,12 @@ final class Passkeys {
 		if ( ! $vetted instanceof \WP_User || ( is_multisite() && is_user_spammy( $user ) ) ) {
 			return $generic;
 		}
+		// The password path consults `authenticate`; this one has no password to offer it,
+		// so plugins that veto logins (blocked users, IP rules) get their own filter.
+		$allowed = apply_filters( 'mdmfa_passwordless_user', $user );
+		if ( ! $allowed instanceof \WP_User || $allowed->ID !== $user->ID ) {
+			return $generic;
+		}
 
 		return $user;
 	}
@@ -256,7 +262,8 @@ final class Passkeys {
 		}
 		$issued = Cbor::uint( 'N', substr( $body, 20, 4 ) );
 		$age    = Clock::now() - $issued;
-		if ( $age < 0 || $age > self::CHALLENGE_TTL ) {
+		// Strictly younger than the marker row's own expiry, so a purge cannot reopen it.
+		if ( $age < 0 || $age >= self::CHALLENGE_TTL ) {
 			return false;
 		}
 		$inserted = $wpdb->query(
@@ -387,7 +394,10 @@ final class Passkeys {
 			do_action( 'mdmfa_passkey_counter_anomaly', $user, (int) $row['id'] );
 			$settings = Settings::get();
 			PasskeyStore::used( (int) $row['id'], max( $result->sign_count, (int) $row['sign_count'] ), $result->bs, true );
-			return empty( $settings['counter_anomaly_block'] );
+			// A passkey that cannot be synced has exactly one copy, so a counter that
+			// did not grow means a clone: refused. Synced passkeys (backup eligible) are
+			// flagged and allowed unless the owner chose to block them too.
+			return ! empty( $row['be'] ) && empty( $settings['counter_anomaly_block'] );
 		}
 		PasskeyStore::used( (int) $row['id'], $result->sign_count, $result->bs, false );
 

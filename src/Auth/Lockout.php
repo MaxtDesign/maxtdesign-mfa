@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace MaxtDesign\Mfa\Auth;
 
-use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Notify\Mailer;
+use MaxtDesign\Mfa\Log\Logger;
 use MaxtDesign\Mfa\Settings\Settings;
 use MaxtDesign\Mfa\Support\Clock;
 
@@ -31,6 +31,43 @@ final class Lockout {
 
 	/** Longest backoff between attempts before the lock threshold. */
 	public const MAX_BACKOFF = 900;
+
+	/**
+	 * Runs a factor check while holding a per-user database lock, so parallel requests
+	 * cannot each read the counter before any of them writes it. Returns null when the
+	 * lock is busy (another attempt for this user is in flight): the caller refuses.
+	 * A database without named locks runs the check unlocked.
+	 *
+	 * @template T
+	 * @param int          $user_id User ID.
+	 * @param callable():T $check   The check, including its failure accounting.
+	 * @return T|null
+	 */
+	public static function with_lock( int $user_id, callable $check ): mixed {
+		global $wpdb;
+
+		$name = 'mdmfa_u' . $user_id . '_' . substr( md5( ( defined( 'DB_NAME' ) ? (string) constant( 'DB_NAME' ) : '' ) . $wpdb->base_prefix ), 0, 12 );
+		$got  = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a named lock, not data.
+		if ( null !== $got && '1' !== (string) $got ) {
+			return null;
+		}
+		if ( null === $got && false === get_transient( 'mdmfa_lock_unavailable' ) ) {
+			// Recorded once a day: on this database the counters are not exact under
+			// parallel attempts.
+			set_transient( 'mdmfa_lock_unavailable', 1, DAY_IN_SECONDS );
+			Logger::log( 'lock_unavailable', $user_id, '', '', null, 'GET_LOCK' );
+		}
+		// This request read the user's meta before it held the lock. Drop that copy, so
+		// the counter, the TOTP step and the email-code state are read fresh inside it.
+		wp_cache_delete( $user_id, 'user_meta' );
+		try {
+			return $check();
+		} finally {
+			if ( null !== $got ) {
+				$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a named lock, not data.
+			}
+		}
+	}
 
 	/**
 	 * Current state, with defaults.

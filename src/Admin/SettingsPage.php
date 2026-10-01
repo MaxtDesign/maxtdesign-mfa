@@ -40,6 +40,8 @@ final class SettingsPage {
 		add_action( 'admin_menu', array( self::class, 'menu' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'assets' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( MDMFA_FILE ), array( self::class, 'action_links' ) );
+		// Network-active plugins are listed in the network admin only.
+		add_filter( 'network_admin_plugin_action_links_' . plugin_basename( MDMFA_FILE ), array( self::class, 'action_links' ) );
 	}
 
 	/**
@@ -161,7 +163,8 @@ final class SettingsPage {
 	public static function url( string $tab = '', array $args = array() ): string {
 		$query = array_merge( array( 'page' => self::SLUG ), '' !== $tab ? array( 'tab' => $tab ) : array(), $args );
 
-		return add_query_arg( $query, admin_url( self::in_suite() ? 'admin.php' : 'users.php' ) );
+		// Always the site's own admin: in the network admin this links to the main site's page.
+		return add_query_arg( $query, get_admin_url( get_current_blog_id(), self::in_suite() ? 'admin.php' : 'users.php' ) );
 	}
 
 	/**

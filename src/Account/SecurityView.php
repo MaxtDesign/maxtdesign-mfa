@@ -74,7 +74,7 @@ final class SecurityView {
 					: __( 'Your authenticator app is set up.', 'maxtdesign-mfa' )
 			) . '</p>';
 			self::button_form( $form_url, 'totp_remove', __( 'Remove authenticator app', 'maxtdesign-mfa' ), $ui['danger'] );
-		} elseif ( 'totp' === $view && null !== TotpStore::pending( $user->ID ) ) {
+		} elseif ( 'totp' === $view && null !== TotpStore::pending( $user->ID ) && ( ! $enrolled || StepUp::is_fresh( $user->ID ) ) ) {
 			echo Fragments::totp_setup( (string) TotpStore::pending( $user->ID ), $user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally.
 			self::form_start( $form_url, 'totp_confirm' );
 			echo Fragments::code_field( 'mdmfa_code', __( 'Code from the app', 'maxtdesign-mfa' ), false, $ui['input'], $ui['row'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
@@ -212,6 +212,9 @@ final class SecurityView {
 			return;
 		}
 		echo '<h3>' . esc_html__( 'Email codes', 'maxtdesign-mfa' ) . '</h3>';
+		if ( ! $has && EmailCode::enrolled( $user->ID ) ) {
+			echo '<p><strong>' . esc_html__( 'Your email address changed, so codes are not sent to it yet. Confirm the new address to use email codes again.', 'maxtdesign-mfa' ) . '</strong></p>';
+		}
 		if ( $has ) {
 			/* translators: %s: masked email address. */
 			echo '<p>' . esc_html( sprintf( __( 'Sign-in codes can be sent to %s.', 'maxtdesign-mfa' ), EmailCode::masked( $user->user_email ) ) ) . '</p>';
