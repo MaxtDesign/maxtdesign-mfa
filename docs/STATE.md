@@ -79,6 +79,8 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   exemption is per user. Email codes are 8 digits (plan 10.1). The login is not moved on plain
   permalinks at install. The Jetpack SSO flag is mirrored into the autoloaded login option.
   The privacy eraser anonymises log rows instead of deleting them.
+- 2026-10-01 (operator): the conflict detector warns and keeps enforcing this plugin's policy
+  when another two-step plugin is active. It never stands down.
 - 2026-10-01 (operator): no paid external review. Passkeys ship as an opt-in beta, second step
   only; passkey-only sign-in behind `MDMFA_PASSKEY_ONLY_SIGNIN`. No "audited" or "reviewed"
   claim anywhere. Plan decision 4 amended in place. The beta label and the constant go when an
@@ -91,8 +93,7 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
    Policy, add a passkey on Users, My security with each device you have, and sign in with it
    as the second step. Also walk the settings tabs with the keyboard only. Junction-mounted:
    deactivate, never delete.
-3. [operator] Conflict detector: still undecided. Built as warn and keep enforcing (Flags).
-   Also say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
+3. [operator] Say which UNVERIFIED matrix cells matter for 1.0 (connected Jetpack, Pressable,
    paid membership plugins, subdomain networks, block checkout new-account).
 4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
 5. [session] P9 after the manual pass: wp.org screenshots (needs a visible browser), remove the
@@ -186,10 +187,6 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 - 2026-10-01 (P7): the status scans at most 1,000 users for unverified sessions and 5,000 for
   the enrolled lists; larger sites get `sessions_truncated`. Fine for the cache, worth a look in
   P8's footprint audit.
-- 2026-09-30 (P6, needs operator decision): the plan says the conflict detector should "warn and
-  do not co-enforce". Built as: warn, and keep enforcing this plugin's policy. The other reading
-  (stand down when another 2FA plugin is active) would let any such plugin switch MFA off, so it
-  was not built. Confirm or change.
 - 2026-09-30 (P6): plan 4.3 lists "sign out everywhere" as a trusted-device revocation trigger.
   Core has no hook for destroying all sessions; since P7 the Coverage action does both.
 - 2026-09-30 (P6): `WP_Application_Passwords::create_new_application_password()` does not check
