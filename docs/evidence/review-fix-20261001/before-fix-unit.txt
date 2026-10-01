@@ -1,0 +1,138 @@
+# New unit tests against UNFIXED main f179387 (PHP 8.3.29, PHPUnit 11.5.56).
+# Two shims only, so the tests can load: NONCE_ADMIN and NONCE_WC alias the old shared nonce action, and Policy::forget() is an empty method.
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.29
+Configuration: C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\phpunit.xml.dist
+
+F.F.FF.FFFFFFF.FFF.                                               19 / 19 (100%)
+
+Time: 00:00.776, Memory: 12.00 MB
+
+Network Policy (MaxtDesign\Mfa\Tests\Unit\Policy\NetworkPolicy)
+ ✘ The reviews reproduction a strict staff site and a lenient customer site
+   │ entering through the customer site
+   │ Failed asserting that two arrays are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │  Array &0 [
+   │      'policy' => 'required',
+   │ -    'grace_days' => 0,
+   │ -    'email_recovery' => false,
+   │ -    'recovery_wait' => 24,
+   │ -    'app_passwords' => false,
+   │ +    'grace_days' => 7,
+   │ +    'email_recovery' => true,
+   │ +    'recovery_wait' => 0,
+   │ +    'app_passwords' => true,
+   │      'trusted_devices' => false,
+   │      'trusted_seconds' => 2592000,
+   │ -    'email_codes' => false,
+   │ +    'email_codes' => true,
+   │      'totp' => true,
+   │      'passkey' => false,
+   │      'passwordless' => false,
+   │  ]
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:133
+ ✘ A reset restarts the strict grace not the lenient one
+   │ Failed asserting that 604800 is identical to 0.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:147
+ ✘ Sites of equal rank keep each others restrictions
+   │ Failed asserting that two arrays are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │      'grace_days' => 3,
+   │      'email_recovery' => true,
+   │      'recovery_wait' => 48,
+   │ -    'app_passwords' => false,
+   │ +    'app_passwords' => true,
+   │      'trusted_devices' => true,
+   │      'trusted_seconds' => 604800,
+   │ -    'email_codes' => false,
+   │ +    'email_codes' => true,
+   │      'totp' => true,
+   │      'passkey' => true,
+   │      'passwordless' => false,
+   │  ]
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:202
+ ✘ Grace comes only from sites that require setup
+   │ site 2
+   │ Failed asserting that 0 is identical to 5.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:225
+ ✘ A sites application password mode cannot open the door for another sites staff
+   │ the administrator of site 1 authenticating on site 2
+   │ Failed asserting that true is false.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:240
+ ✘ Sites that share no strong method still let a required user enroll
+   │ site 2: an authenticator app stays available
+   │ Failed asserting that false is true.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:260
+ ✘ A super admin is required and still bound by every sites restrictions
+   │ site 2
+   │ Failed asserting that true is false.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:275
+ ✔ A member of one site gets exactly that sites configuration
+ ✘ A site that accepts passwords over xmlrpc cannot open that for another sites staff
+   │ site 1 still blocks account passwords
+   │ Failed asserting that null is false.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:311
+ ✘ Every site counts however many there are
+   │ Failed asserting that two strings are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │ -'required'
+   │ +'optional'
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:325
+ ✘ A capability that is not a role does not change which role governs
+   │ site 1 reads site 2 the way site 2 reads itself
+   │ Failed asserting that two strings are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │ -'optional'
+   │ +'required'
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:338
+ ✔ Reading other sites never switches blogs
+
+Presenter Dispatch (MaxtDesign\Mfa\Tests\Unit\Account\PresenterDispatch)
+ ✘ First authenticator setup in wp admin runs once and shows the codes there
+   │ no redirect: the codes render in this response
+   │ Failed asserting that two arrays are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │  Array &0 [
+   │      'wc' => '',
+   │ -    'admin' => '',
+   │ +    'admin' => 'redirect:https://example.test/wp-admin/users.php?page=mdmfa-account&mdmfa_notice=setup_expired',
+   │  ]
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Account\PresenterDispatchTest.php:117
+ ✔ First authenticator setup on my account runs once and shows the codes there
+ ✘ A wp admin post redirects to wp admin not to my account
+   │ Failed asserting that two strings are identical.
+   │ --- Expected
+   │ +++ Actual
+   │ @@ @@
+   │ -''
+   │ +'redirect:https://example.test/my-account/login-security/?view=totp'
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Account\PresenterDispatchTest.php:145
+ ✔ A my account post redirects to my account
+ ✘ Every operation posted from wp admin is left to the wp admin page
+   │ WooCommerce's handler acted on a wp-admin totp_begin: redirect:https://example.test/my-account/login-security/?view=totp
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Account\PresenterDispatchTest.php:175
+ ✘ Each presenter refuses the other presenters form
+   │ Failed asserting that true is false.
+   │ C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Account\PresenterDispatchTest.php:188
+ ✔ Only the signed in users own account is touched
+
+1 test triggered 1 PHP warning:
+
+1) C:\Users\it\AppData\Local\Temp\claude\C--maxt-projects-plugin-maxtdesign-mfa\29049bc8-a3cd-4473-b3bc-2901dc7e7334\scratchpad\base\tests\Unit\Policy\NetworkPolicyTest.php:311
+Undefined array key "xmlrpc_password"
+
+FAILURES!
+Tests: 19, Assertions: 41, Failures: 14, Warnings: 1.

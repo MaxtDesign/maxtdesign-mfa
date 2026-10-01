@@ -1,0 +1,25 @@
+# New and existing presenter tests against UNFIXED main
+# plugin under test: main f179387
+# WordPress 7.1.2 + WooCommerce 10.9.4; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-01T20:14Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 00:47.328, Memory: 10.00 MB
+Security Presenters (MaxtDesign\Mfa\Tests\E2eWc\SecurityPresenters)
+ ✘ First authenticator setup in wp admin shows the recovery codes there once
+   │ the codes render in this response, on the wp-admin page: http://127.0.0.1:8080/wp-admin/users.php?page=mdmfa-account&mdmfa_notice=setup_expired
+   │ Failed asserting that 302 is identical to 200.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2eWc\SecurityPresentersTest.php:143
+ ✔ First authenticator setup in wp admin on plain woocommerce
+ ✘ Wp admin step up and new recovery codes stay in wp admin
+   │ Failed asserting that actual size 0 matches expected size 10.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2eWc\SecurityPresentersTest.php:191
+ ✘ First passkey in wp admin shows the recovery codes there once
+   │ the codes render on the wp-admin page: http://127.0.0.1:8080/wp-admin/users.php?page=mdmfa-account&mdmfa_notice=setup_expired
+   │ Failed asserting that 302 is identical to 200.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2eWc\SecurityPresentersTest.php:235
+ ✔ My account setup step up and new codes stay on my account
+ ✘ Each presenter accepts only its own form
+   │ each screen binds its forms to itself
+   │ Failed asserting that two strings are not identical.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2eWc\SecurityPresentersTest.php:284
+Tests: 6, Assertions: 68, Failures: 4.

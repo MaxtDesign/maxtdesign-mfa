@@ -1,0 +1,21 @@
+# The reviewer's reproduce.php, unmodified (sha256 3607801f...), run against the fix 6a30b32.
+{
+    "wc_admin_form_collision": {
+        "admin_request": true,
+        "totp_saved_by_wc_handler": false,
+        "recovery_codes_held_by_wc_presenter": 0,
+        "codes_held_by_admin_presenter": 10,
+        "recovery_codes_in_storage": 10
+    },
+    "network_policy": {
+        "strong_site_role": "administrator",
+        "strong_site_email_recovery": false,
+        "strong_site_grace_days": 0,
+        "current_site_role": "customer",
+        "effective_policy": "required",
+        "effective_grace_days": 0,
+        "effective_email_recovery_allowed": false,
+        "effective_recovery_wait_hours": 24,
+        "effective_app_passwords": false
+    }
+}
