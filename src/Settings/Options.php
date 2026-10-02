@@ -29,7 +29,7 @@ final class Options {
 	/** Key id fingerprint only, never key material. */
 	public const KEY_CHECK = 'mdmfa_key_check';
 
-	/** Autoloaded: rewrite-rules version of the My Account Security endpoint. */
+	/** Autoloaded: version and installed rule of the My Account Security endpoint. */
 	public const REWRITE = 'mdmfa_rewrite_version';
 
 	public const ACTIVATED_AT = 'mdmfa_activated_at';

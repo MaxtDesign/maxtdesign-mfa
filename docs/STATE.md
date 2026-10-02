@@ -1,5 +1,30 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-02 by session (access-gate fix on a branch, awaiting independent review)
+Updated: 2026-10-02 by Codex (hosted gate retest and customer rewrite lifecycle fix)
+
+## Network and authentication follow-up — 2026-10-02
+
+The existing-subsite rewrite gap is now fixed and reproduced as repaired on a
+disposable two-site network. The final approach validates a saved endpoint rule in
+core's cached rules; the ordinary network-page probe records zero MFA queries.
+The final artifact also passes hosted staff/customer regressions and remains installed
+but inactive on staging, with synthetic accounts removed and protections preserved.
+See [network rewrite and E2E follow-up](network-rewrite-e2e-20261002.md) for exact
+artifact, validation, fixture mismatches and remaining release checks. This supersedes
+the earlier single-site-only limitation, not the outstanding full E2E/release gates.
+
+## Current follow-up — 2026-10-02
+
+The independent review and hosted retest of `4f16fc4` closed the Basic-auth staff
+login blocker. Staff enrollment/login/logout and customer recovery-code tests passed;
+the customer page initially required a manual rewrite flush. The resulting current-site
+activation fix and its limits are documented in
+[rewrite reactivation](rewrite-reactivation-20261002.md). Local checks pass (334 tests /
+1,764 assertions, PHPStan, PHPCS, asset budgets). Hosted reactivation automatically
+restored missing endpoint rules and the customer Security page returned 200 without a
+manual flush. The final test/cleanup record is in the private evidence directory linked
+from that document. These results supersede the pending-review and never-reactivate
+statements in the earlier entries below; complete E2E and release acceptance remain
+pending. No production or distribution approval is implied.
 
 ## Latest staging evidence — 2026-10-02
 
