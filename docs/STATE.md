@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-01 by session (independent-review fixes merged)
+Updated: 2026-10-02 by session (review fixes and role-tie change merged)
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -15,7 +15,7 @@ Feature complete and reviewed. `main` = P1-P8, passkeys-beta (PR #8) and the fix
 findings of Codex's independent review (`dec193f`, PR #10, merged 2026-10-01 on the operator's
 word): [fix report](review-fix-20261001.md). **The fixes have not been independently
 re-reviewed yet; that is still the gate before any staging install.** The role-tie change is
-PR #12.
+merged too (`0c2b2dc`, PR #12, 2026-10-02; 42 required CI checks green).
 **Distribution is undecided (operator, 2026-10-01): the plugin is not approved for
 WordPress.org and may never go there; no SVN work, no wp.org submission and no 1.0 release
 steps until the operator says where it ships.** Passkeys are an opt-in beta: off per role,
@@ -120,7 +120,7 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 4. [operator] Set the repo default branch to `main` and delete `chore/p1-ci-check`.
 5. [operator] Send `main` for independent re-review of the two findings with
    [review-fix-20261001.md](review-fix-20261001.md) (fix is `6a30b32` inside squash `dec193f`;
-   the role-tie change is PR #12). No staging install before the re-review (the review's
+   the role-tie change is `0c2b2dc`). No staging install before the re-review (the review's
    `STAGING-E2E-PLAN.md` gate 1).
 6. [session, optional] Mark the known compatibility failures as expected so the informational
    `compat` checks stop showing red (Wordfence, Ultimate Member, Limit Login Attempts Reloaded).
@@ -204,7 +204,7 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   WooCommerce does not define `wc_add_notice()` in wp-admin, so the old handler stood down; any
   plugin calling `wc_load_cart()` there makes it fire. The reviewer's shim defined the function
   itself. Whether the MaxtOffroad stack has such a plugin is unchecked.
-- 2026-10-01 (decided, PR #12): role ties on one site used to be
+- 2026-10-01 (decided, merged in `0c2b2dc`, PR #12): role ties on one site used to be
   settled by the order the roles were stored in. They are combined now; see Locked decisions.
 - 2026-10-01: PR #9 (handoff docs) closed as superseded; its commit reached `main` inside #10.
   PR #11 was closed by GitHub when #10's branch was deleted; #12 replaces it.
