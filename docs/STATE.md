@@ -1,6 +1,27 @@
 # STATE: maxtdesign-mfa
 Updated: 2026-10-02 by Codex (hosted gate retest and customer rewrite lifecycle fix)
 
+## Current acceptance summary — 2026-10-02
+
+The owner reports both desktop and mobile checks work. Theme-owned account spacing
+was then corrected and visually checked at 1280/320 pixels without new assets.
+All temporary accounts were removed and staging is inactive again. A fresh read-only
+check confirms the 94 installed files and shipped source still match candidate
+`a93728d`. Checkout/cart isolation and ordinary-route asset deltas also passed in the
+later hosted follow-up. These results supersede older pending statements only for
+those specific checks; exact manual device/browser coverage and native screen-reader
+speech remain unverified.
+
+Release preparation remains gated: the readme's promise that Woo customers never
+use the core login screen needs qualification for the supported hosting Basic-auth
+flow; merge/CI acceptance, production operational readiness and operator approval
+are not established by staging tests. External WebAuthn review remains unverified,
+passkeys remain opt-in beta and distribution remains undecided. Scoped review,
+evidence reconciliation, rollout/rollback proposal and Claude handoff are maintained
+in the site repository at `docs/handoffs/mfa-release-review-20261002.md`
+(`C:/maxt/projects/website/owned/maxtoffroad`). No production activation, publication
+or broad payment/performance retest was performed for this acceptance summary.
+
 ## Accessibility follow-up — 2026-10-02
 
 **Hosted follow-up complete:** candidate `a93728d` is installed and byte-verified on
