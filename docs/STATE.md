@@ -1,5 +1,5 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-02 by session (review fixes and role-tie change merged)
+Updated: 2026-10-02 by session (access-gate fix on a branch, awaiting independent review)
 
 ## Latest staging evidence — 2026-10-02
 
@@ -11,6 +11,12 @@ for fresh Required-role login before MFA enrollment. Activation rolled back; MFA
 installed but inactive, protections preserved, synthetic user removed. Full E2E is blocked on
 that integration. This supersedes the re-review-pending/install-not-yet-performed statements
 below; distribution and beta restrictions remain unchanged.
+
+**The integration is fixed on branch `fix/http-auth-gate` (`092c9a7`, PR open, not merged),
+awaiting independent review: [fix report](http-auth-gate-20261002.md).** Reproduced locally
+with the same gate plugin (staff 401 on `main`), fixed, and verified on a disposable site and
+on plugin-test.local. Staging was not touched: the plugin is still installed and inactive
+there, and nothing may be reactivated before the review.
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -107,6 +113,12 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 - 2026-10-01 (operator): on one site, roles that tie on policy are combined the way sites are:
   a permission needs every tied role's consent, longest recovery wait, shortest grace. A role
   of lower rank still restricts nothing. Plan 4.1 amended in place.
+- 2026-10-02 (gate fix): a password that a known access gate authenticates from the request's
+  HTTP Basic credentials is a login context of its own (`http-auth`): correct password, then
+  the second step, never a session from the gate. Known gates: `Pressable_Basic_Auth`
+  (Hosting Basic Authentication), filter `mdmfa_http_auth_gates`; anything else is refused as
+  before. Trusted devices are not used behind a gate. Staff and customers both get the core
+  challenge screen there.
 - 2026-10-01 (operator): distribution channel is TBD. Not approved for WordPress.org and may
   never be listed there, depending on other work in progress. P9's SVN and submission steps
   are on hold. If the channel changes (private, Pro via `lic`, or bundled), the plugin shape in
@@ -151,6 +163,23 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   The plugin makes no outbound HTTP.
 
 ## Verification state
+- 2026-10-02, access-gate fix, `092c9a7`, local ([report](http-auth-gate-20261002.md), files in
+  [evidence/http-auth-gate-20261002/](evidence/http-auth-gate-20261002/)):
+  - Reproduction: on `main` `6c2be3b` with the real Hosting Basic Authentication 1.0.5, 5 of 8
+    gate tests fail (staff get 401).
+  - Fix, disposable site (WP 7.1.2 + WC 10.9.4): real gate 8 pass (187 assertions), 1 skipped;
+    fixture gate 9 pass (202 assertions). Whole `e2e` (WC off) 83 tests, 912 assertions, 74
+    pass, 8 skipped (network), 1 harness error (bare `wp` on Windows). `e2e-wc` 18 tests, 488
+    assertions, pass.
+  - Fix, plugin-test.local with the real gate and the site's 14 other plugins: 7 pass (173
+    assertions); recovery and unvouched-gate tests not run there (need fixtures). Site
+    restored afterwards; the plugin's tables and options now exist there.
+  - Unit: **332 tests, 1,761 assertions**. PHPStan L8 0, PHPCS 0, size check pass, outbound 0.
+  - A separate read-only security pass: 0 Critical/High, 1 Medium, 5 Low; all addressed in
+    `092c9a7` except one Low left by choice (see the report).
+  - UNVERIFIED: the stage itself (WC 11.1.2, PHP 8.3.35, object cache, WordPress.com
+    mu-plugins, plugin load order), a real browser's Basic-auth dialog, other gates,
+    multisite and passkeys behind a gate.
 - 2026-10-01, review fixes, `6a30b32`, local ([report](review-fix-20261001.md), files in
   [evidence/review-fix-20261001/](evidence/review-fix-20261001/)):
   - Unit: **324 tests, 1,691 assertions** on PHP 8.3.29 (19 new; 14 of them fail on `main`).
@@ -208,6 +237,12 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-02 (FIXED on branch, awaiting independent review): Hosting Basic Authentication
+  calls `wp_authenticate()` on `plugins_loaded`; the plugin refused it as a non-interactive
+  login, so staff got 401 forever. The staging matrix is still blocked until this is reviewed.
+- 2026-10-02: the whole `e2e` suite is written for a site without WooCommerce; run on a
+  WooCommerce site it shows 12 failures that are not defects (WooCommerce keeps non-staff out
+  of wp-admin). Run it with WooCommerce off, as CI does.
 - 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; HIGH, from Codex's independent
   review of `242d761`): on multisite the network floor raised only the policy mode.
 - 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; MEDIUM, same review): WooCommerce's

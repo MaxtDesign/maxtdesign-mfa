@@ -86,6 +86,12 @@ Yes, network-activated only. Each site has its own settings page and its own log
 
 Permissions to enroll a method are combined the same way, with one exception: if a Required user's sites or tied roles have no authenticator-app or passkey method in common, authenticator-app enrollment remains available so the user can complete setup. This can allow it despite one site's passkey-only enrollment preference. Enrollment permissions do not revoke existing authenticator apps or passkeys. Recovery codes remain available. Visiting a site the user does not belong to can add restrictions from that site's settings. Only super admins can reset or unlock other users.
 
+= Does it work behind my host's password prompt (HTTP Basic authentication)? =
+
+Yes, with the one this was built for. Some hosts put a password prompt in front of a staging site that checks your WordPress username and password; WordPress.com and Pressable call theirs Hosting Basic Authentication. The prompt keeps doing its job: nobody gets past it without a valid password. A valid password alone still does not sign in an account that needs two-step verification. You are sent to the code screen, or to setup, and the session starts only after that.
+
+Two things differ behind such a prompt. Trusted devices are not used, so the code is asked for at every sign-in. And only that plugin is recognised: any other code that checks a password this way is refused for accounts that need the second step, as before. A developer can vouch for another gate with the `mdmfa_http_auth_gates` filter.
+
 = Where are the settings? =
 
 Under Users, Login security (MFA). Each user manages their own methods under Users, My security, and customers under My Account, Security.
@@ -144,6 +150,7 @@ This plugin is published on WordPress.org by the account `slaacr`, which is Maxt
 * New: a public login page of your choice, so login links shown to visitors do not have to reveal the login address.
 * New: privacy tools. Suggested privacy policy text, a personal data export (methods, passkey names and dates, log entries, never secrets) and erasure of log entries.
 * New: `wp mdmfa status` reports policy and counts per role, lockouts and side doors, with no secrets, user names or login address in it.
+* New: works behind Hosting Basic Authentication, the password prompt some hosts put in front of staging sites. A correct password leads to the second step, never straight to a session.
 * New: on a multisite network the strictest settings among a user's sites apply everywhere (policy, setup period, email recovery and its wait, application passwords, trusted devices, sign-in methods), and the plugin is network-activated only.
 * New: first activation emails the new login address to every administrator. On plain permalinks the login is not moved.
 * New: `wp mdmfa key status`, `export-define` and `rewrap`, so the encryption key can be pinned or replaced without breaking authenticator apps, and `wp mdmfa recovery-codes` for a locked-out owner.
