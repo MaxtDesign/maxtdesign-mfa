@@ -94,7 +94,7 @@ do_action( 'woocommerce_before_customer_login_form' ); // phpcs:ignore WordPress
 				$mdmfa_intro = __( 'Enter one of your recovery codes.', 'maxtdesign-mfa' );
 				$mdmfa_label = __( 'Recovery code', 'maxtdesign-mfa' );
 			} elseif ( 'email' === $mdmfa_state->method ) {
-				$mdmfa_intro = __( 'Enter the 6-digit code from the email.', 'maxtdesign-mfa' );
+				$mdmfa_intro = __( 'Enter the 8-digit code from the email.', 'maxtdesign-mfa' );
 				$mdmfa_label = __( 'Code from the email', 'maxtdesign-mfa' );
 			}
 			?>

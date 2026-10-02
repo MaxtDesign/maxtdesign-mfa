@@ -110,6 +110,8 @@ final class EmailAndTrustTest extends E2eTestCase {
 
 		$sent = $this->verify_post( $next, 'email', array( 'mdmfa_send' => '1' ) );
 		self::assertStringContainsString( 'We sent a code to ' . substr( $login, 0, 1 ) . '***@example.com', $sent->body );
+		self::assertStringNotContainsString( 'aria-describedby="login_error"', $sent->body, 'an informational message must not reference an absent error notice' );
+		self::assertStringNotContainsString( 'aria-invalid="true"', $sent->body );
 		self::assertCount( 3, self::mail_to( $address ) );
 		$code = self::mailed_code( $address );
 

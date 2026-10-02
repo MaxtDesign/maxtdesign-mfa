@@ -450,6 +450,7 @@ final class CustomerPathTest extends E2eTestCase {
 		$sent = $next->post( $url, array( 'mdmfa_wc' => '1', 'mdmfa_form' => $challenge->form_token(), 'mdmfa_send' => '1' ) );
 		$sent = 302 === $sent->status ? $next->get( $sent->location() ) : $sent;
 		self::assertStringContainsString( 'woocommerce-message', $sent->body, 'the "sent" note is a message, not an error' );
+		self::assertStringContainsString( 'Enter the 8-digit code from the email.', $sent->body );
 		$ok = $next->post( $url, array( 'mdmfa_wc' => '1', 'mdmfa_form' => $sent->form_token(), 'mdmfa_code' => self::mailed_code( $address ) ) );
 		self::assertSame( 302, $ok->status, substr( strip_tags( $ok->body ), 0, 400 ) );
 		self::assertTrue( $ok->sets_cookie_prefix( 'wordpress_logged_in_' ) );

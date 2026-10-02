@@ -1,6 +1,19 @@
 # STATE: maxtdesign-mfa
 Updated: 2026-10-02 by Codex (hosted gate retest and customer rewrite lifecycle fix)
 
+## Accessibility follow-up — 2026-10-02
+
+Local browser review reproduced and fixed three presentation issues: passkey failure
+feedback now receives focus with alert semantics, core invalid-code inputs reference
+their error notice, and WooCommerce correctly requests eight-digit email codes.
+Both presenters passed automated enrollment/recovery keyboard flows and the sampled
+320-pixel layouts; 334 unit tests, three targeted E2E tests, PHPStan, PHPCS and size
+gates pass. See [accessibility follow-up](accessibility-followup-20261002.md) for exact
+scope, evidence, environment retries and limitations. These fixes are not yet installed
+on staging; staging retains the prior inactive candidate. Native screen-reader speech,
+physical-device passkeys and actual browser Basic-auth-dialog interaction remain
+unverified; distribution and beta gates remain unchanged.
+
 ## Network and authentication follow-up — 2026-10-02
 
 The existing-subsite rewrite gap is now fixed and reproduced as repaired on a
