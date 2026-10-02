@@ -1,5 +1,19 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-02 by Codex (hosted gate retest and customer rewrite lifecycle fix)
+Updated: 2026-10-02 by Claude Code (release candidate 3f3dbe3)
+
+## Release candidate — 2026-10-02 (Claude Code, continuing Codex's release review)
+
+Candidate `3f3dbe3` on local branch `codex/mfa-rewrite-lifecycle` (not pushed): PR #14's gate
+fix, Codex's rewrite repair and accessibility changes, the readme qualification for the gate
+flow, and one fix to Codex's repair (a rebuild that finds no rule is retried once a day, not on
+every request). Zip `_build/maxtdesign-mfa-0.1.0.zip`, 94 files, SHA-256 `14bfa5e8…d956d9`,
+all files match the commit; preflight PASS. Local: unit 334 tests, `e2e-wc` 20 pass, gate tests
+with the real gate 8 pass, `e2e` 74 of 83 pass (8 network skips, 1 harness error). CI on PR #14
+green on re-run (the first failure was the setup action failing to fetch wp-cli). Full record,
+open gates and the rollout/rollback proposal: [release-readiness-20261002.md](release-readiness-20261002.md).
+Open: CI on the pushed candidate, merge acceptance, native screen readers, WebAuthn review,
+owner decisions (target, cohort, channel), production email. Nothing pushed, merged, published
+or activated.
 
 ## Current acceptance summary — 2026-10-02
 

@@ -1,0 +1,18 @@
+# HttpAuthGateTest with the real Hosting Basic Authentication 1.0.5
+# plugin under test: 3f3dbe3 (built with .distignore)
+# WordPress 7.1.2 + WooCommerce 10.9.4; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-02T23:02Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 01:21.833, Memory: 10.00 MB
+Http Auth Gate (MaxtDesign\Mfa\Tests\E2e\HttpAuthGate)
+ ✔ The gate still keeps out anyone without a correct password
+ ✔ An account that needs no second step passes the gate as before
+ ✔ Fresh staff reach setup through the gate and get a session only after it
+ ✔ A correct password alone never becomes a session for enrolled staff
+ ✔ Staff past the setup period cannot skip setup through the gate
+ ✔ Logging out ends the session and the next visit needs the second step again
+ ✔ Email recovery works behind the gate and signs nobody in
+ ↩ A gate nobody vouched for is refused as before
+ ✔ Without a gate basic credentials on a page request mean nothing
+OK, but some tests were skipped!
+Tests: 9, Assertions: 187, Skipped: 1.

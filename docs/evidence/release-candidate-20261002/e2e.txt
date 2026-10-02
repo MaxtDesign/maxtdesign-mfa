@@ -1,0 +1,93 @@
+# Whole e2e suite, WooCommerce off (CI's configuration)
+# plugin under test: 3f3dbe3 (built with .distignore)
+# WordPress 7.1.2; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-02T23:03Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 04:03.032, Memory: 12.00 MB
+Admin (MaxtDesign\Mfa\Tests\E2e\Admin)
+ ✔ One menu entry under users with tabs and scoped assets
+ ✔ Only managers reach the page and its actions
+ ✔ Policy save validates and shows in status
+ ✔ Side doors recovery factors and log settings save
+ ✔ A request without the nonce changes nothing
+ ✔ An enrolled administrator needs a recent verification to change settings
+ ✔ Login address change and public login page
+ ✔ Coverage resets unlocks and signs users out
+ ✔ Status matches the admin counts and holds no secret
+ ✔ Privacy export and erase
+Audit Regression (MaxtDesign\Mfa\Tests\E2e\AuditRegression)
+ ✔ Someone elses application password does not exempt a victims password
+ ✔ Wp login php cannot be reached through action confusion
+ ✔ A failed front end login does not reveal the login address
+ ✔ Application password creation is guarded whatever the route looks like
+ ✔ Changing the email address switches email codes off and closes recovery
+ ✔ Parallel wrong codes all count toward the lockout
+ ✔ Install emails the address and never moves the login on plain permalinks
+ ✔ Key commands keep authenticators working when the key is pinned or replaced
+Email And Trust (MaxtDesign\Mfa\Tests\E2e\EmailAndTrust)
+ ✔ Email codes are not offered to staff roles
+ ✔ Turn on email codes then sign in with one
+ ✔ Email send limit is three per fifteen minutes
+ ✔ Trusted device skips the challenge until the password changes
+ ✔ Trusted devices are not offered unless the role allows them
+ ✔ Forgetting and factor removal revoke trusted devices
+ ✔ Email recovery resets factors after the link is confirmed
+ ✔ Email recovery waits for staff and a real sign in cancels it
+ ✔ Email recovery is not offered to staff by default
+Http Auth Gate (MaxtDesign\Mfa\Tests\E2e\HttpAuthGate)
+ ✔ The gate still keeps out anyone without a correct password
+ ✔ An account that needs no second step passes the gate as before
+ ✔ Fresh staff reach setup through the gate and get a session only after it
+ ✔ A correct password alone never becomes a session for enrolled staff
+ ✔ Staff past the setup period cannot skip setup through the gate
+ ✔ Logging out ends the session and the next visit needs the second step again
+ ✔ Email recovery works behind the gate and signs nobody in
+ ✔ A gate nobody vouched for is refused as before
+ ✔ Without a gate basic credentials on a page request mean nothing
+Login Flow (MaxtDesign\Mfa\Tests\E2e\LoginFlow)
+ ✔ Optional unenrolled user signs in with password only
+ ✔ Correct password creates no session until the second factor
+ ✔ Pending record is single use under two concurrent requests
+ ✔ Fifth wrong code burns the record and the sixth attempt fails
+ ✔ Twentieth consecutive failure locks the second factor
+ ✔ A totp code cannot be replayed
+ ✔ Recovery code signs in once
+ ✔ Bypass guard blocks a direct auth cookie and sends the user to the challenge
+ ✔ Bypass guard allows cores cookie reissue on password change
+ ✔ Interim login completes with the core success page
+ ✔ Required user in grace can skip once without a stamp
+ ✔ Required user past grace must enroll before the session starts
+ ✔ Xmlrpc password auth is refused for an enrolled user
+ ✔ Escape hatch restores password only login
+ ✔ Front end pages carry nothing from the plugin
+ ✔ Front end requests run no plugin queries
+Login Location (MaxtDesign\Mfa\Tests\E2e\LoginLocation)
+ ✔ Request matrix of plan section 5 2
+ ✔ Slug serves core login with no store headers and is login
+ ✔ Admins log in at the slug and links follow
+ ✔ Public login links point at the slug on a site without woocommerce
+ ✔ Password protected post still unlocks through wp login php
+ ✔ Privacy confirmation email links to the allow listed action
+ ✔ Recovery mode link points at wp login php and works
+ ✘ Slug change purges caches emails admins and moves the login
+   │ TypeError: stream_get_contents(): Argument #1 ($stream) must be of type resource, null given
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\LoginLocationTest.php:206
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\LoginLocationTest.php:168
+ ✔ Recovery constants
+Passkey (MaxtDesign\Mfa\Tests\E2e\Passkey)
+ ✔ Passkeys are off until the owner allows them for a role
+ ✔ Passkey only sign in stays off without the site owners constant
+ ✔ Passkey added on my security then used as the second factor
+ ✔ Adding a passkey to an enrolled account needs a recent verification
+ ✔ Passwordless sign in when the role allows it and replay fails
+ ✔ Passwordless refusals
+ ✔ Counter anomaly is flagged and logged but not blocked by default
+ ✔ Passkey module loads only where a passkey is offered
+Side Door (MaxtDesign\Mfa\Tests\E2e\SideDoor)
+ ✔ Application passwords follow the role and skip the second step
+ ✔ An account password never works as basic auth
+ ✔ A rest password endpoint is refused for users with a second step
+ ✔ Xmlrpc modes
+ ✔ Creating an application password needs a recent verification
+ ✔ Users without a second step create application passwords as before
+Tests: 83, Assertions: 915, Errors: 1, Warnings: 2, Skipped: 8.

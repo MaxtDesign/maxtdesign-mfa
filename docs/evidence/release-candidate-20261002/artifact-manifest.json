@@ -1,0 +1,481 @@
+{
+    "artifact": "maxtdesign-mfa-0.1.0.zip",
+    "artifact_sha256": "14bfa5e86e47e8adeee755f5511238060ebf5bd7fd2f0f1793cb44b742d956d9",
+    "artifact_bytes": 200821,
+    "source_commit": "3f3dbe353d93dd0b0340149f6606d993ba19df62",
+    "file_count": 94,
+    "files_not_matching_commit": [],
+    "development_paths_shipped": [],
+    "files": {
+        "assets/admin/mdmfa-admin.css": {
+            "sha256": "018367bee5fc0d3d196f40e09783504ef3b1e4a918fce6553bbbdb3d3d95b236",
+            "bytes": 3506,
+            "matches_commit": true
+        },
+        "assets/admin/mdmfa-admin.js": {
+            "sha256": "3e6f3e06df2a3999daa8c2673b0d00425dc56b94766f1d039f7e5d7fbd15c99c",
+            "bytes": 1754,
+            "matches_commit": true
+        },
+        "assets/front/mdmfa-passkey.js": {
+            "sha256": "d0d52928e880f783e85fe29a649bbc4a6af57ea39402aa5be3d6ee58d37f00e2",
+            "bytes": 1850,
+            "matches_commit": true
+        },
+        "languages/index.php": {
+            "sha256": "47bd9cd9c3b9ae5737e9abeb865eb3f7badeb61cac89505e344c1146d6e5bf3a",
+            "bytes": 201,
+            "matches_commit": true
+        },
+        "maxtdesign-mfa.php": {
+            "sha256": "77e53a8931dc6753c14aa23acd4b29f5f84f2f05d902dfd8dd3943367f9d7b1e",
+            "bytes": 1629,
+            "matches_commit": true
+        },
+        "readme.txt": {
+            "sha256": "0bfccf84d9d6734fd8496339f77156c35ccf9a3226ff9b48139b2d2f972b2426",
+            "bytes": 17157,
+            "matches_commit": true
+        },
+        "src/Account/AccountPage.php": {
+            "sha256": "57371c390b9ce8a015161fc14553b10744c644afe4b53ce768628ec6d4298985",
+            "bytes": 4533,
+            "matches_commit": true
+        },
+        "src/Account/SecurityActions.php": {
+            "sha256": "1b8d0d2a57ed22f61b9f58a35ad693d06850ccb293e67bf64ea6144def0cef4b",
+            "bytes": 12417,
+            "matches_commit": true
+        },
+        "src/Account/SecurityView.php": {
+            "sha256": "77076a529c681395d29e5d8d2faa95bb9485fdc9053e78e526faf51e8c06060f",
+            "bytes": 14156,
+            "matches_commit": true
+        },
+        "src/Admin/Actions.php": {
+            "sha256": "6f53aa6db65df4025f65f523db32206d958cedb78ce5d2a6c2fb920383950581",
+            "bytes": 14019,
+            "matches_commit": true
+        },
+        "src/Admin/ReportViews.php": {
+            "sha256": "2478a38005a8e4e9e8c64bbace0219b4584bf66a8292ce5c749a90105128e76d",
+            "bytes": 22260,
+            "matches_commit": true
+        },
+        "src/Admin/SettingsPage.php": {
+            "sha256": "3f5fa25f9e2370a227bdfeb557efc6529e245533149d019dd564b2ab37033177",
+            "bytes": 7524,
+            "matches_commit": true
+        },
+        "src/Admin/SettingsViews.php": {
+            "sha256": "1a426e3cf61bb9e9c8768949d2556a150e7519c62ddaeb85618fa39e066efc73",
+            "bytes": 20322,
+            "matches_commit": true
+        },
+        "src/Admin/Ui.php": {
+            "sha256": "0f59c3fb0494876b551d2c492e2d3513a70273cfe6ea13db73ca3e38e97e2f2d",
+            "bytes": 7580,
+            "matches_commit": true
+        },
+        "src/Auth/BypassGuard.php": {
+            "sha256": "bb1d29ba6d176223ededcf5549880d4e8a49d2684fd07546bdf05f328fed31c9",
+            "bytes": 6667,
+            "matches_commit": true
+        },
+        "src/Auth/ChallengeUrl.php": {
+            "sha256": "4d59239a6ae5d07497fc0f0256d4b6079bb63722002918e369efbb08b58bd5b3",
+            "bytes": 3001,
+            "matches_commit": true
+        },
+        "src/Auth/Completion.php": {
+            "sha256": "8116f6ccacc0bfcca55f397bd86b346898b9034ebb4a156fad05eae4afed7ae2",
+            "bytes": 7813,
+            "matches_commit": true
+        },
+        "src/Auth/Context.php": {
+            "sha256": "51d5c65de367b3832912fda0de4d06ff450ebec31f77dd1785ad5b743276c5ba",
+            "bytes": 3420,
+            "matches_commit": true
+        },
+        "src/Auth/FormToken.php": {
+            "sha256": "8eee821016871f28e886a2fbc19bb181da64fdecf1b238aaf9e12420070b6fd9",
+            "bytes": 1275,
+            "matches_commit": true
+        },
+        "src/Auth/HttpAuth.php": {
+            "sha256": "9445bb5b0c0af0edfaa5c85a7df975c65d066ea56e37f7ef2edcceab773bca71",
+            "bytes": 7553,
+            "matches_commit": true
+        },
+        "src/Auth/Interceptor.php": {
+            "sha256": "0a5c98463e511034165e62b87d1196b0c0648a704ecb13b42ad4babb8ce775ad",
+            "bytes": 9092,
+            "matches_commit": true
+        },
+        "src/Auth/Lockout.php": {
+            "sha256": "bf9ebb01297da637a6580531b6eb7f12a8a41e0e4c7df56ecb0ccf122d459dd5",
+            "bytes": 7224,
+            "matches_commit": true
+        },
+        "src/Auth/PendingCookie.php": {
+            "sha256": "b9c5f85dd97d42338bf989e671d2bd2d060d93c0e555421a480b3d4314a6296d",
+            "bytes": 1822,
+            "matches_commit": true
+        },
+        "src/Auth/PendingRecord.php": {
+            "sha256": "ef0d72de22a95c18a1d4bb8ee42deaa818ac9237143d714b38925b8848ff0f37",
+            "bytes": 1821,
+            "matches_commit": true
+        },
+        "src/Auth/PendingStore.php": {
+            "sha256": "ecf7bf9277dfe2142709bc7b198148e9ccf3ad1656d9431702dcfa78d665a74c",
+            "bytes": 5579,
+            "matches_commit": true
+        },
+        "src/Auth/SideDoors.php": {
+            "sha256": "7f53b99cb8e691d204d371309af7cdd5ac282959a47a5715bd57af711429359e",
+            "bytes": 8884,
+            "matches_commit": true
+        },
+        "src/Auth/StepUp.php": {
+            "sha256": "4f4f9fa8214012ae9afe4d1744b288fc3f9cc93a554dae232387a818de0e76a0",
+            "bytes": 4021,
+            "matches_commit": true
+        },
+        "src/Auth/TrustedDevice.php": {
+            "sha256": "c17bae72425e394943d763548c2dacee2d4ea5b1aadaa02314b5fda0b757efeb",
+            "bytes": 6287,
+            "matches_commit": true
+        },
+        "src/Cli/Command.php": {
+            "sha256": "81608bde79a4656ac74caba197ae85dbda0c4b551a67d2f23e43dfa0757719ea",
+            "bytes": 4597,
+            "matches_commit": true
+        },
+        "src/Cli/KeyCommand.php": {
+            "sha256": "0a358bf625364074effd4a05d196013594e83816fe96d4d328abda0d2ad710b6",
+            "bytes": 4463,
+            "matches_commit": true
+        },
+        "src/Cli/SlugCommand.php": {
+            "sha256": "fbefbe29e6b201c178754add90d7b0e788a3bf444c997b452b65567187f45e9f",
+            "bytes": 1980,
+            "matches_commit": true
+        },
+        "src/Cli/UserCommand.php": {
+            "sha256": "63da68725af1d58724875c4c9d851c9beb2ab2043205d6a8c429422015f492a1",
+            "bytes": 5197,
+            "matches_commit": true
+        },
+        "src/Crypto/InvalidKeyException.php": {
+            "sha256": "736d1de68f1a452a4bd899dfc7e0f9742550ce4f3484677a74ce7a20f5d87e61",
+            "bytes": 297,
+            "matches_commit": true
+        },
+        "src/Crypto/KeyProvider.php": {
+            "sha256": "09f31fa8339e0075ffe2c9fe02b7084341a8669ace2048ee451f3737cfbb65ca",
+            "bytes": 5024,
+            "matches_commit": true
+        },
+        "src/Crypto/SecretBox.php": {
+            "sha256": "165a83a23726c5f0b1dad02a17cdf86fa82e207370399a136edf94037a08a40d",
+            "bytes": 2892,
+            "matches_commit": true
+        },
+        "src/Factors/EmailCode.php": {
+            "sha256": "ba8edb8654de0c96de3cee6546f265f48d247686d44bec0c3a8af66bdc75d263",
+            "bytes": 14584,
+            "matches_commit": true
+        },
+        "src/Factors/PasskeyStore.php": {
+            "sha256": "b0a76ec8e03e78c1328e93d22de05e00a97b29d2432b0514509467796102a819",
+            "bytes": 7260,
+            "matches_commit": true
+        },
+        "src/Factors/Passkeys.php": {
+            "sha256": "63cc8b08d4feff3679107726bef8d20e590d106467b18b464a444145ac983f53",
+            "bytes": 16404,
+            "matches_commit": true
+        },
+        "src/Factors/RecoveryCodes.php": {
+            "sha256": "7863cc955c699281ac6cb72253e6e779728d1ab9e70fe98c099ed12a87e6d043",
+            "bytes": 3964,
+            "matches_commit": true
+        },
+        "src/Factors/Reset.php": {
+            "sha256": "7b27b3d25d30cbac59fff7d2c56720e9a65af6638019a2a3c50225759c5e2c4c",
+            "bytes": 1597,
+            "matches_commit": true
+        },
+        "src/Factors/Totp.php": {
+            "sha256": "f3391d12ece215b1442da6ccd054dd00f43c80a88be0d6cc9fa7a61a6a787a66",
+            "bytes": 3935,
+            "matches_commit": true
+        },
+        "src/Factors/TotpStore.php": {
+            "sha256": "72f8dbca16df9b8aa8c1b51ec30fb8a76059d5b35b28a7754e10b4f5bf4bd3bd",
+            "bytes": 7697,
+            "matches_commit": true
+        },
+        "src/Flow/ChallengeFlow.php": {
+            "sha256": "4e19625eeb4136abe30b8c2e80b47f360d3bbcc98fae5570a16ad570d0e8930c",
+            "bytes": 21364,
+            "matches_commit": true
+        },
+        "src/Flow/EmailRecovery.php": {
+            "sha256": "fc3cf630407582e2eb519a1b49be13a8be8eaa0848852cc7058f65e22d52ba1e",
+            "bytes": 8424,
+            "matches_commit": true
+        },
+        "src/Flow/FlowState.php": {
+            "sha256": "7513a95f53430eb7157ff0237006932f6353c2ecfbc832ab85502461da3374a8",
+            "bytes": 4111,
+            "matches_commit": true
+        },
+        "src/Frontend/LoginForm.php": {
+            "sha256": "ea0ef290111639f3eee9d7c1b3e09c92be54e66595a2da422a69e23c2fc8482d",
+            "bytes": 3194,
+            "matches_commit": true
+        },
+        "src/Frontend/PasskeyLogin.php": {
+            "sha256": "84d7a94f9dd91d6cfdbb0e93f2133b5660c24fde16d1b13a12181273c8405a31",
+            "bytes": 6908,
+            "matches_commit": true
+        },
+        "src/Install/Installer.php": {
+            "sha256": "32165c8173670e38af0074a53d54b23a64fe99b81510e5df3968defafabdd50d",
+            "bytes": 4692,
+            "matches_commit": true
+        },
+        "src/Install/Maintenance.php": {
+            "sha256": "430be21d3add38a984569bd99a3d8115c5aea9a62081f61ed91bde6c6c20fb5a",
+            "bytes": 2106,
+            "matches_commit": true
+        },
+        "src/Install/Schema.php": {
+            "sha256": "2c77ff95eaf801948a9857353c58f37a1499e5aa5d48c8537ecc62c00688dcfe",
+            "bytes": 3568,
+            "matches_commit": true
+        },
+        "src/Install/Uninstaller.php": {
+            "sha256": "31117b56dfe236dfac8ba1993d9fac72585de56acb994c31bddf7a0d96d04360",
+            "bytes": 3530,
+            "matches_commit": true
+        },
+        "src/Integrations/Conflicts.php": {
+            "sha256": "29e10212b30c4e063292cc3c34d2a539aef0e5571cee1fb04c0659e1dde30669",
+            "bytes": 2420,
+            "matches_commit": true
+        },
+        "src/Integrations/Jetpack.php": {
+            "sha256": "aeca3000865723fcb106f63c08afadead272bc91bc66102c92efcde3f1333e00",
+            "bytes": 2276,
+            "matches_commit": true
+        },
+        "src/Integrations/Suite.php": {
+            "sha256": "d79f09d9a68f28902c6ae8cf13dec6c245e427a2100674cf1f4a2e35cda8355a",
+            "bytes": 2087,
+            "matches_commit": true
+        },
+        "src/Location/CacheBridge.php": {
+            "sha256": "27147da02372bfd34f8e195766ab1861205305f65a0fe914ffd30170534e1c28",
+            "bytes": 2511,
+            "matches_commit": true
+        },
+        "src/Location/Headers.php": {
+            "sha256": "d402b1814d8b311525703608afd9b0ade847b4dbb05ba97f66179e8cfc2bd0dd",
+            "bytes": 1124,
+            "matches_commit": true
+        },
+        "src/Location/LoginLocation.php": {
+            "sha256": "4948668d461bff2f858fea24650456f6d04a8983a156b0a48e7e31a1f49cad78",
+            "bytes": 4462,
+            "matches_commit": true
+        },
+        "src/Location/Router.php": {
+            "sha256": "933de6783eaed4f545c82a6c218b446a9cf08ea3939adc52f34094a1918aa9af",
+            "bytes": 8168,
+            "matches_commit": true
+        },
+        "src/Location/SlugChanger.php": {
+            "sha256": "17dd0e2926d2232813b4af4ffb1438959e870f7b2a69e8d8d35c7ebc2b88bbfd",
+            "bytes": 3373,
+            "matches_commit": true
+        },
+        "src/Location/UrlRewriter.php": {
+            "sha256": "f6ff06febe2270ff19cf43d33c0238e79bc8f07566e50c4cacf483bc92067153",
+            "bytes": 8809,
+            "matches_commit": true
+        },
+        "src/Log/Logger.php": {
+            "sha256": "22323950cef63a4c35d5c884e88b35d4af22e3a27e0c86883ee31c270b805fcd",
+            "bytes": 3142,
+            "matches_commit": true
+        },
+        "src/Notify/Mailer.php": {
+            "sha256": "06183094a6134738a561dbcba619758bb9919ad582756bb9af0a854f2f15b5fa",
+            "bytes": 7189,
+            "matches_commit": true
+        },
+        "src/Plugin.php": {
+            "sha256": "c884110e96650aa6eac7f109cf45d660e77326efbe7e0a098a775d5d575f52b1",
+            "bytes": 7293,
+            "matches_commit": true
+        },
+        "src/Policy/Policy.php": {
+            "sha256": "7188339c41b675ae573374b2225ae9ecae99ed89b2e558e954519015f6a87b89",
+            "bytes": 15987,
+            "matches_commit": true
+        },
+        "src/Privacy/Privacy.php": {
+            "sha256": "eb1e356f7e212cb50739cee7e137f774a7b38224814555bf28992c921b95a848",
+            "bytes": 9244,
+            "matches_commit": true
+        },
+        "src/Qr/QrCode.php": {
+            "sha256": "2f86be3c687ffe60287bc1f3dc0bfeee0829a14ca98f981092aa17d32db3b17e",
+            "bytes": 17118,
+            "matches_commit": true
+        },
+        "src/Qr/QrSvg.php": {
+            "sha256": "8baf21fd669e23d192063fa91a4e59d3b1075b5c873543398ace02481f0bea97",
+            "bytes": 1712,
+            "matches_commit": true
+        },
+        "src/Screens/Fragments.php": {
+            "sha256": "b51064c733405dbafc526025c5934d498d6e53d8e421ffbdee8fa883559bcf2a",
+            "bytes": 8666,
+            "matches_commit": true
+        },
+        "src/Screens/LoginScreens.php": {
+            "sha256": "01418cf379ba87c5ded3102bc44d64bba007307c7b2e30c388357c116ccd9a60",
+            "bytes": 12034,
+            "matches_commit": true
+        },
+        "src/Settings/LoginSlug.php": {
+            "sha256": "3a98e6772f7e0c7d20e26f804345fd42e97e5a1b43cd78926705b5baf2cc0272",
+            "bytes": 4847,
+            "matches_commit": true
+        },
+        "src/Settings/Options.php": {
+            "sha256": "9be8119231aa9398ec38ab27cf7f295d2cfb40bf52e16db418ffaa22b7440708",
+            "bytes": 2324,
+            "matches_commit": true
+        },
+        "src/Settings/Settings.php": {
+            "sha256": "82c891e28da0917f277a2ba85ca9c715a9bcca2ef6a9ef5c9ee91aa0d92e8846",
+            "bytes": 9471,
+            "matches_commit": true
+        },
+        "src/Status/Snapshot.php": {
+            "sha256": "ea901ff05350b76730b126fd6768a5caa821b4dc34844d1a534b299ded14a0e5",
+            "bytes": 9971,
+            "matches_commit": true
+        },
+        "src/Support/Assets.php": {
+            "sha256": "c8809d06f72badf27122ab19bee4dff1197e9c971dcec6a08011881fa2e0077c",
+            "bytes": 822,
+            "matches_commit": true
+        },
+        "src/Support/Base32.php": {
+            "sha256": "ddcfab80110e087b3036ee142938931c312e5575d9c307e05ba1690f08219e0f",
+            "bytes": 1664,
+            "matches_commit": true
+        },
+        "src/Support/Base64Url.php": {
+            "sha256": "4ff64a0bf61a1ab0c2d88948655f47e11d53b380282b07238caaa9e38afad2ee",
+            "bytes": 1034,
+            "matches_commit": true
+        },
+        "src/Support/Clock.php": {
+            "sha256": "817ee074dd47e1a3f3d00167ac3144574ecf02fac945985e1cc93d7afa01064d",
+            "bytes": 672,
+            "matches_commit": true
+        },
+        "src/Support/IpThrottle.php": {
+            "sha256": "9738cf8628598a341bc350a6174073632bc5f37201c658c2e45e836943eb5c59",
+            "bytes": 1335,
+            "matches_commit": true
+        },
+        "src/WebAuthn/AssertionResult.php": {
+            "sha256": "cf69a2f92a69c3828b66f14b8cce88d3951a4b34e212978376f1215ce122cf0e",
+            "bytes": 683,
+            "matches_commit": true
+        },
+        "src/WebAuthn/AuthenticatorData.php": {
+            "sha256": "f2933976540a1d0d966f472a107d9885a5e7b4b4befa9d11dca68a5f4f5f98df",
+            "bytes": 3719,
+            "matches_commit": true
+        },
+        "src/WebAuthn/ByteString.php": {
+            "sha256": "8e6cc7c79382cf92fc15ddf8efd450711280763faeafe9dd82ff15a8e4446962",
+            "bytes": 411,
+            "matches_commit": true
+        },
+        "src/WebAuthn/Cbor.php": {
+            "sha256": "2581f4bd818631542353cfe30cc333818b54a2a51a94d0bf248b5cbe56672d2d",
+            "bytes": 7653,
+            "matches_commit": true
+        },
+        "src/WebAuthn/ClientData.php": {
+            "sha256": "a7fcbb8faddfbf471d90ed3e130b63ce4207fdcf10c43ed228465b6ad2f84c90",
+            "bytes": 2342,
+            "matches_commit": true
+        },
+        "src/WebAuthn/CoseKey.php": {
+            "sha256": "4b533b442117c75ebcba799d74a9694326c016ccb9144bb4373025c42805eb01",
+            "bytes": 6723,
+            "matches_commit": true
+        },
+        "src/WebAuthn/CredentialJson.php": {
+            "sha256": "6350fa0427d73c1786473beac09ec30e18c1d93923194b2dc27156c2f8e2f496",
+            "bytes": 5338,
+            "matches_commit": true
+        },
+        "src/WebAuthn/Options.php": {
+            "sha256": "3b7d8d893d9412d3a3bc463e1754ed1a6b02e1e88f26df292693936fe86fb29e",
+            "bytes": 3670,
+            "matches_commit": true
+        },
+        "src/WebAuthn/RegisteredCredential.php": {
+            "sha256": "e0a330e8b122bbf71c645ee7a3c62c6c9c5b51c634bd2f7746a3371d3941578b",
+            "bytes": 959,
+            "matches_commit": true
+        },
+        "src/WebAuthn/RelyingParty.php": {
+            "sha256": "b4377dafc18de86578aa70cb611b876ade25fa18cb3f2144b42004af434d3ed1",
+            "bytes": 2712,
+            "matches_commit": true
+        },
+        "src/WebAuthn/VerificationException.php": {
+            "sha256": "86339f45505c226e16244f1d7b222e4aee154f08852d3e1fbae5f92edf998aca",
+            "bytes": 347,
+            "matches_commit": true
+        },
+        "src/WebAuthn/Verifier.php": {
+            "sha256": "e61654a057916f0bf1ff2c0644fb03c6db341ad309649f186a4b2cbced435e5d",
+            "bytes": 6013,
+            "matches_commit": true
+        },
+        "src/WooCommerce/AccountChallenge.php": {
+            "sha256": "11fd686a82bf157c5c08c7d53af4ce7668575a6d7bd791107bec75b3b89da152",
+            "bytes": 6254,
+            "matches_commit": true
+        },
+        "src/WooCommerce/SecurityEndpoint.php": {
+            "sha256": "a3e4e95ed2bc8ad6f4ee30c3a5e72be949c635b394b19099fbc7332610da7cb9",
+            "bytes": 7467,
+            "matches_commit": true
+        },
+        "templates/woocommerce/challenge.php": {
+            "sha256": "f3a13da384bab3f0396a26bd0c5faf2f23c561d356b5c612fb8b564a6891173c",
+            "bytes": 9553,
+            "matches_commit": true
+        },
+        "uninstall.php": {
+            "sha256": "6b2502f871882dc795bcfcdd7cdba1205383f36ef2708b767bf982ebc78508ec",
+            "bytes": 463,
+            "matches_commit": true
+        }
+    }
+}
