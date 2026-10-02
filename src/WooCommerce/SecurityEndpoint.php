@@ -16,6 +16,7 @@ namespace MaxtDesign\Mfa\WooCommerce;
 use MaxtDesign\Mfa\Account\SecurityActions;
 use MaxtDesign\Mfa\Account\SecurityView;
 use MaxtDesign\Mfa\Settings\Options;
+use MaxtDesign\Mfa\Support\Clock;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -110,23 +111,29 @@ final class SecurityEndpoint {
 			&& is_string( $marker['rule'] ) && ( $rules[ $marker['rule'] ] ?? null ) === $marker['query'] ) {
 			return;
 		}
+		// A rebuild that produced no endpoint rule (another plugin filters the rules, or the
+		// endpoint mask was changed) is retried once a day, never on every request.
+		if ( is_array( $marker ) && self::REWRITE_VERSION === ( $marker['version'] ?? '' ) && ( $marker['slug'] ?? '' ) === $slug
+			&& '' === ( $marker['rule'] ?? null ) && (int) ( $marker['checked'] ?? 0 ) > Clock::now() - DAY_IN_SECONDS ) {
+			return;
+		}
 		flush_rewrite_rules( false );
+		$found = array(
+			'version' => self::REWRITE_VERSION,
+			'slug'    => $slug,
+			'rule'    => '',
+			'query'   => '',
+			'checked' => Clock::now(),
+		);
 		foreach ( (array) get_option( 'rewrite_rules', array() ) as $rule => $query ) {
 			if ( is_string( $rule ) && is_string( $query ) && str_ends_with( $rule, $slug . '(/(.*))?/?$' )
 				&& str_contains( $query, '&' . $slug . '=' ) ) {
-				update_option(
-					Options::REWRITE,
-					array(
-						'version' => self::REWRITE_VERSION,
-						'slug'    => $slug,
-						'rule'    => $rule,
-						'query'   => $query,
-					),
-					true
-				);
+				$found['rule']  = $rule;
+				$found['query'] = $query;
 				break;
 			}
 		}
+		update_option( Options::REWRITE, $found, true );
 	}
 
 	/**

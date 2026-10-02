@@ -157,6 +157,22 @@ if ( get_option( 'e2e_http_gate' ) ) {
 	Mdmfa_E2e_Gate::register( 'unlisted' !== get_option( 'e2e_http_gate' ) );
 }
 
+// Another plugin that filters the My Account Security endpoint's rules away, and a count
+// of how often WordPress rebuilds its rules meanwhile (RewriteLifecycleTest).
+if ( get_option( 'e2e_drop_endpoint_rule' ) ) {
+	add_filter(
+		'rewrite_rules_array',
+		static fn ( $rules ) => is_array( $rules ) ? array_filter( $rules, static fn ( $key ) => ! str_contains( (string) $key, 'login-security' ), ARRAY_FILTER_USE_KEY ) : $rules,
+		PHP_INT_MAX
+	);
+	add_action(
+		'generate_rewrite_rules',
+		static function (): void {
+			update_option( 'e2e_rewrite_flushes', (int) get_option( 'e2e_rewrite_flushes', 0 ) + 1, false );
+		}
+	);
+}
+
 // Records the suite purge signal maxtdesign-cache would act on.
 add_action(
 	'md_suite_content_changed',
