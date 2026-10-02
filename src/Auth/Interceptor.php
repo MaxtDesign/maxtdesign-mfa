@@ -86,7 +86,7 @@ final class Interceptor {
 		$context = Context::detect( $user->ID );
 		// A site access gate checking the browser's HTTP Basic credentials (HttpAuth). It runs
 		// before any login form exists, so nothing has marked the request yet.
-		if ( in_array( $context, array( Context::UNKNOWN, Context::UNKNOWN_POST ), true ) && HttpAuth::matches( $username, $password ) ) {
+		if ( in_array( $context, array( Context::UNKNOWN, Context::UNKNOWN_POST ), true ) && HttpAuth::matches( $username, $password ) && HttpAuth::from_gate() ) {
 			$context = Context::HTTP_AUTH;
 		}
 		// App passwords are a revocable scoped credential, exempt by design (plan 4.3).
@@ -149,6 +149,9 @@ final class Interceptor {
 		if ( $fresh ) {
 			PendingCookie::set( $token );
 			do_action( 'mdmfa_challenge_started', $user, $context );
+			if ( Context::HTTP_AUTH === $context ) {
+				Logger::log( 'gate_password', $user->ID, '', $context );
+			}
 		}
 		// On the second step's own pages the gate's check passes, and no session comes of it.
 		if ( Context::HTTP_AUTH === $context && HttpAuth::is_flow_request() ) {
@@ -157,8 +160,10 @@ final class Interceptor {
 			return $user;
 		}
 
-		// A trusted device skips the challenge, never enrollment (plan 4.3).
-		if ( Policy::CHALLENGE === $decision && TrustedDevice::valid( $user ) ) {
+		// A trusted device skips the challenge, never enrollment (plan 4.3). Not behind a gate:
+		// it runs before WordPress has loaded, too early to finish a login (wp_login listeners,
+		// permalinks), so the code is asked for there.
+		if ( Policy::CHALLENGE === $decision && Context::HTTP_AUTH !== $context && TrustedDevice::valid( $user ) ) {
 			$record = PendingStore::find( $token );
 			if ( null !== $record && Completion::complete( $user, TrustedDevice::FACTOR, $record ) ) {
 				Completion::redirect( $user, $record );

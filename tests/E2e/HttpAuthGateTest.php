@@ -163,7 +163,13 @@ final class HttpAuthGateTest extends E2eTestCase {
 
 		// Everything else the browser asks for meanwhile leads back to the second step, with
 		// the same pending sign-in: nothing is served, no cookie, no session.
-		foreach ( array( '', 'wp-admin/', 'wp-admin/profile.php', 'wp-admin/admin-ajax.php?action=heartbeat', 'favicon.ico', '?action=mdmfa-verify', 'wp-json/wp/v2/users/me', self::lp() ) as $path ) {
+		$near_misses = array( '?action=mdmfa-verify', self::lp( 'action=MDMFA-VERIFY' ), self::lp( 'action=mdmfa-verify&key=abc' ), self::lp( 'action=mdmfa-verify&checkemail=confirm' ), 'wp-admin/admin-post.php?action=MDMFA_RECOVER', 'wp-admin/admin-post.php?action=mdmfa_login' );
+		foreach ( $near_misses as $path ) {
+			$miss = $browser->get( $path );
+			self::assertSame( 302, $miss->status, "/{$path} is not one of the second step's pages, so nothing is served" );
+			self::assertStringContainsString( 'action=mdmfa-verify', $miss->location() );
+		}
+		foreach ( array_merge( $near_misses, array( '', 'wp-admin/', 'wp-admin/profile.php', 'wp-admin/admin-ajax.php?action=heartbeat', 'favicon.ico', 'wp-json/wp/v2/users/me', self::lp() ) ) as $path ) {
 			$other = $browser->get( $path );
 			self::assertNoAuthCookie( $other, "/{$path}" );
 			self::assertFalse( $other->sets_cookie_prefix( 'mdmfa_pending=' ), "/{$path} keeps the pending sign-in" );
@@ -184,7 +190,9 @@ final class HttpAuthGateTest extends E2eTestCase {
 		self::assertSame( 1, self::sessions( $id ) );
 		self::assertSame( 'totp', self::stamps( $id )[0]['factor'] ?? null );
 		self::assertTrue( self::signed_in( $browser ) );
-		self::assertNotContains( 'bypass_blocked', array_column( self::log_events( $id ), 'event' ), 'the gate is not logged as a bypass on every request' );
+		$events = array_column( self::log_events( $id ), 'event' );
+		self::assertNotContains( 'bypass_blocked', $events, 'the gate is not logged as a bypass on every request' );
+		self::assertCount( 1, array_keys( $events, 'gate_password', true ), 'one log row for the password the gate accepted' );
 	}
 
 	public function test_staff_past_the_setup_period_cannot_skip_setup_through_the_gate(): void {
@@ -264,6 +272,31 @@ final class HttpAuthGateTest extends E2eTestCase {
 
 		// Authors are Optional: with nothing set up any more, the password passes the gate.
 		self::assertTrue( $this->gated( $login, $pass )->get( '' )->sets_cookie_prefix( 'wordpress_logged_in_' ) );
+	}
+
+	public function test_a_gate_nobody_vouched_for_is_refused_as_before(): void {
+		if ( '' !== (string) getenv( 'MDMFA_E2E_GATE_PLUGIN' ) ) {
+			self::markTestSkipped( 'Needs the fixture gate, which can run without being vouched for.' );
+		}
+		// Any other code that authenticates Basic credentials on a page request gets the old
+		// answer, on every page, including the second step's own: fail closed.
+		self::wp( 'option', 'update', 'e2e_http_gate', 'unlisted' );
+		list( $id, $login, $pass ) = self::user( 'administrator' );
+		self::enroll( $id );
+		$browser = $this->gated( $login, $pass );
+
+		foreach ( array( '', 'wp-admin/', self::lp( 'action=mdmfa-verify' ), 'wp-admin/admin-post.php?action=mdmfa_recover&t=x' ) as $path ) {
+			$response = $browser->get( $path );
+			self::assertSame( 401, $response->status, "/{$path}" );
+			self::assertNoAuthCookie( $response );
+			self::assertFalse( $response->sets_cookie_prefix( 'mdmfa_pending=' ) );
+		}
+		self::assertSame( 0, self::sessions( $id ) );
+		self::assertContains( 'noninteractive_blocked', array_column( self::log_events( $id ), 'event' ) );
+
+		// Accounts that need no second step still pass it.
+		list( , $plain, $plain_pass ) = self::user( 'subscriber' );
+		self::assertTrue( $this->gated( $plain, $plain_pass )->get( '' )->sets_cookie_prefix( 'wordpress_logged_in_' ) );
 	}
 
 	public function test_without_a_gate_basic_credentials_on_a_page_request_mean_nothing(): void {

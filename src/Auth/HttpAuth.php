@@ -11,6 +11,10 @@
  * step's own pages the gate is let through, and the session it then tries to start is
  * refused (BypassGuard). The only way to a session is Completion.
  *
+ * Only gates named in GATES (or added with the mdmfa_http_auth_gates filter) are treated this
+ * way. Any other code that authenticates Basic credentials on a page request is refused as
+ * before.
+ *
  * @package MaxtDesign\Mfa
  */
 
@@ -27,6 +31,13 @@ defined( 'ABSPATH' ) || exit;
  * HTTP Basic credentials as a login context.
  */
 final class HttpAuth {
+
+	/**
+	 * Gates this plugin knows: the class (or function) that calls wp_authenticate(). Hosting
+	 * Basic Authentication is the gate WordPress.com and Pressable put on staging sites.
+	 * Filter: mdmfa_http_auth_gates.
+	 */
+	private const GATES = array( 'Pressable_Basic_Auth' );
 
 	/**
 	 * User whose password a gate may check in this request without starting a session.
@@ -55,20 +66,50 @@ final class HttpAuth {
 	}
 
 	/**
+	 * Whether wp_authenticate() is being called by a known access gate. Anything else that
+	 * authenticates Basic credentials on a page request keeps getting the refusal it got
+	 * before: the pass below is only safe for a caller known to do nothing with the user
+	 * but start a session.
+	 */
+	public static function from_gate(): bool {
+		$gates = apply_filters( 'mdmfa_http_auth_gates', self::GATES );
+		if ( ! is_array( $gates ) || array() === $gates ) {
+			return false;
+		}
+		$frames = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 12 ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- identifies the caller of wp_authenticate(); nothing is printed.
+		foreach ( $frames as $index => $frame ) {
+			if ( 'wp_authenticate' === $frame['function'] && ! isset( $frame['class'] ) ) {
+				$caller = $frames[ $index + 1 ] ?? array();
+				$name   = $caller['class'] ?? ( $caller['function'] ?? '' );
+
+				return '' !== $name && in_array( $name, $gates, true );
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether this request is one of the second step's own pages: the challenge and setup
 	 * screens of the login page, and the emailed recovery link. Decided from the request
 	 * itself, because a gate runs before WordPress has routed anything.
 	 */
 	public static function is_flow_request(): bool {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only.
-		$action = isset( $_REQUEST['action'] ) && is_string( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+		// The action exactly as wp-login.php and admin-post.php will read it (a posted value
+		// wins), compared as it is: core does not normalise it, so neither may this.
+		// phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- routing only; compared against fixed strings, never used.
+		$action = $_POST['action'] ?? ( $_GET['action'] ?? '' );
+		$action = is_string( $action ) ? $action : '';
+		// wp-login.php replaces the action when these are present.
+		$rewritten = isset( $_GET['key'] ) || isset( $_GET['checkemail'] );
+		// phpcs:enable
 		$script = isset( $_SERVER['SCRIPT_NAME'] ) && is_string( $_SERVER['SCRIPT_NAME'] ) ? basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_NAME'] ) ) ) : '';
 		$uri    = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 
 		if ( 'admin-post.php' === $script ) {
 			return EmailRecovery::ACTION === $action;
 		}
-		if ( ! in_array( $action, array( ChallengeUrl::ACTION_VERIFY, ChallengeUrl::ACTION_ENROLL ), true ) ) {
+		if ( $rewritten || ! in_array( $action, array( ChallengeUrl::ACTION_VERIFY, ChallengeUrl::ACTION_ENROLL ), true ) ) {
 			return false;
 		}
 
@@ -84,7 +125,8 @@ final class HttpAuth {
 	 */
 	public static function pass( \WP_User $user ): void {
 		if ( 0 === self::$passed ) {
-			add_action( 'set_current_user', array( self::class, 'keep_signed_out' ), PHP_INT_MAX );
+			// First in line, so that nothing hooked there runs as the user.
+			add_action( 'set_current_user', array( self::class, 'keep_signed_out' ), -PHP_INT_MAX );
 		}
 		self::$passed = $user->ID;
 	}
