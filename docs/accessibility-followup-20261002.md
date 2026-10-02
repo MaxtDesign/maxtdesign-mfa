@@ -1,6 +1,11 @@
 # MFA interaction and accessibility follow-up
 
 Date: 2026-10-02. Base: `5452f8b`, branch `codex/mfa-rewrite-lifecycle`.
+
+Subsequent hosted result: source commit `a93728d` was installed and tested on protected
+staging, then left inactive with fixtures removed. See
+[staging verification](accessibility-staging-20261002.md); the local-only status below
+describes the state when this initial review completed.
 Scope: enrollment, challenge, recovery-code login and error feedback in the core
 WordPress and WooCommerce presenters. No checkout/payment matrix or general
 performance audit was repeated.

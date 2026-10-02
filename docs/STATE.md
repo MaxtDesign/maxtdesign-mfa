@@ -3,6 +3,14 @@ Updated: 2026-10-02 by Codex (hosted gate retest and customer rewrite lifecycle 
 
 ## Accessibility follow-up — 2026-10-02
 
+**Hosted follow-up complete:** candidate `a93728d` is installed and byte-verified on
+protected staging, left inactive after cleanup. Core error descriptions and passkey
+failure focus passed actual browser tests through the hosting gate and on the site's
+themed Security page. The resolved WooCommerce template renders eight-digit guidance;
+the gate routes pending logins to core, so this is template evidence rather than a
+hosted WooCommerce email-login flow. See [staging verification](accessibility-staging-20261002.md).
+This supersedes the not-yet-installed statement in the local review paragraph below.
+
 Local browser review reproduced and fixed three presentation issues: passkey failure
 feedback now receives focus with alert semantics, core invalid-code inputs reference
 their error notice, and WooCommerce correctly requests eight-digit email codes.
