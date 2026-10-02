@@ -47,10 +47,6 @@ function current_user_can( string $capability ): bool {
 	return true;
 }
 
-function sanitize_key( mixed $key ): string {
-	return strtolower( (string) preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $key ) );
-}
-
 function absint( mixed $value ): int {
 	return abs( (int) $value );
 }

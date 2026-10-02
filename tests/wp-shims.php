@@ -234,3 +234,23 @@ function wp_parse_url( string $url, int $component = -1 ): mixed {
 function sanitize_title( string $title ): string {
 	return trim( (string) preg_replace( '/[^a-z0-9-]+/', '-', strtolower( $title ) ), '-' );
 }
+
+function sanitize_key( mixed $key ): string {
+	return strtolower( (string) preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $key ) );
+}
+
+function sanitize_user( string $username, bool $strict = false ): string {
+	return trim( (string) preg_replace( '/[^a-zA-Z0-9 _.\-@]/', '', strip_tags( $username ) ) );
+}
+
+function wp_sanitize_redirect( string $location ): string {
+	return (string) preg_replace( '/[^a-zA-Z0-9\-~+_.?#=&;,\/:%!*\[\]()@]/', '', $location );
+}
+
+function trailingslashit( string $value ): string {
+	return rtrim( $value, '/' ) . '/';
+}
+
+function add_action( string $hook, callable $callback, int $priority = 10, int $args = 1 ): bool {
+	return add_filter( $hook, $callback, $priority, $args );
+}

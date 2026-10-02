@@ -36,9 +36,11 @@ final class ChallengeUrl {
 	 * @param string $target   Where the login was heading (the guard passes the caller's redirect).
 	 */
 	public static function for_decision( string $decision, string $context, string $target = '' ): string {
-		$action  = Policy::CHALLENGE === $decision ? self::ACTION_VERIFY : self::ACTION_ENROLL;
-		$account = self::account();
-		$url     = '' !== $account && self::belongs_on_account( $context, $target ) ? $account : self::core( $action );
+		$action = Policy::CHALLENGE === $decision ? self::ACTION_VERIFY : self::ACTION_ENROLL;
+		// My Account's address is only looked up for contexts that use it: a gate decides
+		// before WordPress can build permalinks.
+		$account = self::belongs_on_account( $context, $target ) ? self::account() : '';
+		$url     = '' !== $account ? $account : self::core( $action );
 		$url     = apply_filters( 'mdmfa_challenge_url', $url, $decision, $context );
 
 		return is_string( $url ) && '' !== $url ? $url : self::core( $action );

@@ -87,6 +87,70 @@ add_action(
 	}
 );
 
+// A site access gate of the kind hosts put in front of staging sites (modelled on Hosting
+// Basic Authentication 1.0.5): every page request of a browser that is not logged in must
+// carry a WordPress user's credentials as HTTP Basic authentication. It checks them with
+// wp_authenticate() on plugins_loaded priority 1, long before any login form exists, and
+// then starts the session itself. HttpAuthGateTest turns it on with the option.
+if ( get_option( 'e2e_http_gate' ) ) {
+	$mdmfa_e2e_gate_skip = static function (): bool {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+		return ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) || 'cli' === php_sapi_name() || ( defined( 'WP_CLI' ) && WP_CLI )
+			|| 'xmlrpc.php' === basename( (string) ( $_SERVER['SCRIPT_NAME'] ?? '' ) ) || 1 === preg_match( '#^/wp-json/wp/v2(/|\?|$)#', $uri );
+	};
+	$mdmfa_e2e_gate_401  = static function (): void {
+		header( 'WWW-Authenticate: Basic realm="Restricted Area"' );
+		header( 'HTTP/1.1 401 Unauthorized' );
+		echo '<h1>Authentication Required</h1>';
+		exit;
+	};
+	add_action(
+		'plugins_loaded',
+		static function () use ( $mdmfa_e2e_gate_skip, $mdmfa_e2e_gate_401 ): void {
+			if ( $mdmfa_e2e_gate_skip() || is_user_logged_in() ) {
+				return;
+			}
+			$name = isset( $_SERVER['PHP_AUTH_USER'] ) ? sanitize_text_field( wp_unslash( $_SERVER['PHP_AUTH_USER'] ) ) : '';
+			$pass = isset( $_SERVER['PHP_AUTH_PW'] ) ? $_SERVER['PHP_AUTH_PW'] : '';
+			if ( '' === $name || '' === $pass ) {
+				$mdmfa_e2e_gate_401();
+			}
+			$user = wp_authenticate( $name, $pass );
+			if ( is_wp_error( $user ) ) {
+				$mdmfa_e2e_gate_401();
+			}
+			if ( isset( $_GET['basic-auth-logout'] ) ) {
+				return;
+			}
+			wp_set_current_user( $user->ID );
+			wp_set_auth_cookie( $user->ID );
+		},
+		1
+	);
+	add_action(
+		'init',
+		static function () use ( $mdmfa_e2e_gate_skip, $mdmfa_e2e_gate_401 ): void {
+			if ( ! $mdmfa_e2e_gate_skip() && isset( $_GET['basic-auth-logout'] ) ) {
+				wp_logout();
+				$mdmfa_e2e_gate_401();
+			}
+		},
+		1
+	);
+	add_filter( 'logout_url', static fn ( $url ) => add_query_arg( 'basic-auth-logout', '1', $url ) );
+	add_action(
+		'login_init',
+		static function (): void {
+			if ( 'wp-login.php' === $GLOBALS['pagenow'] && ! empty( $_SERVER['PHP_AUTH_USER'] ) && ! empty( $_SERVER['PHP_AUTH_PW'] )
+				&& ! isset( $_GET['action'] ) && ! isset( $_GET['loggedout'] ) && ! isset( $_POST['log'] ) && ! isset( $_GET['basic-auth-logout'] ) ) {
+				wp_safe_redirect( home_url() );
+				exit;
+			}
+		},
+		0
+	);
+}
+
 // Records the suite purge signal maxtdesign-cache would act on.
 add_action(
 	'md_suite_content_changed',
