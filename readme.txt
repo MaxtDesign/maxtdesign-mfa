@@ -23,7 +23,7 @@ What the finished plugin does:
 * **Factors:** authenticator apps (TOTP), single-use recovery codes, an optional emailed code, and passkeys (beta, as a second step after the password).
 * **Per-role policy:** Off, Optional or Required for each role, with a grace period and enrollment right inside the login flow.
 * **No session before the second factor.** WordPress does not create a login session until the second factor passes.
-* **Customers stay on your pages.** WooCommerce customers complete the challenge and enrollment on My Account and checkout, never on the WordPress login screen.
+* **Customers stay on your pages.** WooCommerce customers normally complete the challenge and enrollment on My Account and checkout. Behind a supported host password prompt (HTTP Basic authentication), staff and customers both use the two-step screen at the site's login address instead.
 * **Side doors covered:** application passwords, XML-RPC, and plugins that log users in directly are checked against the same policy.
 * **Moved login address.** The login moves to a random address and the old `wp-login.php` returns a 404. This cuts bot noise. It is not a security boundary on its own; the second factor is.
 * **Escape hatch:** `define( 'MDMFA_DISABLE', true );` in `wp-config.php`, plus WP-CLI commands, if you ever lock yourself out.
