@@ -82,7 +82,9 @@ Authenticator apps, recovery codes and emailed codes do not depend on that code.
 
 = Does it work on multisite? =
 
-Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin applies the strictest settings among the sites a user belongs to, and an account that has two-step verification is asked for it on every site. That covers more than Required or Optional: email recovery, application passwords, trusted devices and each sign-in method are available to a user only if every one of their sites allows them, the longest recovery wait and the shortest setup period apply, and it makes no difference which site they sign in on. Only super admins can reset or unlock other users.
+Yes, network-activated only. Each site has its own settings page and its own login address. Sign-in sessions are valid across the whole network, so the plugin combines the settings of the sites a user belongs to, and an account that has two-step verification is asked for it on every site. Email recovery, application passwords and trusted devices require every site's permission. The longest recovery wait applies; the setup period is the shortest among the sites that set the user's highest policy level (Required > Optional > Off).
+
+Permissions to enroll a method are combined the same way, with one exception: if a Required user's sites or tied roles have no authenticator-app or passkey method in common, authenticator-app enrollment remains available so the user can complete setup. This can allow it despite one site's passkey-only enrollment preference. Enrollment permissions do not revoke existing authenticator apps or passkeys. Recovery codes remain available. Visiting a site the user does not belong to can add restrictions from that site's settings. Only super admins can reset or unlock other users.
 
 = Where are the settings? =
 

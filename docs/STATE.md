@@ -1,6 +1,17 @@
 # STATE: maxtdesign-mfa
 Updated: 2026-10-02 by session (review fixes and role-tie change merged)
 
+## Latest staging evidence — 2026-10-02
+
+Codex independently re-reviewed `6c2be3b`: both original findings closed; 327 tests / 1,711
+assertions, PHPStan, PHPCS and asset budgets pass. Owner authorized the readme qualification
+and staging installation. [Initial staging test](staging-mxo-20261002.md): artifact installed
+and verified, activation succeeded, but Hosting Basic Authentication 1.0.5 returned HTTP 401
+for fresh Required-role login before MFA enrollment. Activation rolled back; MFA remains
+installed but inactive, protections preserved, synthetic user removed. Full E2E is blocked on
+that integration. This supersedes the re-review-pending/install-not-yet-performed statements
+below; distribution and beta restrictions remain unchanged.
+
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
 (hooks, options, meta), `MDMFA_` (constants), tables `{$wpdb->prefix}mdmfa_*` except
