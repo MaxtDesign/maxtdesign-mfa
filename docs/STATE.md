@@ -1,13 +1,22 @@
 # STATE: maxtdesign-mfa
 Updated: 2026-10-02 by Claude Code (release candidate 3f3dbe3)
 
-## Release candidate — 2026-10-02 (Claude Code, continuing Codex's release review)
+## Native Narrator correction — 2026-10-03
+
+Owner testing found that cancelling Windows Security displays the passkey error but
+Narrator returns to reading the button. This supersedes the earlier apparent speech
+pass. A persistent alert and button-description fix is authored on the isolated
+`codex/mfa-narrator-feedback` branch, not deployed. Browser regressions pass, but
+native speech acceptance remains open. See [Narrator follow-up](narrator-feedback-20261003.md).
+Staging has been restored to inactive and all manual fixtures removed.
+
+## Release candidate â€” 2026-10-02 (Claude Code, continuing Codex's release review)
 
 Candidate `3f3dbe3` on branch `fix/mfa-release-candidate`, PR #15 (pushed 2026-10-03 on the
 owner's word; supersedes PR #14, closed): PR #14's gate
 fix, Codex's rewrite repair and accessibility changes, the readme qualification for the gate
 flow, and one fix to Codex's repair (a rebuild that finds no rule is retried once a day, not on
-every request). Zip `_build/maxtdesign-mfa-0.1.0.zip`, 94 files, SHA-256 `14bfa5e8…d956d9`,
+every request). Zip `_build/maxtdesign-mfa-0.1.0.zip`, 94 files, SHA-256 `14bfa5e8â€¦d956d9`,
 all files match the commit; preflight PASS. Local: unit 334 tests, `e2e-wc` 20 pass, gate tests
 with the real gate 8 pass, `e2e` 74 of 83 pass (8 network skips, 1 harness error). CI on PR #14
 green on re-run (the first failure was the setup action failing to fetch wp-cli). Full record,
@@ -16,7 +25,7 @@ Open: CI on the pushed candidate, merge acceptance, native screen readers, WebAu
 owner decisions (target, cohort, channel), production email. Nothing merged, published or
 activated.
 
-## Current acceptance summary — 2026-10-02
+## Current acceptance summary â€” 2026-10-02
 
 The owner reports both desktop and mobile checks work. Theme-owned account spacing
 was then corrected and visually checked at 1280/320 pixels without new assets.
@@ -37,7 +46,7 @@ in the site repository at `docs/handoffs/mfa-release-review-20261002.md`
 (`C:/maxt/projects/website/owned/maxtoffroad`). No production activation, publication
 or broad payment/performance retest was performed for this acceptance summary.
 
-## Accessibility follow-up — 2026-10-02
+## Accessibility follow-up â€” 2026-10-02
 
 **Hosted follow-up complete:** candidate `a93728d` is installed and byte-verified on
 protected staging, left inactive after cleanup. Core error descriptions and passkey
@@ -58,7 +67,7 @@ on staging; staging retains the prior inactive candidate. Native screen-reader s
 physical-device passkeys and actual browser Basic-auth-dialog interaction remain
 unverified; distribution and beta gates remain unchanged.
 
-## Network and authentication follow-up — 2026-10-02
+## Network and authentication follow-up â€” 2026-10-02
 
 The existing-subsite rewrite gap is now fixed and reproduced as repaired on a
 disposable two-site network. The final approach validates a saved endpoint rule in
@@ -69,7 +78,7 @@ See [network rewrite and E2E follow-up](network-rewrite-e2e-20261002.md) for exa
 artifact, validation, fixture mismatches and remaining release checks. This supersedes
 the earlier single-site-only limitation, not the outstanding full E2E/release gates.
 
-## Current follow-up — 2026-10-02
+## Current follow-up â€” 2026-10-02
 
 The independent review and hosted retest of `4f16fc4` closed the Basic-auth staff
 login blocker. Staff enrollment/login/logout and customer recovery-code tests passed;
@@ -83,7 +92,7 @@ from that document. These results supersede the pending-review and never-reactiv
 statements in the earlier entries below; complete E2E and release acceptance remain
 pending. No production or distribution approval is implied.
 
-## Latest staging evidence — 2026-10-02
+## Latest staging evidence â€” 2026-10-02
 
 Codex independently re-reviewed `6c2be3b`: both original findings closed; 327 tests / 1,711
 assertions, PHPStan, PHPCS and asset budgets pass. Owner authorized the readme qualification
