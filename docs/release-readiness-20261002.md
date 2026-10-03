@@ -5,14 +5,14 @@ Written 2026-10-02 by Claude Code, continuing Codex's scoped release review
 This records the change set, the artifact, what was reviewed and tested, the gates that are
 still open, and a rollout and rollback proposal for the owner to accept or change.
 
-Nothing here authorizes anything. No push, merge, tag, publication, production activation
-or policy change was made. Passkeys stay an opt-in beta; distribution stays undecided.
+Nothing here authorizes anything. The branch was pushed and PR #15 opened on the owner's word
+(2026-10-03); no merge, tag, publication, production activation or policy change was made. Passkeys stay an opt-in beta; distribution stays undecided.
 
 ## Candidate
 
 | | |
 |---|---|
-| Branch | `codex/mfa-rewrite-lifecycle` (local only; not pushed) |
+| Branch | `fix/mfa-release-candidate`, PR #15 (was the local branch `codex/mfa-rewrite-lifecycle`); supersedes PR #14 |
 | Runtime commit | `3f3dbe3` (later commits on the branch are documentation only) |
 | Base | `main` `6c2be3b` |
 | Artifact | `_build/maxtdesign-mfa-0.1.0.zip`, 94 files, SHA-256 `14bfa5e86e47e8adeee755f5511238060ebf5bd7fd2f0f1793cb44b742d956d9` |
@@ -97,8 +97,8 @@ readme sentence) is covered by local tests only.
 
 ## Open release gates
 
-1. **CI on the actual merge candidate.** The branch has not been pushed, so CI has not run on
-   `5452f8b..3f3dbe3`. Needs the owner's go to push (see the end of this document).
+1. **CI on the actual merge candidate.** Running on PR #15 since the push on 2026-10-03; its
+   result is the evidence for `5452f8b..3f3dbe3`.
 2. **Merge acceptance.** Someone other than the authors should review the combined diff. The
    gate fix had a separate read-only pass; Codex's changes had only my read above.
 3. **Native screen-reader check** of the error announcement, focus after a failed passkey, and
