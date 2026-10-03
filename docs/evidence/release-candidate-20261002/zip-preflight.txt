@@ -1,0 +1,24 @@
+
+preflight-vendor: maxtdesign-mfa
+============================================================
+
+A. composer.json path repositories
+  PASS  no path repositories
+
+B. vendored packages in the working tree
+  WARN  no vendor/maxtdesign packages installed (run composer install)
+
+C. can a root-walking builder actually see the files?
+
+D. .distignore
+  PASS  .distignore excludes /vendor; acceptable only because there are no path repositories to ship (2026-09-13: made conditional so plugins without vendored libs can pass the gate)
+
+E. built artifact: maxtdesign-mfa-0.1.0.zip
+  PASS  no vendor/phpunit (dev) leakage
+  PASS  no vendor/phpstan (dev) leakage
+  PASS  no vendor/myclabs (dev) leakage
+  WARN  zip has no vendor/autoload.php (drop-in vendoring?)
+
+============================================================
+PREFLIGHT PASSED  (0 failed, 2 warnings)
+

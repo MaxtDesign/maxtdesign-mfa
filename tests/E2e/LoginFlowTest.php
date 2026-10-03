@@ -45,6 +45,7 @@ final class LoginFlowTest extends E2eTestCase {
 		$wrong = $this->submit_code( $browser, self::wrong_code( $secret ) );
 		self::assertSame( 200, $wrong->status );
 		self::assertStringContainsString( 'That code is not valid', $wrong->body );
+		self::assertMatchesRegularExpression( '/<input[^>]+id="mdmfa_code"[^>]+aria-describedby="login_error"[^>]+aria-invalid="true"/', $wrong->body );
 		self::assertNoAuthCookie( $wrong );
 
 		$ok = $this->submit_code( $browser, self::code( $secret ) );

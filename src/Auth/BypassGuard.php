@@ -76,6 +76,17 @@ final class BypassGuard {
 		// A user who only ever arrives through a direct cookie issuer (SSO, a reset
 		// auto-login) still gets a setup period that ends.
 		Policy::maybe_start_grace( $user );
+		// An access gate whose password check was let through on the second step's own pages
+		// (HttpAuth): no session, whatever the policy, and the pending sign-in stays as it is.
+		if ( HttpAuth::passed( $user->ID ) ) {
+			\WP_Session_Tokens::get_instance( $user->ID )->destroy( $token );
+			self::$blocked[ $token ] = true;
+			if ( get_current_user_id() === $user->ID ) {
+				wp_set_current_user( 0 );
+			}
+
+			return;
+		}
 		if ( ! Policy::is_subject( $user ) ) {
 			return;
 		}

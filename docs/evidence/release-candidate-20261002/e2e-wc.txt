@@ -1,0 +1,30 @@
+# Whole e2e-wc suite
+# plugin under test: 3f3dbe3 (built with .distignore)
+# WordPress 7.1.2 + WooCommerce 10.9.4; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-02T22:59Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 03:17.693, Memory: 10.00 MB
+Customer Path (MaxtDesign\Mfa\Tests\E2eWc\CustomerPath)
+ ✔ Customer second step happens on my account not wp login
+ ✔ Recovery code and start over on my account
+ ✔ Password reset auto login becomes a challenge not a session
+ ✔ Checkout login returns to checkout with the cart
+ ✔ New account checkout still logs in
+ ✔ Front end login form posts to the neutral handler
+ ✔ Another plugins form post goes to the challenge
+ ✔ Ajax login gets an error with a link and no session
+ ✔ Anonymous crawl of front end urls never contains the slug
+ ✔ Security tab turns on two step verification
+ ✔ Customer adds a passkey on the security tab and uses it on my account
+ ✔ Customer uses an emailed code and email recovery on my account
+Rewrite Lifecycle (MaxtDesign\Mfa\Tests\E2eWc\RewriteLifecycle)
+ ✔ A rebuild that finds no endpoint rule is not repeated on every request
+ ✔ Existing sites repair missing rules after reactivation
+Security Presenters (MaxtDesign\Mfa\Tests\E2eWc\SecurityPresenters)
+ ✔ First authenticator setup in wp admin shows the recovery codes there once
+ ✔ First authenticator setup in wp admin on plain woocommerce
+ ✔ Wp admin step up and new recovery codes stay in wp admin
+ ✔ First passkey in wp admin shows the recovery codes there once
+ ✔ My account setup step up and new codes stay on my account
+ ✔ Each presenter accepts only its own form
+OK (20 tests, 502 assertions)

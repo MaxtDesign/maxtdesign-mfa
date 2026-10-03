@@ -10,7 +10,7 @@ let a;
 const run=async(el,m)=>{const g=JSON.parse(el.dataset.mdmfaPasskey),f=el.closest("form"),o=p(g.options);
 a&&a.abort();a=new AbortController;const q={publicKey:o,signal:a.signal};m&&(q.mediation=m);
 try{const c=g.mode==="create"?await C.create(q):await C.get(q);f.querySelector('[name="'+g.field+'"]').value=j(c);f.submit()}
-catch(x){if(!m&&x.name!=="AbortError"){const w=f.querySelector("[data-mdmfa-error]");w&&(w.hidden=!1)}}};
+catch(x){if(!m&&x.name!=="AbortError"){const w=f.querySelector("[data-mdmfa-error]");if(w){w.hidden=!1;w.focus()}}}};
 d.querySelectorAll("[data-mdmfa-passkey]").forEach(el=>{if(!P||!C){return}const g=JSON.parse(el.dataset.mdmfaPasskey);
 el.hidden=!1;el.addEventListener("click",v=>{v.preventDefault();run(el)});
 g.conditional&&P.isConditionalMediationAvailable&&P.isConditionalMediationAvailable().then(y=>{if(y){const u=d.getElementById(g.conditional);u&&(u.autocomplete="username webauthn");run(el,"conditional")}})})})();

@@ -1,0 +1,26 @@
+diff --git a/wp/themes/maxtoffroad/assets/css/woocommerce.css b/wp/themes/maxtoffroad/assets/css/woocommerce.css
+index 4c6d91d..c7cd20a 100644
+--- a/wp/themes/maxtoffroad/assets/css/woocommerce.css
++++ b/wp/themes/maxtoffroad/assets/css/woocommerce.css
+@@ -3852,6 +3852,21 @@ a.mxo-fitment-panel__link:hover {
+     margin-bottom: 0.75rem;
+ }
+ 
++/* MFA account controls inherit presentation from the theme. */
++.woocommerce-mdmfa-security .woocommerce-MyAccount-content > :is(p, form, ul),
++.woocommerce-mdmfa-security .woocommerce-MyAccount-content form > :is(p, fieldset) {
++    margin-block: 0.75rem;
++}
++
++.woocommerce-mdmfa-security .woocommerce-MyAccount-content > h3 {
++    margin-block: 2rem 0.5rem;
++}
++
++.woocommerce-mdmfa-security .woocommerce-MyAccount-content label[for] {
++    display: block;
++    margin-bottom: 0.375rem;
++}
++
+ /* Fitment notes inside the Fitment Chart card (supplier exclusions and
+    requirements). Sits above the chart; a left rule marks it as a caution. */
+ .mxo-pdp-card__notes {

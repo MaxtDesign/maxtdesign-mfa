@@ -1,0 +1,30 @@
+# HttpAuthGateTest against UNFIXED main, real Hosting Basic Authentication 1.0.5
+# plugin under test: main 6c2be3b
+# WordPress 7.1.2 + WooCommerce 10.9.4; PHP 8.3.29; MariaDB 10.4.32; php -S (one worker); 2026-10-02T13:08Z
+
+PHPUnit 11.5.56 by Sebastian Bergmann and contributors.
+Time: 00:48.265, Memory: 10.00 MB
+Http Auth Gate (MaxtDesign\Mfa\Tests\E2e\HttpAuthGate)
+ ✔ The gate still keeps out anyone without a correct password
+ ✔ An account that needs no second step passes the gate as before
+ ✘ Fresh staff reach setup through the gate and get a session only after it
+   │ not 401: the password is right, so the browser is sent to the second step
+   │ Failed asserting that 401 is identical to 302.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\HttpAuthGateTest.php:110
+ ✘ A correct password alone never becomes a session for enrolled staff
+   │ Failed asserting that 401 is identical to 302.
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\HttpAuthGateTest.php:157
+ ✘ Staff past the setup period cannot skip setup through the gate
+   │ Failed asserting that '' [ASCII](length: 0) contains "action=mdmfa-enroll" [ASCII](length: 19).
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\HttpAuthGateTest.php:204
+ ✘ Logging out ends the session and the next visit needs the second step again
+   │ RuntimeException: No mdmfa_form token in response (401):
+   │ Authentication Required
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\Browser.php:284
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\HttpAuthGateTest.php:220
+ ✘ Email recovery works behind the gate and signs nobody in
+   │ Failed asserting that '<h1>Authentication Required</h1>' [ASCII](length: 32) contains "Lost access? Reset by email" [ASCII](length: 27).
+   │ C:\maxt\projects\plugin\maxtdesign-mfa\tests\E2e\HttpAuthGateTest.php:248
+ ↩ A gate nobody vouched for is refused as before
+ ✔ Without a gate basic credentials on a page request mean nothing
+Tests: 9, Assertions: 58, Errors: 1, Failures: 4, Skipped: 1.

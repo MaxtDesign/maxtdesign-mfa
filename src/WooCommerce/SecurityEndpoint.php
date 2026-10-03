@@ -16,6 +16,7 @@ namespace MaxtDesign\Mfa\WooCommerce;
 use MaxtDesign\Mfa\Account\SecurityActions;
 use MaxtDesign\Mfa\Account\SecurityView;
 use MaxtDesign\Mfa\Settings\Options;
+use MaxtDesign\Mfa\Support\Clock;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -45,7 +46,7 @@ final class SecurityEndpoint {
 		add_filter( 'woocommerce_endpoint_' . self::KEY . '_title', array( self::class, 'title' ) );
 		add_action( 'woocommerce_account_' . self::KEY . '_endpoint', array( self::class, 'render' ) );
 		add_action( 'wp_loaded', array( self::class, 'handle_post' ), 20 );
-		add_action( 'init', array( self::class, 'maybe_flush' ), 99 );
+		add_action( 'wp_loaded', array( self::class, 'maybe_flush' ), 10 );
 	}
 
 	/**
@@ -90,15 +91,49 @@ final class SecurityEndpoint {
 	}
 
 	/**
-	 * Flushes rewrite rules once after the endpoint appears (WooCommerce registers its
-	 * endpoints on init). Reads one autoloaded option otherwise.
+	 * Repairs missing endpoint rules after WooCommerce registers them on init.
+	 * Runs on wp_loaded so a soft flush completes before its rule is recorded.
+	 * Validate one saved rule in core's cached rules, including on existing subsites:
+	 * a version alone cannot detect rules regenerated while this plugin was inactive.
 	 */
 	public static function maybe_flush(): void {
-		if ( ! class_exists( 'WooCommerce' ) || self::REWRITE_VERSION === get_option( Options::REWRITE ) ) {
+		if ( ! function_exists( 'WC' ) || '' === (string) get_option( 'permalink_structure' ) ) {
+			return;
+		}
+		$slug = WC()->query->get_query_vars()[ self::KEY ] ?? '';
+		if ( '' === $slug ) {
+			return;
+		}
+		$rules  = (array) get_option( 'rewrite_rules', array() );
+		$marker = get_option( Options::REWRITE );
+		if ( is_array( $marker ) && self::REWRITE_VERSION === ( $marker['version'] ?? '' )
+			&& ( $marker['slug'] ?? '' ) === $slug && isset( $marker['rule'], $marker['query'] )
+			&& is_string( $marker['rule'] ) && ( $rules[ $marker['rule'] ] ?? null ) === $marker['query'] ) {
+			return;
+		}
+		// A rebuild that produced no endpoint rule (another plugin filters the rules, or the
+		// endpoint mask was changed) is retried once a day, never on every request.
+		if ( is_array( $marker ) && self::REWRITE_VERSION === ( $marker['version'] ?? '' ) && ( $marker['slug'] ?? '' ) === $slug
+			&& '' === ( $marker['rule'] ?? null ) && (int) ( $marker['checked'] ?? 0 ) > Clock::now() - DAY_IN_SECONDS ) {
 			return;
 		}
 		flush_rewrite_rules( false );
-		update_option( Options::REWRITE, self::REWRITE_VERSION, true );
+		$found = array(
+			'version' => self::REWRITE_VERSION,
+			'slug'    => $slug,
+			'rule'    => '',
+			'query'   => '',
+			'checked' => Clock::now(),
+		);
+		foreach ( (array) get_option( 'rewrite_rules', array() ) as $rule => $query ) {
+			if ( is_string( $rule ) && is_string( $query ) && str_ends_with( $rule, $slug . '(/(.*))?/?$' )
+				&& str_contains( $query, '&' . $slug . '=' ) ) {
+				$found['rule']  = $rule;
+				$found['query'] = $query;
+				break;
+			}
+		}
+		update_option( Options::REWRITE, $found, true );
 	}
 
 	/**

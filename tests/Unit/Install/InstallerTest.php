@@ -67,6 +67,29 @@ final class InstallerTest extends TestCase {
 		self::assertSame( array(), $GLOBALS['mdmfa_test']['dbdelta'] );
 	}
 
+	public function test_reactivation_invalidates_stale_endpoint_marker_without_flushing_early(): void {
+		Installer::activate();
+		update_option( Options::REWRITE, '2' );
+		Installer::deactivate();
+		// Core or another plugin regenerated rules while MFA was inactive.
+		$rules = array( 'example/?$' => 'index.php?pagename=example' );
+		update_option( 'rewrite_rules', $rules );
+
+		Installer::activate();
+
+		self::assertFalse( get_option( Options::REWRITE ) );
+		self::assertSame( $rules, get_option( 'rewrite_rules' ), 'Rebuild waits for endpoint registration on init.' );
+	}
+
+	public function test_ordinary_requests_keep_the_endpoint_marker(): void {
+		Installer::activate();
+		update_option( Options::REWRITE, '2' );
+
+		Installer::maybe_upgrade();
+
+		self::assertSame( '2', get_option( Options::REWRITE ), 'Do not schedule a rewrite flush on every request.' );
+	}
+
 	public function test_maybe_upgrade_installs_when_schema_differs(): void {
 		$GLOBALS['mdmfa_test']['options'][ Options::DB_VERSION ] = '0';
 

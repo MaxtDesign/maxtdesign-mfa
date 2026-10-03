@@ -23,6 +23,12 @@ final class Browser {
 	 */
 	public array $history = array();
 
+	/**
+	 * HTTP Basic credentials ('user:password') sent with every request, as a browser does
+	 * once the user has answered the prompt.
+	 */
+	public ?string $basic = null;
+
 	public function __construct( private readonly string $base ) {
 	}
 
@@ -146,6 +152,10 @@ final class Browser {
 		);
 		if ( 'POST' === $method ) {
 			curl_setopt( $handle, CURLOPT_POSTFIELDS, http_build_query( $form ) );
+		}
+		if ( null !== $this->basic ) {
+			curl_setopt( $handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC );
+			curl_setopt( $handle, CURLOPT_USERPWD, $this->basic );
 		}
 		return $handle;
 	}
