@@ -1,4 +1,15 @@
 # STATE: maxtdesign-mfa
+
+## October 6 — rewrite context blocker, isolated candidate
+
+Production rollout in the Codex MFA session used `--skip-themes`; automatic endpoint
+repair discarded the MaxtOffroad theme's routes. Site team restored the rules and
+owns its separate 0.4.77 hardening. This branch confines plugin repair to authorized
+admin requests and adds regression tests; see [rewrite-context-20261006.md](rewrite-context-20261006.md).
+Local unit suite 343/1790, PHPCS and PHPStan pass. CI/E2E and review remain release
+gates. No live changes in this fix; no further theme/plugin-skipping production
+commands. Earlier release readiness statements do not close this newly found blocker.
+
 Updated: 2026-10-02 by Claude Code (release candidate 3f3dbe3)
 
 ## Narrator targeted retest passed — 2026-10-06

@@ -46,7 +46,7 @@ final class SecurityEndpoint {
 		add_filter( 'woocommerce_endpoint_' . self::KEY . '_title', array( self::class, 'title' ) );
 		add_action( 'woocommerce_account_' . self::KEY . '_endpoint', array( self::class, 'render' ) );
 		add_action( 'wp_loaded', array( self::class, 'handle_post' ), 20 );
-		add_action( 'wp_loaded', array( self::class, 'maybe_flush' ), 10 );
+		add_action( 'admin_init', array( self::class, 'maybe_flush' ), 10 );
 	}
 
 	/**
@@ -92,11 +92,18 @@ final class SecurityEndpoint {
 
 	/**
 	 * Repairs missing endpoint rules after WooCommerce registers them on init.
-	 * Runs on wp_loaded so a soft flush completes before its rule is recorded.
+	 * Runs on an authorized admin request after wp_loaded, never a shopper or CLI
+	 * request. CLI may omit themes/plugins; persisting that partial rule set can
+	 * silently remove another component's routes. Activation only invalidates the
+	 * marker; operators must visit wp-admin before handing off customer access.
 	 * Validate one saved rule in core's cached rules, including on existing subsites:
 	 * a version alone cannot detect rules regenerated while this plugin was inactive.
 	 */
 	public static function maybe_flush(): void {
+		if ( defined( 'WP_CLI' ) || wp_installing() || ! is_admin() || wp_doing_ajax()
+			|| ! did_action( 'wp_loaded' ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		if ( ! function_exists( 'WC' ) || '' === (string) get_option( 'permalink_structure' ) ) {
 			return;
 		}

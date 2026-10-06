@@ -1,0 +1,11 @@
+# Rewrite repair context regression
+
+The October 6 owned-site rollout exposed a release-blocking defect: the endpoint repair ran on `wp_loaded` during WP-CLI commands launched with `--skip-themes`. Rebuilding the shared rewrite option without all registrars loaded discarded theme routes. Frontend requests could also pay for the rebuild. Activation approval did not make that procedure safe.
+
+Repair now runs on `admin_init`, only after `wp_loaded`, for a user with `manage_options`. Direct calls also return immediately when WP_CLI is defined (even false), during installation, AJAX, frontend requests, early bootstrap or an unauthorized admin request. No cron event or frontend polling was added. Activation still invalidates its marker; an administrator must visit each affected site's admin before customer endpoint acceptance. The current marker format and 24-hour failed-repair throttle are preserved.
+
+Tests seed another component's stored route while omitting its registrar from the current process. CLI/public repair must leave the entire option and pending marker unchanged. The E2E case exercises an unrelated theme-skipping CLI command followed by a shopper request, then an authenticated admin request with the registrar loaded. Existing lifecycle E2E tests now use admin requests for repair and retain reactivation/multisite and failed-repair coverage.
+
+Local PHP 8.3.29 unit suite: 343 tests / 1790 assertions PASS, including nine new context/lifecycle cases. PHPCS and PHPStan PASS. An initial local run used the wrong PHP configuration and subprocesses lacked crypto extensions; corrected PHPRC/OPENSSL_CONF and reran successfully. Hosted CI and real WordPress lifecycle tests must pass before merge/release; no production or staging installation performed for this fix. No claim that this suppresses another plugin's independent flush or makes explicit partial-bootstrap `wp rewrite flush` safe.
+
+Quality: frontend repair checks and potential rebuild removed; no added assets, requests or schema. Capability and lifecycle gates protect the shared route option. No account factors, personal data or MFA policy changed. No new legal/compliance claims. Field timing and wider inherited-system behavior remain unverified. The defect blocks the next release until this candidate is validated and reviewed.
