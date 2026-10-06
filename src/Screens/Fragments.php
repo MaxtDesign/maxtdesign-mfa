@@ -107,12 +107,12 @@ final class Fragments {
 		$field = isset( $config['field'] ) && is_string( $config['field'] ) ? $config['field'] : 'mdmfa_credential';
 
 		return sprintf(
-			'<p class="mdmfa-passkey"><button type="button" class="%1$s" data-mdmfa-passkey="%2$s" hidden>%3$s</button></p><input type="hidden" name="%4$s" value=""><p data-mdmfa-error role="alert" tabindex="-1" hidden>%5$s</p><noscript><p>%6$s</p></noscript>',
+			'<p class="mdmfa-passkey"><button type="button" class="%1$s" data-mdmfa-passkey="%2$s" hidden>%3$s</button></p><input type="hidden" name="%4$s" value=""><div data-mdmfa-error="%5$s" role="alert" aria-atomic="true" tabindex="-1"></div><noscript><p>%6$s</p></noscript>',
 			esc_attr( $css_class ),
 			esc_attr( (string) wp_json_encode( $config ) ),
 			esc_html( $label ),
 			esc_attr( $field ),
-			esc_html__( 'That did not work. Try again, or choose another way to sign in.', 'maxtdesign-mfa' ),
+			esc_attr__( 'That did not work. Try again, or choose another way to sign in.', 'maxtdesign-mfa' ),
 			esc_html__( 'Passkeys need JavaScript. Choose another way to sign in.', 'maxtdesign-mfa' )
 		);
 	}
