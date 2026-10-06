@@ -87,6 +87,92 @@ add_action(
 	}
 );
 
+// A site access gate of the kind hosts put in front of staging sites (modelled on Hosting
+// Basic Authentication 1.0.5): every page request of a browser that is not logged in must
+// carry a WordPress user's credentials as HTTP Basic authentication. It checks them with
+// wp_authenticate() on plugins_loaded priority 1, long before any login form exists, and
+// then starts the session itself. HttpAuthGateTest turns it on with the option. With the
+// value "unlisted" the gate runs but nobody has vouched for it (mdmfa_http_auth_gates).
+final class Mdmfa_E2e_Gate {
+
+	public static function register( bool $vouched ): void {
+		add_action( 'plugins_loaded', array( self::class, 'force' ), 1 );
+		add_action( 'init', array( self::class, 'logout' ), 1 );
+		add_filter( 'logout_url', static fn ( $url ) => add_query_arg( 'basic-auth-logout', '1', $url ) );
+		add_action( 'login_init', array( self::class, 'leave_login_page' ), 0 );
+		if ( $vouched ) {
+			add_filter( 'mdmfa_http_auth_gates', static fn ( $gates ) => array_merge( (array) $gates, array( self::class ) ) );
+		}
+	}
+
+	private static function skip(): bool {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+		return ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) || 'cli' === php_sapi_name() || ( defined( 'WP_CLI' ) && WP_CLI )
+			|| 'xmlrpc.php' === basename( (string) ( $_SERVER['SCRIPT_NAME'] ?? '' ) ) || 1 === preg_match( '#^/wp-json/wp/v2(/|\?|$)#', $uri );
+	}
+
+	private static function challenge(): void {
+		header( 'WWW-Authenticate: Basic realm="Restricted Area"' );
+		header( 'HTTP/1.1 401 Unauthorized' );
+		echo '<h1>Authentication Required</h1>';
+		exit;
+	}
+
+	public static function force(): void {
+		if ( self::skip() || is_user_logged_in() ) {
+			return;
+		}
+		$name = isset( $_SERVER['PHP_AUTH_USER'] ) ? sanitize_text_field( wp_unslash( $_SERVER['PHP_AUTH_USER'] ) ) : '';
+		$pass = isset( $_SERVER['PHP_AUTH_PW'] ) ? $_SERVER['PHP_AUTH_PW'] : '';
+		if ( '' === $name || '' === $pass ) {
+			self::challenge();
+		}
+		$user = wp_authenticate( $name, $pass );
+		if ( is_wp_error( $user ) ) {
+			self::challenge();
+		}
+		if ( isset( $_GET['basic-auth-logout'] ) ) {
+			return;
+		}
+		wp_set_current_user( $user->ID );
+		wp_set_auth_cookie( $user->ID );
+	}
+
+	public static function logout(): void {
+		if ( ! self::skip() && isset( $_GET['basic-auth-logout'] ) ) {
+			wp_logout();
+			self::challenge();
+		}
+	}
+
+	public static function leave_login_page(): void {
+		if ( 'wp-login.php' === $GLOBALS['pagenow'] && ! empty( $_SERVER['PHP_AUTH_USER'] ) && ! empty( $_SERVER['PHP_AUTH_PW'] )
+			&& ! isset( $_GET['action'] ) && ! isset( $_GET['loggedout'] ) && ! isset( $_POST['log'] ) && ! isset( $_GET['basic-auth-logout'] ) ) {
+			wp_safe_redirect( home_url() );
+			exit;
+		}
+	}
+}
+if ( get_option( 'e2e_http_gate' ) ) {
+	Mdmfa_E2e_Gate::register( 'unlisted' !== get_option( 'e2e_http_gate' ) );
+}
+
+// Another plugin that filters the My Account Security endpoint's rules away, and a count
+// of how often WordPress rebuilds its rules meanwhile (RewriteLifecycleTest).
+if ( get_option( 'e2e_drop_endpoint_rule' ) ) {
+	add_filter(
+		'rewrite_rules_array',
+		static fn ( $rules ) => is_array( $rules ) ? array_filter( $rules, static fn ( $key ) => ! str_contains( (string) $key, 'login-security' ), ARRAY_FILTER_USE_KEY ) : $rules,
+		PHP_INT_MAX
+	);
+	add_action(
+		'generate_rewrite_rules',
+		static function (): void {
+			update_option( 'e2e_rewrite_flushes', (int) get_option( 'e2e_rewrite_flushes', 0 ) + 1, false );
+		}
+	);
+}
+
 // Records the suite purge signal maxtdesign-cache would act on.
 add_action(
 	'md_suite_content_changed',

@@ -49,7 +49,7 @@ final class Interceptor {
 	 */
 	public static function register(): void {
 		add_filter( 'secure_signon_cookie', array( self::class, 'capture_signon' ), PHP_INT_MAX, 2 );
-		add_filter( 'authenticate', array( self::class, 'authenticate' ), PHP_INT_MAX, 1 );
+		add_filter( 'authenticate', array( self::class, 'authenticate' ), PHP_INT_MAX, 3 );
 		add_filter( 'woocommerce_login_credentials', array( Context::class, 'mark_wc' ), PHP_INT_MAX );
 		add_action( 'application_password_did_authenticate', array( Context::class, 'mark_apppass' ) );
 	}
@@ -73,15 +73,22 @@ final class Interceptor {
 	/**
 	 * The final authenticate verdict.
 	 *
-	 * @param mixed $user WP_User, WP_Error or null.
+	 * @param mixed $user     WP_User, WP_Error or null.
+	 * @param mixed $username Username given to wp_authenticate().
+	 * @param mixed $password Password given to wp_authenticate().
 	 * @return mixed
 	 */
-	public static function authenticate( mixed $user ): mixed {
+	public static function authenticate( mixed $user, mixed $username = '', mixed $password = '' ): mixed {
 		if ( ! $user instanceof \WP_User ) {
 			return $user;
 		}
 
 		$context = Context::detect( $user->ID );
+		// A site access gate checking the browser's HTTP Basic credentials (HttpAuth). It runs
+		// before any login form exists, so nothing has marked the request yet.
+		if ( in_array( $context, array( Context::UNKNOWN, Context::UNKNOWN_POST ), true ) && HttpAuth::matches( $username, $password ) && HttpAuth::from_gate() ) {
+			$context = Context::HTTP_AUTH;
+		}
 		// App passwords are a revocable scoped credential, exempt by design (plan 4.3).
 		// WP-CLI and cron never create browser sessions.
 		if ( Context::APPPASS === $context || Context::CLI === $context ) {
@@ -129,22 +136,55 @@ final class Interceptor {
 			return new \WP_Error( 'mdmfa_required', __( 'Two-step verification is required for this account. Sign in through the login page.', 'maxtdesign-mfa' ) );
 		}
 
-		$token = PendingStore::create( $user->ID, PendingStore::KIND_LOGIN, self::payload( $context, $decision ) );
+		// The gate asks again on every request of a browser that is not signed in yet: one
+		// pending sign-in per browser, so the form the user is filling in stays valid.
+		$token = Context::HTTP_AUTH === $context ? self::pending_token( $user->ID ) : null;
+		$fresh = null === $token;
+		if ( headers_sent() && Context::HTTP_AUTH === $context ) {
+			Logger::log( 'noninteractive_blocked', $user->ID, '', $context );
 
-		// A trusted device skips the challenge, never enrollment (plan 4.3).
-		if ( Policy::CHALLENGE === $decision && TrustedDevice::valid( $user ) ) {
+			return new \WP_Error( 'mdmfa_required', 'Two-step verification is required for this account.' );
+		}
+		$token ??= PendingStore::create( $user->ID, PendingStore::KIND_LOGIN, self::payload( $context, $decision ) );
+		if ( $fresh ) {
+			PendingCookie::set( $token );
+			do_action( 'mdmfa_challenge_started', $user, $context );
+			if ( Context::HTTP_AUTH === $context ) {
+				Logger::log( 'gate_password', $user->ID, '', $context );
+			}
+		}
+		// On the second step's own pages the gate's check passes, and no session comes of it.
+		if ( Context::HTTP_AUTH === $context && HttpAuth::is_flow_request() ) {
+			HttpAuth::pass( $user );
+
+			return $user;
+		}
+
+		// A trusted device skips the challenge, never enrollment (plan 4.3). Not behind a gate:
+		// it runs before WordPress has loaded, too early to finish a login (wp_login listeners,
+		// permalinks), so the code is asked for there.
+		if ( Policy::CHALLENGE === $decision && Context::HTTP_AUTH !== $context && TrustedDevice::valid( $user ) ) {
 			$record = PendingStore::find( $token );
 			if ( null !== $record && Completion::complete( $user, TrustedDevice::FACTOR, $record ) ) {
 				Completion::redirect( $user, $record );
 			}
 		}
 
-		PendingCookie::set( $token );
-		do_action( 'mdmfa_challenge_started', $user, $context );
-
 		nocache_headers();
 		wp_safe_redirect( ChallengeUrl::for_decision( $decision, $context ) );
 		exit;
+	}
+
+	/**
+	 * The pending sign-in this browser already holds for the user, if any.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	private static function pending_token( int $user_id ): ?string {
+		$token  = PendingCookie::get();
+		$record = null === $token ? null : PendingStore::find( $token );
+
+		return null !== $record && $record->user_id === $user_id ? $token : null;
 	}
 
 	/**
@@ -167,6 +207,9 @@ final class Interceptor {
 			} elseif ( function_exists( 'wc_get_raw_referer' ) ) {
 				$redirect = (string) wc_get_raw_referer();
 			}
+		} elseif ( Context::HTTP_AUTH === $context ) {
+			// Back to the page the gate interrupted; the second step's own pages lead nowhere.
+			$redirect = HttpAuth::is_flow_request() ? '' : HttpAuth::target();
 		} elseif ( isset( $_REQUEST['redirect_to'] ) && is_string( $_REQUEST['redirect_to'] ) ) {
 			$redirect = wp_sanitize_redirect( wp_unslash( $_REQUEST['redirect_to'] ) );
 		}

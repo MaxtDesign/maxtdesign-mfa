@@ -84,6 +84,7 @@ final class Completion {
 			return false;
 		}
 		PendingCookie::clear();
+		HttpAuth::release();
 
 		self::$blessed = true;
 		self::$factor  = $factor;

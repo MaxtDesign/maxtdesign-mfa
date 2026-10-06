@@ -28,6 +28,9 @@ final class Context {
 	public const UNKNOWN_POST = 'unknown-post';
 	public const UNKNOWN      = 'unknown';
 
+	/** HTTP Basic credentials checked by a site access gate (see HttpAuth); set by the Interceptor. */
+	public const HTTP_AUTH = 'http-auth';
+
 	/**
 	 * Flags raised by earlier hooks in this request.
 	 *
@@ -124,6 +127,6 @@ final class Context {
 	 * @param string $context Context constant.
 	 */
 	public static function is_interactive( string $context ): bool {
-		return in_array( $context, array( self::CORE, self::WC, self::FRONTEND, self::UNKNOWN_POST ), true );
+		return in_array( $context, array( self::CORE, self::WC, self::FRONTEND, self::UNKNOWN_POST, self::HTTP_AUTH ), true );
 	}
 }

@@ -103,7 +103,7 @@ final class LoginScreens {
 			} elseif ( 'email' === $state->method ) {
 				$label = __( 'Code from the email', 'maxtdesign-mfa' );
 			}
-			echo Fragments::code_field( 'mdmfa_code', $label, $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo self::code_field( $state, $label, $recovery ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			echo Fragments::trust_field( $state ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			self::form_close( __( 'Verify', 'maxtdesign-mfa' ) );
 			if ( 'email' === $state->method ) {
@@ -196,7 +196,7 @@ final class LoginScreens {
 				echo '<p><strong>' . esc_html__( 'Or use an authenticator app', 'maxtdesign-mfa' ) . '</strong></p>';
 			}
 			echo Fragments::totp_setup( $state->secret, $state->user ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value; the SVG is generated locally.
-			echo Fragments::code_field( 'mdmfa_code', __( 'Code from the app', 'maxtdesign-mfa' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
+			echo self::code_field( $state, __( 'Code from the app', 'maxtdesign-mfa' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Fragments escapes every value.
 			self::form_close( __( 'Confirm', 'maxtdesign-mfa' ) );
 		}
 		printf( '<p id="nav"><a href="%1$s">%2$s</a></p>', esc_url( wp_login_url() ), esc_html__( 'Start over', 'maxtdesign-mfa' ) );
@@ -267,5 +267,23 @@ final class LoginScreens {
 	 */
 	private static function form_close( string $label ): void {
 		printf( '<p class="submit"><input type="submit" class="button button-primary button-large" value="%s"></p></form>', esc_attr( $label ) );
+	}
+
+	/**
+	 * Associates the focused code field with core's error notice, if one was rendered.
+	 *
+	 * @param FlowState $state    Current screen state.
+	 * @param string    $label    Visible field label.
+	 * @param bool      $recovery Whether this accepts a recovery code.
+	 */
+	private static function code_field( FlowState $state, string $label, bool $recovery = false ): string {
+		$description = '';
+		foreach ( $state->errors->get_error_codes() as $code ) {
+			if ( 'message' !== $state->errors->get_error_data( $code ) ) {
+				$description = 'login_error';
+				break;
+			}
+		}
+		return Fragments::code_field( 'mdmfa_code', $label, $recovery, 'input', '', $description, '' !== $state->errors->get_error_message( 'mdmfa_invalid' ) );
 	}
 }

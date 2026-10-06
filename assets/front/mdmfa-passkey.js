@@ -7,10 +7,12 @@ const j=c=>{const r=c.response,o={id:c.id,rawId:e(c.rawId),type:c.type,response:
 if(r.attestationObject){o.response.attestationObject=e(r.attestationObject);o.response.transports=r.getTransports?r.getTransports():[]}
 else{o.response.authenticatorData=e(r.authenticatorData);o.response.signature=e(r.signature);o.response.userHandle=r.userHandle?e(r.userHandle):null}return JSON.stringify(o)};
 let a;
-const run=async(el,m)=>{const g=JSON.parse(el.dataset.mdmfaPasskey),f=el.closest("form"),o=p(g.options);
+const run=async(el,m)=>{const g=JSON.parse(el.dataset.mdmfaPasskey),f=el.closest("form"),w=f.querySelector("[data-mdmfa-error]"),o=p(g.options);
+if(!m&&w)w.textContent="";
 a&&a.abort();a=new AbortController;const q={publicKey:o,signal:a.signal};m&&(q.mediation=m);
 try{const c=g.mode==="create"?await C.create(q):await C.get(q);f.querySelector('[name="'+g.field+'"]').value=j(c);f.submit()}
-catch(x){if(!m&&x.name!=="AbortError"){const w=f.querySelector("[data-mdmfa-error]");w&&(w.hidden=!1)}}};
-d.querySelectorAll("[data-mdmfa-passkey]").forEach(el=>{if(!P||!C){return}const g=JSON.parse(el.dataset.mdmfaPasskey);
+catch(x){if(!m&&x.name!=="AbortError"){if(w){w.textContent=w.dataset.mdmfaError;w.focus()}}}};
+d.querySelectorAll("[data-mdmfa-passkey]").forEach((el,i)=>{if(!P||!C){return}const g=JSON.parse(el.dataset.mdmfaPasskey);
+const w=el.closest("form").querySelector("[data-mdmfa-error]");if(w){w.id="mdmfa-passkey-error-"+i;el.setAttribute("aria-describedby",w.id)}
 el.hidden=!1;el.addEventListener("click",v=>{v.preventDefault();run(el)});
 g.conditional&&P.isConditionalMediationAvailable&&P.isConditionalMediationAvailable().then(y=>{if(y){const u=d.getElementById(g.conditional);u&&(u.autocomplete="username webauthn");run(el,"conditional")}})})})();

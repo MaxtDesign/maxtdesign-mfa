@@ -70,11 +70,19 @@ final class Fragments {
 	 * @param bool   $recovery  Recovery-code field (longer, not numeric).
 	 * @param string $css_class Input class.
 	 * @param string $row_class Wrapper paragraph class.
+	 * @param string $description ID of the field's error description, when present.
+	 * @param bool   $invalid     Whether the submitted code was rejected.
 	 */
-	public static function code_field( string $id, string $label, bool $recovery = false, string $css_class = 'input', string $row_class = '' ): string {
+	public static function code_field( string $id, string $label, bool $recovery = false, string $css_class = 'input', string $row_class = '', string $description = '', bool $invalid = false ): string {
 		$attributes = $recovery
 			? 'autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"'
 			: 'autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 \-]*" maxlength="12"';
+		if ( '' !== $description ) {
+			$attributes .= ' aria-describedby="' . esc_attr( $description ) . '"';
+		}
+		if ( $invalid ) {
+			$attributes .= ' aria-invalid="true"';
+		}
 
 		return sprintf(
 			'<p%5$s><label for="%1$s">%2$s</label><input type="text" name="%1$s" id="%1$s" class="%3$s" value="" size="20" required autofocus %4$s></p>',
@@ -99,12 +107,12 @@ final class Fragments {
 		$field = isset( $config['field'] ) && is_string( $config['field'] ) ? $config['field'] : 'mdmfa_credential';
 
 		return sprintf(
-			'<p class="mdmfa-passkey"><button type="button" class="%1$s" data-mdmfa-passkey="%2$s" hidden>%3$s</button></p><input type="hidden" name="%4$s" value=""><p data-mdmfa-error hidden>%5$s</p><noscript><p>%6$s</p></noscript>',
+			'<p class="mdmfa-passkey"><button type="button" class="%1$s" data-mdmfa-passkey="%2$s" hidden>%3$s</button></p><input type="hidden" name="%4$s" value=""><div data-mdmfa-error="%5$s" role="alert" aria-atomic="true" tabindex="-1"></div><noscript><p>%6$s</p></noscript>',
 			esc_attr( $css_class ),
 			esc_attr( (string) wp_json_encode( $config ) ),
 			esc_html( $label ),
 			esc_attr( $field ),
-			esc_html__( 'That did not work. Try again, or choose another way to sign in.', 'maxtdesign-mfa' ),
+			esc_attr__( 'That did not work. Try again, or choose another way to sign in.', 'maxtdesign-mfa' ),
 			esc_html__( 'Passkeys need JavaScript. Choose another way to sign in.', 'maxtdesign-mfa' )
 		);
 	}

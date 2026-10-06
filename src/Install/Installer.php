@@ -31,6 +31,9 @@ final class Installer {
 	 */
 	public static function activate(): void {
 		self::install();
+		// Rules may have been rebuilt while inactive. Let SecurityEndpoint rebuild them
+		// on wp_loaded, after WooCommerce registers its endpoints, not in this hook.
+		delete_option( Options::REWRITE );
 	}
 
 	/**

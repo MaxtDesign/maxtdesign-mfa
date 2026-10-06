@@ -1,5 +1,122 @@
 # STATE: maxtdesign-mfa
-Updated: 2026-10-02 by session (review fixes and role-tie change merged)
+Updated: 2026-10-02 by Claude Code (release candidate 3f3dbe3)
+
+## Narrator targeted retest passed — 2026-10-06
+
+Owner reports staged candidate 1466f39 announces the passkey cancellation error with
+Windows Narrator on two consecutive enrollment attempts. This closes the specific
+repeated-announcement failure, not the entire accessibility matrix. See the native
+retest section in [Narrator follow-up](narrator-feedback-20261003.md). Cleanup passed:
+MFA inactive, temporary account/role removed, original settings and guards restored.
+Follow-up CI/review, beta restrictions and production gates remain.
+
+## Native Narrator correction — 2026-10-03
+
+Owner testing found that cancelling Windows Security displays the passkey error but
+Narrator returns to reading the button. This supersedes the earlier apparent speech
+pass. A persistent alert and button-description fix is authored on the isolated
+`codex/mfa-narrator-feedback` branch, not deployed. Browser regressions pass, but
+native speech acceptance remains open. See [Narrator follow-up](narrator-feedback-20261003.md).
+Staging has been restored to inactive and all manual fixtures removed.
+
+## Release candidate â€” 2026-10-02 (Claude Code, continuing Codex's release review)
+
+Candidate `3f3dbe3` on branch `fix/mfa-release-candidate`, PR #15 (pushed 2026-10-03 on the
+owner's word; supersedes PR #14, closed): PR #14's gate
+fix, Codex's rewrite repair and accessibility changes, the readme qualification for the gate
+flow, and one fix to Codex's repair (a rebuild that finds no rule is retried once a day, not on
+every request). Zip `_build/maxtdesign-mfa-0.1.0.zip`, 94 files, SHA-256 `14bfa5e8â€¦d956d9`,
+all files match the commit; preflight PASS. Local: unit 334 tests, `e2e-wc` 20 pass, gate tests
+with the real gate 8 pass, `e2e` 74 of 83 pass (8 network skips, 1 harness error). CI on PR #14
+green on re-run (the first failure was the setup action failing to fetch wp-cli). Full record,
+open gates and the rollout/rollback proposal: [release-readiness-20261002.md](release-readiness-20261002.md).
+Open: CI on the pushed candidate, merge acceptance, native screen readers, WebAuthn review,
+owner decisions (target, cohort, channel), production email. Nothing merged, published or
+activated.
+
+## Current acceptance summary â€” 2026-10-02
+
+The owner reports both desktop and mobile checks work. Theme-owned account spacing
+was then corrected and visually checked at 1280/320 pixels without new assets.
+All temporary accounts were removed and staging is inactive again. A fresh read-only
+check confirms the 94 installed files and shipped source still match candidate
+`a93728d`. Checkout/cart isolation and ordinary-route asset deltas also passed in the
+later hosted follow-up. These results supersede older pending statements only for
+those specific checks; exact manual device/browser coverage and native screen-reader
+speech remain unverified.
+
+Release preparation remains gated: the readme's promise that Woo customers never
+use the core login screen needs qualification for the supported hosting Basic-auth
+flow; merge/CI acceptance, production operational readiness and operator approval
+are not established by staging tests. External WebAuthn review remains unverified,
+passkeys remain opt-in beta and distribution remains undecided. Scoped review,
+evidence reconciliation, rollout/rollback proposal and Claude handoff are maintained
+in the site repository at `docs/handoffs/mfa-release-review-20261002.md`
+(`C:/maxt/projects/website/owned/maxtoffroad`). No production activation, publication
+or broad payment/performance retest was performed for this acceptance summary.
+
+## Accessibility follow-up â€” 2026-10-02
+
+**Hosted follow-up complete:** candidate `a93728d` is installed and byte-verified on
+protected staging, left inactive after cleanup. Core error descriptions and passkey
+failure focus passed actual browser tests through the hosting gate and on the site's
+themed Security page. The resolved WooCommerce template renders eight-digit guidance;
+the gate routes pending logins to core, so this is template evidence rather than a
+hosted WooCommerce email-login flow. See [staging verification](accessibility-staging-20261002.md).
+This supersedes the not-yet-installed statement in the local review paragraph below.
+
+Local browser review reproduced and fixed three presentation issues: passkey failure
+feedback now receives focus with alert semantics, core invalid-code inputs reference
+their error notice, and WooCommerce correctly requests eight-digit email codes.
+Both presenters passed automated enrollment/recovery keyboard flows and the sampled
+320-pixel layouts; 334 unit tests, three targeted E2E tests, PHPStan, PHPCS and size
+gates pass. See [accessibility follow-up](accessibility-followup-20261002.md) for exact
+scope, evidence, environment retries and limitations. These fixes are not yet installed
+on staging; staging retains the prior inactive candidate. Native screen-reader speech,
+physical-device passkeys and actual browser Basic-auth-dialog interaction remain
+unverified; distribution and beta gates remain unchanged.
+
+## Network and authentication follow-up â€” 2026-10-02
+
+The existing-subsite rewrite gap is now fixed and reproduced as repaired on a
+disposable two-site network. The final approach validates a saved endpoint rule in
+core's cached rules; the ordinary network-page probe records zero MFA queries.
+The final artifact also passes hosted staff/customer regressions and remains installed
+but inactive on staging, with synthetic accounts removed and protections preserved.
+See [network rewrite and E2E follow-up](network-rewrite-e2e-20261002.md) for exact
+artifact, validation, fixture mismatches and remaining release checks. This supersedes
+the earlier single-site-only limitation, not the outstanding full E2E/release gates.
+
+## Current follow-up â€” 2026-10-02
+
+The independent review and hosted retest of `4f16fc4` closed the Basic-auth staff
+login blocker. Staff enrollment/login/logout and customer recovery-code tests passed;
+the customer page initially required a manual rewrite flush. The resulting current-site
+activation fix and its limits are documented in
+[rewrite reactivation](rewrite-reactivation-20261002.md). Local checks pass (334 tests /
+1,764 assertions, PHPStan, PHPCS, asset budgets). Hosted reactivation automatically
+restored missing endpoint rules and the customer Security page returned 200 without a
+manual flush. The final test/cleanup record is in the private evidence directory linked
+from that document. These results supersede the pending-review and never-reactivate
+statements in the earlier entries below; complete E2E and release acceptance remain
+pending. No production or distribution approval is implied.
+
+## Latest staging evidence â€” 2026-10-02
+
+Codex independently re-reviewed `6c2be3b`: both original findings closed; 327 tests / 1,711
+assertions, PHPStan, PHPCS and asset budgets pass. Owner authorized the readme qualification
+and staging installation. [Initial staging test](staging-mxo-20261002.md): artifact installed
+and verified, activation succeeded, but Hosting Basic Authentication 1.0.5 returned HTTP 401
+for fresh Required-role login before MFA enrollment. Activation rolled back; MFA remains
+installed but inactive, protections preserved, synthetic user removed. Full E2E is blocked on
+that integration. This supersedes the re-review-pending/install-not-yet-performed statements
+below; distribution and beta restrictions remain unchanged.
+
+**The integration is fixed on branch `fix/http-auth-gate` (`092c9a7`, PR open, not merged),
+awaiting independent review: [fix report](http-auth-gate-20261002.md).** Reproduced locally
+with the same gate plugin (staff 401 on `main`), fixed, and verified on a disposable site and
+on plugin-test.local. Staging was not touched: the plugin is still installed and inactive
+there, and nothing may be reactivated before the review.
 
 ## Identity
 MaxtDesign MFA. Slug / text domain / repo `maxtdesign-mfa`; short code `mfa`; prefixes `mdmfa_`
@@ -96,6 +213,12 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
 - 2026-10-01 (operator): on one site, roles that tie on policy are combined the way sites are:
   a permission needs every tied role's consent, longest recovery wait, shortest grace. A role
   of lower rank still restricts nothing. Plan 4.1 amended in place.
+- 2026-10-02 (gate fix): a password that a known access gate authenticates from the request's
+  HTTP Basic credentials is a login context of its own (`http-auth`): correct password, then
+  the second step, never a session from the gate. Known gates: `Pressable_Basic_Auth`
+  (Hosting Basic Authentication), filter `mdmfa_http_auth_gates`; anything else is refused as
+  before. Trusted devices are not used behind a gate. Staff and customers both get the core
+  challenge screen there.
 - 2026-10-01 (operator): distribution channel is TBD. Not approved for WordPress.org and may
   never be listed there, depending on other work in progress. P9's SVN and submission steps
   are on hold. If the channel changes (private, Pro via `lic`, or bundled), the plugin shape in
@@ -140,6 +263,23 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   The plugin makes no outbound HTTP.
 
 ## Verification state
+- 2026-10-02, access-gate fix, `092c9a7`, local ([report](http-auth-gate-20261002.md), files in
+  [evidence/http-auth-gate-20261002/](evidence/http-auth-gate-20261002/)):
+  - Reproduction: on `main` `6c2be3b` with the real Hosting Basic Authentication 1.0.5, 5 of 8
+    gate tests fail (staff get 401).
+  - Fix, disposable site (WP 7.1.2 + WC 10.9.4): real gate 8 pass (187 assertions), 1 skipped;
+    fixture gate 9 pass (202 assertions). Whole `e2e` (WC off) 83 tests, 912 assertions, 74
+    pass, 8 skipped (network), 1 harness error (bare `wp` on Windows). `e2e-wc` 18 tests, 488
+    assertions, pass.
+  - Fix, plugin-test.local with the real gate and the site's 14 other plugins: 7 pass (173
+    assertions); recovery and unvouched-gate tests not run there (need fixtures). Site
+    restored afterwards; the plugin's tables and options now exist there.
+  - Unit: **332 tests, 1,761 assertions**. PHPStan L8 0, PHPCS 0, size check pass, outbound 0.
+  - A separate read-only security pass: 0 Critical/High, 1 Medium, 5 Low; all addressed in
+    `092c9a7` except one Low left by choice (see the report).
+  - UNVERIFIED: the stage itself (WC 11.1.2, PHP 8.3.35, object cache, WordPress.com
+    mu-plugins, plugin load order), a real browser's Basic-auth dialog, other gates,
+    multisite and passkeys behind a gate.
 - 2026-10-01, review fixes, `6a30b32`, local ([report](review-fix-20261001.md), files in
   [evidence/review-fix-20261001/](evidence/review-fix-20261001/)):
   - Unit: **324 tests, 1,691 assertions** on PHP 8.3.29 (19 new; 14 of them fail on `main`).
@@ -197,6 +337,12 @@ screens), then P9 proper. The external review is no longer a gate; the brief sta
   All three moved here from `projects/plugin/_handoffs/` on 2026-09-30; pointers remain there.
 
 ## Flags
+- 2026-10-02 (FIXED on branch, awaiting independent review): Hosting Basic Authentication
+  calls `wp_authenticate()` on `plugins_loaded`; the plugin refused it as a non-interactive
+  login, so staff got 401 forever. The staging matrix is still blocked until this is reviewed.
+- 2026-10-02: the whole `e2e` suite is written for a site without WooCommerce; run on a
+  WooCommerce site it shows 12 failures that are not defects (WooCommerce keeps non-staff out
+  of wp-admin). Run it with WooCommerce off, as CI does.
 - 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; HIGH, from Codex's independent
   review of `242d761`): on multisite the network floor raised only the policy mode.
 - 2026-10-01 (FIXED in `dec193f`, awaiting independent re-review; MEDIUM, same review): WooCommerce's

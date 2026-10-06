@@ -1,0 +1,19 @@
+# HttpAuthGateTest on plugin-test.local (the Local test site), fix 092c9a7, real Hosting Basic Authentication 1.0.5
+# WordPress 7.1.2, WooCommerce 10.9.4, PHP 8.3.29, MySQL 8.0.35, nginx; 14 other plugins active (suite plugins, Query Monitor, Plugin Check, maxtdesign-disable-rest-api).
+# The plugin runs from the working tree through its junction. Two tests do not run here: the recovery test needs the mail-capture fixture and the unvouched-gate test needs the fixture gate; neither fixture was installed on this site.
+# 2026-10-02T13:10Z
+
+Time: 00:59.717, Memory: 10.00 MB
+Http Auth Gate (MaxtDesign\Mfa\Tests\E2e\HttpAuthGate)
+ ✔ The gate still keeps out anyone without a correct password
+ ✔ An account that needs no second step passes the gate as before
+ ✔ Fresh staff reach setup through the gate and get a session only after it
+ ✔ A correct password alone never becomes a session for enrolled staff
+ ✔ Staff past the setup period cannot skip setup through the gate
+ ✔ Logging out ends the session and the next visit needs the second step again
+ ↩ A gate nobody vouched for is refused as before
+ ✔ Without a gate basic credentials on a page request mean nothing
+OK, but some tests were skipped!
+Tests: 8, Assertions: 173, Skipped: 1.
+
+# Afterwards: both plugins deactivated, the gate copy removed, 7 synthetic users deleted; users identical to before; active plugins identical to before; anonymous home 200.

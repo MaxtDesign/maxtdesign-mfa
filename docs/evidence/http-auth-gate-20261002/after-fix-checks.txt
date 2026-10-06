@@ -1,0 +1,22 @@
+# Checks on the fix 092c9a7 (PHP 8.3.29)
+
+## Unit suite
+Time: 00:06.280, Memory: 20.00 MB
+
+OK (332 tests, 1761 assertions)
+## PHPCS
+
+Time: 14.04 secs; Memory: 26MB
+
+## PHPStan level 8
+ [OK] No errors                                                                                                        
+## Byte budgets
+ok    front-css: total 0 B of 0 B (0 files)
+ok    passkey-js: mdmfa-passkey.js raw 1838 B, gzip 977 B
+ok    admin-css: mdmfa-admin.css raw 3506 B, gzip 1054 B
+ok    admin-css: total 3506 B of 4096 B (1 files)
+ok    admin-js: mdmfa-admin.js raw 1754 B, gzip 740 B
+ok    admin-js: total 1754 B of 8192 B (1 files)
+SIZE CHECK PASSED
+## Outbound HTTP in shipped code (CI guard's grep), hits:
+0
