@@ -1,6 +1,15 @@
 # STATE: maxtdesign-mfa
 Updated: 2026-10-02 by Claude Code (release candidate 3f3dbe3)
 
+## Narrator targeted retest passed — 2026-10-06
+
+Owner reports staged candidate 1466f39 announces the passkey cancellation error with
+Windows Narrator on two consecutive enrollment attempts. This closes the specific
+repeated-announcement failure, not the entire accessibility matrix. See the native
+retest section in [Narrator follow-up](narrator-feedback-20261003.md). Cleanup passed:
+MFA inactive, temporary account/role removed, original settings and guards restored.
+Follow-up CI/review, beta restrictions and production gates remain.
+
 ## Native Narrator correction — 2026-10-03
 
 Owner testing found that cancelling Windows Security displays the passkey error but

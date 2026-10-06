@@ -14,3 +14,13 @@ Validation: actual PHP Fragments output and shipped JS in Chrome 152, with deter
 Staging manual session was ended and all cleanup checks passed: MFA inactive, temporary user/role removed, original settings/plugins/MU hashes restored, host gate/noindex/cron/mail guards preserved. No real factors reset. Do not reactivate until a fresh test identity is verified and only its isolated role is required; preserve the baseline password-only access for real staging accounts during the attended test. The old green CI/artifact applies to e1bb0a0, not this new candidate. No deploy, push, merge or release performed.
 
 Quality: security PASS for scoped escaping/text-only DOM changes, no auth policy/code changes; performance/footprint PASS for bounded additional bytes, no timing/field claim; accessibility FAIL on the prior candidate, remediation authored but native acceptance UNVERIFIED; broader compliance and native prompt behavior UNVERIFIED.
+
+## Native retest on October 6
+
+The owner reports Windows Narrator announced the cancellation error on two consecutive attempts on the fresh-login enrollment screen (Create a passkey). This is a PASS for the targeted repeated-error announcement, superseding the pending speech result above for that scenario. A prior account-page cancellation was also reported to announce the error, but the repeated-pair confirmation was on enrollment. Exact Windows/Narrator/Chrome versions were not collected; native prompt group chatter and other screen-reader flows remain unverified.
+
+Tested candidate 1466f39, installed from the 94-file ZIP with SHA256 0970405f13f30cd026ce8f397efbc46dbe586d5106d97c40dd9ae7ce942d993f. Deliverable/artifact gates and ZIP-derived SBOM passed. Installed files and HTTP-served JS matched the candidate. Only the synthetic role required MFA; real roles retained the preceding inactive/password-only behavior. After the browser was closed, server inspection confirmed zero test passkeys, no TOTP and an enrollment decision: cancelling had not created a credential. The owner then confirmed two consecutive cancellation announcements. No enrollment secret or credential value is included in this report.
+
+The prior PR #15 green CI applies to e1bb0a0. This new follow-up still needs its own CI/review; no production approval, general accessibility conformance or external WebAuthn audit is implied.
+
+Cleanup completed after the native test: MFA inactive; fixture account/role removed; original settings, active-plugin list, role hash and MU hashes restored; anonymous HTTP 401, noindex, disabled cron and blocked mail retained. Production unchanged.
