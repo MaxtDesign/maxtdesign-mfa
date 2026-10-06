@@ -42,6 +42,7 @@ This plugin helps sites work toward requirements such as PCI DSS 8.4 and NIST SP
 2. The login moves to a random address and `wp-login.php` returns a 404. A notice in the dashboard shows the new address for a day after activation: bookmark it. `wp mdmfa slug get` prints it at any time.
 3. Administrators, editors and shop managers are asked to set up an authenticator app at their next login, with 7 days of grace. Everyone else can turn it on under Users, My security.
 4. Run `wp mdmfa status` to confirm the plugin installed its tables and settings.
+5. With WooCommerce, visit wp-admin as an administrator after activation or reactivation, then check My Account > Security before opening customer access. This completes the endpoint-rule repair with the theme and plugins loaded. On multisite, visit each affected site's admin. CLI and storefront requests deliberately do not repair rewrite rules; never flush routes with themes or plugins skipped.
 
 == Frequently Asked Questions ==
 

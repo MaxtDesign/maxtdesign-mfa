@@ -15,6 +15,13 @@ if ( ! defined( 'MDMFA_E2E_FIXTURES' ) || ! MDMFA_E2E_FIXTURES ) {
 	return;
 }
 
+// Represents a theme-owned route absent from partial CLI boots. Test sites only.
+if ( get_option( 'e2e_foreign_route' ) && ! defined( 'WP_CLI' ) ) {
+	add_action( 'init', static function (): void {
+		add_rewrite_rule( '^e2e-theme-route/?$', 'index.php?e2e_theme_route=1', 'top' );
+	} );
+}
+
 // No mail transport on the runner: capture every message instead (newest last).
 add_filter(
 	'pre_wp_mail',

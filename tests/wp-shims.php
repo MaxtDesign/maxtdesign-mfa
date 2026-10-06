@@ -178,7 +178,7 @@ function did_action( string $hook ): int {
 }
 
 function wp_doing_ajax(): bool {
-	return false;
+	return ! empty( $GLOBALS['mdmfa_test']['ajax'] );
 }
 
 function get_current_user_id(): int {
